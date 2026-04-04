@@ -1,0 +1,235 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { validateBook } from "@/services/validation";
+import FieldError from "@/components/layout/FieldError";
+
+interface Author   { id: number; name: string }
+interface Category { id: number; name: string }
+interface Book {
+  id?: number | null; title: string; isbn?: string;
+  authorId?: number|string; publisher?: string; categoryId?: number|string;
+  price: number|string; quantity: number|string; active: boolean;
+  description?: string; imageUrl?: string;
+}
+
+interface BookFormProps { book?: Book; authors: Author[]; categories: Category[] }
+
+export default function BookForm({ book, authors, categories }: BookFormProps) {
+  const isEdit = !!book?.id;
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState<Book>({
+    id: book?.id ?? null, title: book?.title ?? "", isbn: book?.isbn ?? "",
+    authorId: book?.authorId ?? "", publisher: book?.publisher ?? "",
+    categoryId: book?.categoryId ?? "", price: book?.price ?? "",
+    quantity: book?.quantity ?? "", active: book?.active ?? true,
+    description: book?.description ?? "", imageUrl: book?.imageUrl ?? "",
+  });
+  const [errors, setErrors] = useState<ReturnType<typeof validateBook>>({});
+  const [preview, setPreview] = useState<string>(
+    book?.imageUrl ? `${process.env.NEXT_PUBLIC_API_URL}/uploads/${book.imageUrl}` : "https://placehold.co/200x300?text=Preview"
+  );
+  const [loading, setLoading] = useState(false);
+
+  const set = (field: string, value: any) => {
+    setForm(f => ({ ...f, [field]: value }));
+    setErrors(e => ({ ...e, [field]: undefined }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) { alert("Vui lòng chọn file ảnh hợp lệ."); return; }
+      if (file.size > 5 * 1024 * 1024) { alert("Ảnh không được vượt quá 5MB."); return; }
+      setPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validateBook({ title: form.title, isbn: form.isbn, price: form.price, quantity: form.quantity });
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      if (form.id) fd.append("id", String(form.id));
+      fd.append("title",       form.title);
+      fd.append("isbn",        form.isbn ?? "");
+      fd.append("authorId",    String(form.authorId ?? ""));
+      fd.append("publisher",   form.publisher ?? "");
+      fd.append("categoryId",  String(form.categoryId ?? ""));
+      fd.append("price",       String(form.price));
+      fd.append("quantity",    String(form.quantity));
+      fd.append("active",      String(form.active));
+      fd.append("description", form.description ?? "");
+      if (fileRef.current?.files?.[0]) fd.append("imageFile", fileRef.current.files[0]);
+
+      const url = isEdit
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/admin/books/${form.id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/admin/books`;
+
+      const res = await fetch(url, { method: isEdit ? "PUT" : "POST", body: fd });
+      if (res.ok) {
+        router.push(`/admin/books?success=${encodeURIComponent(isEdit ? "Cập nhật sách thành công." : "Thêm sách mới thành công.")}`);
+        router.refresh();
+      } else { alert("Có lỗi từ server. Vui lòng thử lại."); }
+    } catch { alert("Không thể kết nối tới server."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="container-fluid p-0 animate__animated animate__fadeIn">
+      <div className="row justify-content-center">
+        <div className="col-lg-10">
+          <div className="card border-0 shadow-lg mt-3 mb-5">
+            <div className="card-header text-white py-3" style={{ background: "linear-gradient(135deg, var(--primary), var(--primary-dark))", borderRadius: "0.5rem 0.5rem 0 0" }}>
+              <h5 className="m-0 fw-bold text-uppercase d-flex align-items-center">
+                {isEdit ? <i className="fa-solid fa-pen-to-square me-2" /> : <i className="fa-solid fa-book-medical me-2" />}
+                {isEdit ? "Cập Nhật Thông Tin Sách" : "Nhập Sách Mới"}
+              </h5>
+            </div>
+
+            <div className="card-body p-4 bg-white">
+              <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
+
+                {/* ── Thông tin chung ── */}
+                <h6 className="text-primary fw-bold mb-3 text-uppercase border-bottom pb-2">
+                  <i className="fa-solid fa-circle-info me-1" /> Thông tin chung
+                </h6>
+                <div className="row">
+                  <div className="col-md-8 mb-3">
+                    <label className="form-label">Tên sách <span className="text-danger">*</span></label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-book text-muted" /></span>
+                      <input type="text" className={`form-control ${errors.title ? "border-danger" : ""}`}
+                        value={form.title} onChange={e => set("title", e.target.value)}
+                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
+                        placeholder="Nhập tên sách..." maxLength={200} />
+                    </div>
+                    <FieldError msg={errors.title} />
+                    <div className="d-flex justify-content-end"><small className="text-muted">{form.title.length}/200</small></div>
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Mã ISBN</label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-barcode text-muted" /></span>
+                      <input type="text" className={`form-control ${errors.isbn ? "border-danger" : ""}`}
+                        value={form.isbn} onChange={e => set("isbn", e.target.value)}
+                        placeholder="Mã vạch..." />
+                    </div>
+                    <FieldError msg={errors.isbn} />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Tác giả</label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-user-pen text-muted" /></span>
+                      <select className="form-select" value={form.authorId} onChange={e => set("authorId", e.target.value)}>
+                        <option value="">-- Chọn tác giả --</option>
+                        {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Nhà xuất bản</label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-building text-muted" /></span>
+                      <input type="text" className="form-control" value={form.publisher}
+                        onChange={e => set("publisher", e.target.value)} placeholder="NXB..." />
+                    </div>
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Thể loại</label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-layer-group text-muted" /></span>
+                      <select className="form-select" value={form.categoryId} onChange={e => set("categoryId", e.target.value)}>
+                        <option value="">-- Chọn thể loại --</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Kinh doanh ── */}
+                <h6 className="text-primary fw-bold mb-3 mt-2 text-uppercase border-bottom pb-2">
+                  <i className="fa-solid fa-sack-dollar me-1" /> Dữ liệu Kinh doanh
+                </h6>
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Giá bán <span className="text-danger">*</span></label>
+                    <div className="input-group">
+                      <input type="number" className={`form-control fw-bold text-end text-danger ${errors.price ? "border-danger" : ""}`}
+                        value={form.price} onChange={e => set("price", e.target.value)}
+                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
+                        min={0} step={1000} />
+                      <span className="input-group-text bg-light fw-bold">VNĐ</span>
+                    </div>
+                    <FieldError msg={errors.price} />
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Số lượng tồn <span className="text-danger">*</span></label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light"><i className="fa-solid fa-boxes-stacked text-muted" /></span>
+                      <input type="number" className={`form-control fw-bold ${errors.quantity ? "border-danger" : ""}`}
+                        value={form.quantity} onChange={e => set("quantity", e.target.value)}
+                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
+                        min={0} />
+                    </div>
+                    <FieldError msg={errors.quantity} />
+                  </div>
+                  <div className="col-md-4 mb-3 d-flex align-items-center">
+                    <div className="form-check form-switch mt-4 ps-5">
+                      <input className="form-check-input" type="checkbox" role="switch" id="activeSwitch"
+                        checked={form.active} onChange={e => set("active", e.target.checked)}
+                        style={{ transform: "scale(1.3)" }} />
+                      <label className="form-check-label fw-bold ms-2 text-success" htmlFor="activeSwitch">Đang kinh doanh</label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Hình ảnh ── */}
+                <h6 className="text-primary fw-bold mb-3 mt-2 text-uppercase border-bottom pb-2">
+                  <i className="fa-solid fa-image me-1" /> Hình ảnh & Nội dung
+                </h6>
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Ảnh bìa <small className="text-muted">(JPG/PNG, tối đa 5MB)</small></label>
+                    <input type="file" ref={fileRef} className="form-control" accept="image/*" onChange={handleFileChange} />
+                    <div className="mt-3 text-center border rounded p-2 bg-light d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}>
+                      <img src={preview} alt="Preview" className="img-fluid rounded shadow-sm"
+                        style={{ maxHeight: 250, objectFit: "contain" }}
+                        onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/200x300?text=Preview"; }} />
+                    </div>
+                  </div>
+                  <div className="col-md-8 mb-3">
+                    <label className="form-label">Mô tả chi tiết</label>
+                    <textarea className="form-control" rows={10} value={form.description}
+                      onChange={e => set("description", e.target.value)}
+                      placeholder="Viết mô tả về nội dung sách..." />
+                    <div className="d-flex justify-content-end"><small className="text-muted">{(form.description ?? "").length} ký tự</small></div>
+                  </div>
+                </div>
+
+                <div className="d-flex gap-2 justify-content-end pt-3 border-top">
+                  <a href="/admin/books" className="btn btn-light border fw-bold px-4">
+                    <i className="fa-solid fa-arrow-left me-1" /> Hủy bỏ
+                  </a>
+                  <button type="submit" disabled={loading} className="btn btn-primary fw-bold px-4 shadow-sm">
+                    <i className="fa-solid fa-floppy-disk me-1" />
+                    {loading ? "Đang lưu..." : "Lưu Sách"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
