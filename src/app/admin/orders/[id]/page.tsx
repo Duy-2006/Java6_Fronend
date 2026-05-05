@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import UpdateOrderStatus from "@/app/admin/orders/_components/UpdateOrderStatus";
+'use client';
 
-interface OrderDetailPageProps {
-  params: { id: string };
-  searchParams: { success?: string };
-}
+import Link from "next/link";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getOrderById } from "@/services/ordersService";
+import UpdateOrderStatus from "@/app/admin/orders/_components/UpdateOrderStatus";
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   PENDING:   { label: "Chờ xác nhận",  cls: "bg-warning text-dark border border-warning" },
@@ -15,33 +14,79 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: "Đã hủy",        cls: "bg-danger border border-danger"              },
 };
 
-async function getOrder(id: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/admin/orders/${id}`,
-      { cache: "no-store" }
+export default function OrderDetailPage() {
+  const { id } = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Callback để cập nhật state khi trạng thái thay đổi
+  const handleStatusUpdate = (newStatus: string) => {
+    setOrder((prev: any) => ({ ...prev, status: newStatus }));
+  };
+
+  useEffect(() => {
+    console.log("[OrderDetail] Component mounted, id from params:", id);
+
+    const token = localStorage.getItem("token");
+    console.log("[OrderDetail] Token exists:", !!token);
+    if (!token) {
+      console.log("[OrderDetail] Redirecting to /auth/login because no token");
+      router.push("/auth/login");
+      return;
+    }
+
+    if (!id) {
+      console.warn("[OrderDetail] No id provided");
+      setLoading(false);
+      setError("Không có mã đơn hàng");
+      return;
+    }
+
+    console.log("[OrderDetail] Calling getOrderById with id:", id);
+    getOrderById(id as string)
+      .then((data) => {
+        console.log("[OrderDetail] Order data received:", data);
+        setOrder(data);
+        document.title = `Đơn hàng ${data.orderCode || data.id}`;
+      })
+      .catch((err) => {
+        console.error("[OrderDetail] Error:", err);
+        if (err.message?.includes("hết hạn") || err.message?.includes("401")) {
+          localStorage.removeItem("token");
+          router.push("/auth/login");
+        } else {
+          setError(err.message || "Không thể tải thông tin đơn hàng");
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [id, router]);
+
+  if (loading) {
+    return (
+      <div className="container-fluid p-0 text-center py-5">
+        <div className="spinner-border text-primary" role="status" />
+        <p className="mt-3">Đang tải đơn hàng...</p>
+      </div>
     );
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
   }
-}
 
-export async function generateMetadata({ params }: OrderDetailPageProps) {
-  const order = await getOrder(params.id);
-  return { title: order ? `Đơn hàng ${order.orderCode}` : "Chi tiết Đơn hàng" };
-}
-
-export default async function OrderDetailPage({
-  params,
-  searchParams,
-}: OrderDetailPageProps) {
-  const order = await getOrder(params.id);
-  if (!order) notFound();
+  if (error || !order) {
+    return (
+      <div className="container-fluid p-0">
+        <div className="alert alert-danger shadow-sm">
+          {error || "Không tìm thấy đơn hàng"}
+        </div>
+        <Link href="/admin/orders" className="btn btn-secondary">
+          Quay lại danh sách
+        </Link>
+      </div>
+    );
+  }
 
   const status = STATUS_MAP[order.status] ?? { label: order.status, cls: "bg-secondary" };
-
   const orderDate = order.orderDate
     ? new Date(order.orderDate).toLocaleString("vi-VN", {
         day: "2-digit", month: "2-digit", year: "numeric",
@@ -53,17 +98,14 @@ export default async function OrderDetailPage({
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
-
-      {/* Alert success */}
-      {searchParams?.success && (
+      {searchParams.get("success") && (
         <div className="alert alert-success alert-dismissible fade show no-print shadow-sm" role="alert">
           <i className="fa-solid fa-circle-check me-2" />
-          {searchParams.success}
+          {searchParams.get("success")}
           <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close" />
         </div>
       )}
 
-      {/* Toolbar */}
       <div className="d-flex justify-content-between align-items-center mb-4 no-print">
         <Link href="/admin/orders" className="btn btn-light border fw-bold text-secondary">
           <i className="fa-solid fa-arrow-left me-1" /> Quay lại danh sách
@@ -74,7 +116,6 @@ export default async function OrderDetailPage({
       </div>
 
       <div className="card border-0 shadow-lg mb-5">
-        {/* Header */}
         <div
           className="card-header text-white py-4"
           style={{
@@ -100,7 +141,6 @@ export default async function OrderDetailPage({
 
         <div className="card-body p-4 bg-white">
           <div className="row mb-4 g-4">
-            {/* Thông tin nhận hàng */}
             <div className="col-md-7">
               <div className="p-3 bg-light rounded border h-100">
                 <h6 className="fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
@@ -110,25 +150,25 @@ export default async function OrderDetailPage({
                   <span className="text-muted me-2">
                     <i className="fa-solid fa-user me-2 small" />Người nhận:
                   </span>
-                  <strong className="fs-5">{order.customerName}</strong>
+                  <strong className="fs-5">{order.customerName || "—"}</strong>
                 </div>
                 <div className="mb-2">
                   <span className="text-muted me-2">
                     <i className="fa-solid fa-phone me-2 small" />Điện thoại:
                   </span>
-                  <span className="font-monospace">{order.customerPhone}</span>
+                  <span className="font-monospace">{order.customerPhone || "—"}</span>
                 </div>
                 <div className="mb-2">
                   <span className="text-muted me-2">
                     <i className="fa-solid fa-location-dot me-2 small" />Địa chỉ:
                   </span>
-                  <span>{order.customerAddress}</span>
+                  <span>{order.customerAddress || "Chưa cập nhật"}</span>
                 </div>
                 <div>
                   <span className="text-muted me-2">
                     <i className="fa-regular fa-credit-card me-2 small" />Thanh toán:
                   </span>
-                  <span className="badge bg-secondary">{order.paymentMethod}</span>
+                  <span className="badge bg-secondary">{order.paymentMethod || "COD"}</span>
                   {order.paymentStatus === "PAID" && (
                     <span className="badge bg-success ms-1">Đã thanh toán</span>
                   )}
@@ -136,21 +176,21 @@ export default async function OrderDetailPage({
               </div>
             </div>
 
-            {/* Cập nhật trạng thái */}
             <div className="col-md-5 no-print">
-              <UpdateOrderStatus orderId={order.id} currentStatus={order.status} />
+              <UpdateOrderStatus
+                orderId={order.id}
+                currentStatus={order.status}
+                onStatusUpdated={handleStatusUpdate} // 👈 truyền callback
+              />
             </div>
           </div>
 
-          {/* Danh sách sản phẩm */}
+          {/* Phần bảng sản phẩm giữ nguyên */}
           <h6 className="fw-bold text-secondary mb-3 mt-4">DANH SÁCH SẢN PHẨM</h6>
           <div className="table-responsive">
             <table className="table table-bordered align-middle mb-0">
               <thead>
-                <tr
-                  className="text-center text-uppercase small fw-bold text-secondary"
-                  style={{ backgroundColor: "#f8f9fa" }}
-                >
+                <tr className="text-center text-uppercase small fw-bold text-secondary" style={{ backgroundColor: "#f8f9fa" }}>
                   <th style={{ width: 50 }}>#</th>
                   <th className="text-start">Tên sách</th>
                   <th style={{ width: 120 }}>Số lượng</th>
@@ -166,9 +206,9 @@ export default async function OrderDetailPage({
                     <tr key={idx}>
                       <td className="text-center text-muted">{idx + 1}</td>
                       <td>
-                        <strong className="text-dark">{detail.book?.title}</strong>
+                        <strong className="text-dark">{detail.bookTitle || "Không có tên"}</strong>
                         <br />
-                        <small className="text-muted">Mã sách: {detail.book?.isbn}</small>
+                        <small className="text-muted">Mã sách: {detail.bookId ?? "N/A"}</small>
                       </td>
                       <td className="text-center">
                         <span className="badge bg-light text-dark border px-3">{detail.quantity}</span>
@@ -178,6 +218,13 @@ export default async function OrderDetailPage({
                     </tr>
                   );
                 })}
+                {details.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="text-center text-muted py-4">
+                      Không có sản phẩm nào trong đơn hàng.
+                    </td>
+                  </tr>
+                )}
               </tbody>
               <tfoot className="bg-light">
                 <tr>
@@ -200,7 +247,6 @@ export default async function OrderDetailPage({
             </table>
           </div>
 
-          {/* Footer hóa đơn */}
           <div className="text-center mt-5 pt-4 border-top">
             <p className="mb-1 fw-bold text-primary text-uppercase">BookStore Online</p>
             <p className="text-muted small mb-0">Cảm ơn quý khách đã mua hàng!</p>

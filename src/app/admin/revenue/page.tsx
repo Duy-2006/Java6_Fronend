@@ -1,42 +1,87 @@
-export const metadata = { title: "Dashboard Doanh thu" };
+"use client";
+
+import { useEffect, useState } from "react";
 
 interface TopBook {
   bookId: number;
-  title:  string;
-  sold:   number;
+  title: string;
+  sold: number;
 }
 
 interface DashboardData {
-  totalRevenue:    number;
-  todayRevenue:    number;
-  todayOrders:     number;
+  totalRevenue: number;
+  todayRevenue: number;
+  todayOrders: number;
   deliveredOrders: number;
-  topBooks:        TopBook[];
+  topBooks: TopBook[];
 }
 
-async function getDashboard(): Promise<DashboardData> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/admin/revenue/dashboard`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) return { totalRevenue: 0, todayRevenue: 0, todayOrders: 0, deliveredOrders: 0, topBooks: [] };
-  return res.json();
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 function formatVND(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n) + " đ";
 }
 
-export default async function RevenueDashboardPage() {
-  let data: DashboardData = { totalRevenue: 0, todayRevenue: 0, todayOrders: 0, deliveredOrders: 0, topBooks: [] };
-  try { data = await getDashboard(); } catch {}
+export default function RevenueDashboardPage() {
+  const [data, setData] = useState<DashboardData>({
+    totalRevenue: 0,
+    todayRevenue: 0,
+    todayOrders: 0,
+    deliveredOrders: 0,
+    topBooks: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [alert, setAlert] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  const getToken = () => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("token");
+  };
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const token = getToken();
+        const res = await fetch(`${API_BASE}/api/admin/revenue/dashboard`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok) throw new Error(`Lỗi ${res.status}: Không thể tải dashboard`);
+        const json = await res.json();
+        setData({
+          totalRevenue: json.totalRevenue ?? 0,
+          todayRevenue: json.todayRevenue ?? 0,
+          todayOrders: json.todayOrders ?? 0,
+          deliveredOrders: json.deliveredOrders ?? 0,
+          topBooks: Array.isArray(json.topBooks) ? json.topBooks : [],
+        });
+      } catch (err: any) {
+        setAlert({ msg: err.message || "Không thể tải dữ liệu dashboard", type: "error" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboard();
+  }, []);
+
+  useEffect(() => {
+    if (!alert) return;
+    const timer = setTimeout(() => setAlert(null), 1000);
+    return () => clearTimeout(timer);
+  }, [alert]);
 
   const statCards = [
-    { label: "Tổng doanh thu",   value: formatVND(data.totalRevenue),    color: "green" },
-    { label: "Doanh thu hôm nay",value: formatVND(data.todayRevenue),    color: "blue"  },
-    { label: "Đơn hôm nay",      value: String(data.todayOrders),        color: ""      },
-    { label: "Đơn đã giao",      value: String(data.deliveredOrders),    color: "green" },
+    { label: "Tổng doanh thu", value: formatVND(data.totalRevenue), color: "green" },
+    { label: "Doanh thu hôm nay", value: formatVND(data.todayRevenue), color: "blue" },
+    { label: "Đơn hôm nay", value: data.todayOrders.toLocaleString("vi-VN"), color: "" },
+    { label: "Đơn đã giao", value: data.deliveredOrders.toLocaleString("vi-VN"), color: "green" },
   ];
+
+  if (loading) {
+    return <div className="text-center py-5">Đang tải dữ liệu...</div>;
+  }
 
   return (
     <>
@@ -50,9 +95,16 @@ export default async function RevenueDashboardPage() {
       `}</style>
 
       <div className="container-fluid">
+        {alert && (
+          <div className={`alert alert-${alert.type === "success" ? "success" : "danger"} alert-dismissible fade show shadow-sm mb-4`} role="alert">
+            <i className={`fa-solid ${alert.type === "success" ? "fa-circle-check" : "fa-circle-exclamation"} me-2`} />
+            {alert.msg}
+            <button type="button" className="btn-close" onClick={() => setAlert(null)} aria-label="Close" />
+          </div>
+        )}
+
         <h3 className="mb-4 fw-bold">Dashboard doanh thu</h3>
 
-        {/* Stat cards */}
         <div className="row g-4 mb-4">
           {statCards.map((card) => (
             <div key={card.label} className="col-md-3">
@@ -64,7 +116,6 @@ export default async function RevenueDashboardPage() {
           ))}
         </div>
 
-        {/* Top sách */}
         <div className="card-box">
           <h5 className="mb-3 fw-semibold">Top sách bán chạy</h5>
           <table className="table table-hover">
@@ -87,7 +138,7 @@ export default async function RevenueDashboardPage() {
                   <tr key={b.bookId}>
                     <td>{b.bookId}</td>
                     <td>{b.title}</td>
-                    <td className="fw-bold text-success">{b.sold}</td>
+                    <td className="fw-bold text-success">{b.sold.toLocaleString("vi-VN")}</td>
                   </tr>
                 ))
               )}

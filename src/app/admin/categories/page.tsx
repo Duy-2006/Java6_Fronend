@@ -1,52 +1,60 @@
+'use client'; // ✅ BẮT BUỘC để dùng hooks
+
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { getAllCategories } from "@/services/categoriesService";
 import DeleteCategoryButton from "@/app/admin/categories/_components/DeleteCategoryButton";
 
-interface SearchParams {
-  success?: string;
-  error?: string;
-}
+export default function CategoriesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-export const metadata = { title: "Quản lý Thể Loại" };
+  // 1. Đọc thông báo từ URL khi mount
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    if (success) setAlert({ msg: success, type: 'success' });
+    if (error) setAlert({ msg: error, type: 'error' });
+    // Xóa params khỏi URL để không hiện lại khi refresh
+    if (success || error) {
+      router.replace('/admin/categories', { shallow: true });
+    }
+  }, [searchParams, router]);
 
-export default async function CategoriesPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  let categories: any[] = [];
-  let fetchError = "";
+  // 2. Tự động ẩn thông báo sau 1 giây
+  useEffect(() => {
+    if (!alert) return;
+    const timer = setTimeout(() => setAlert(null), 1000);
+    return () => clearTimeout(timer);
+  }, [alert]);
 
-  try {
-    categories = await getAllCategories();
-  } catch {
-    fetchError = "Không thể tải danh sách thể loại. Vui lòng thử lại sau.";
-  }
+  // 3. Tải danh sách thể loại
+  useEffect(() => {
+    getAllCategories()
+      .then(setCategories)
+      .catch(() => setAlert({ msg: "Không thể tải danh sách thể loại.", type: 'error' }))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const success = searchParams?.success;
-  const error = searchParams?.error || fetchError;
+  if (loading) return <div className="text-center py-5">Đang tải...</div>;
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
-
-      {error && (
-        <div className="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-          <i className="fa-solid fa-circle-exclamation me-2" />
-          {error}
-          <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close" />
-        </div>
-      )}
-
-      {success && (
-        <div className="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-          <i className="fa-solid fa-circle-check me-2" />
-          {success}
-          <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close" />
+      {/* Hiển thị thông báo tự động ẩn */}
+      {alert && (
+        <div className={`alert alert-${alert.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show shadow-sm mb-4`} role="alert">
+          <i className={`fa-solid ${alert.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'} me-2`} />
+          {alert.msg}
+          <button type="button" className="btn-close" onClick={() => setAlert(null)} aria-label="Close" />
         </div>
       )}
 
       <div className="card border-0 shadow-sm">
-        {/* Header */}
+        {/* Header giữ nguyên */}
         <div
           className="card-header text-white py-3 d-flex justify-content-between align-items-center"
           style={{ background: "linear-gradient(135deg, var(--primary-blue), var(--secondary-blue))" }}
@@ -87,31 +95,24 @@ export default async function CategoriesPage({
                 ) : (
                   categories.map((item) => (
                     <tr key={item.id}>
-                      {/* ID */}
                       <td className="text-center fw-bold text-muted">{item.id}</td>
-
-                      {/* Tên */}
                       <td className="fw-bold" style={{ color: "var(--primary-blue)" }}>
                         {item.name}
                       </td>
-
-                      {/* Thống kê */}
                       <td className="text-center">
                         <span className="badge rounded-pill bg-light text-dark border border-secondary-subtle px-3 py-2">
                           <i className="fa-solid fa-book me-1 text-info" />
                           {item.books?.length ?? 0} đầu sách
                         </span>
                       </td>
-
-                      {/* Hành động */}
                       <td className="text-center">
                         <div className="btn-group btn-group-sm">
                           <Link
                             href={`/admin/categories/${item.id}/edit`}
-                            className="btn btn-outline-primary"
+                            className="btn btn-outline-primary btn-sm"
                             title="Chỉnh sửa"
                           >
-                            <i className="fa-solid fa-pen-to-square" />
+                            <i className="fa-solid fa-pen-to-square me-1" /> Sửa
                           </Link>
                           <DeleteCategoryButton categoryId={item.id} />
                         </div>

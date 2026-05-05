@@ -43,13 +43,7 @@ const NAV_GROUPS: { heading?: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/promotions/new", icon: "fa-tag",  label: "Tạo khuyến mãi"   },
       { href: "/admin/promotions",        icon: "fa-tags", label: "Danh sách khuyến mãi" },
-      { href: "/admin/featured/bestseller", icon: "fa-fire", label: "Sách bán chạy"  },
-    ],
-  },
-  {
-    heading: "Hệ thống",
-    items: [
-      { href: "/admin/users", icon: "fa-user-gear", label: "Nhân viên", danger: true },
+      
     ],
   },
 ];

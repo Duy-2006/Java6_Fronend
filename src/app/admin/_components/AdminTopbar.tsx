@@ -44,6 +44,7 @@ export default function AdminTopbar() {
   const handleLogout = () => {
     // Xóa token
     localStorage.removeItem("token");
+     localStorage.removeItem("user");
     
     // Xóa sessionStorage nếu có
     sessionStorage.clear();

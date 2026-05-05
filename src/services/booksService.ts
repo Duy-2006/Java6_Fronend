@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export interface Book {
   id?: number;
@@ -10,7 +10,7 @@ export interface Book {
   price: number;
   quantity: number;
   active: boolean;
-  description?: string;
+  description?: string; 
   imageUrl?: string;
 }
 

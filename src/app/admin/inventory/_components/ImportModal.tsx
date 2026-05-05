@@ -1,45 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { importStock } from "@/services/inventoryService";
 
 interface Props {
   bookId: number;
   bookTitle: string;
+  onSuccess: () => void; // callback để refresh danh sách sau khi nhập kho
 }
 
-export default function ImportModal({ bookId, bookTitle }: Props) {
-  const router = useRouter();
-  const [show,     setShow]     = useState(false);
+export default function ImportModal({ bookId, bookTitle, onSuccess }: Props) {
+  const [show, setShow] = useState(false);
   const [quantity, setQuantity] = useState(10);
-  const [note,     setNote]     = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (quantity < 1) return;
 
     setLoading(true);
+    setError("");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/inventory/import`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookId, quantity, note }),
-        }
-      );
-      if (res.ok) {
-        setShow(false);
-        setQuantity(10);
-        setNote("");
-        router.push("/admin/inventory?success=" + encodeURIComponent(`Đã nhập ${quantity} cuốn "${bookTitle}" vào kho.`));
-        router.refresh();
-      } else {
-        alert("Nhập kho thất bại. Vui lòng thử lại.");
-      }
-    } catch {
-      alert("Lỗi kết nối tới server.");
+      await importStock({ bookId, quantity, note: note.trim() || undefined });
+      setShow(false);
+      setQuantity(10);
+      setNote("");
+      onSuccess(); // gọi refresh dữ liệu từ trang cha
+    } catch (err: any) {
+      setError(err.message || "Nhập kho thất bại. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -116,7 +106,7 @@ export default function ImportModal({ bookId, bookTitle }: Props) {
                         required
                       />
                     </div>
-                    {/* Người nhập */}
+                    {/* Người nhập (có thể lấy từ token hoặc để admin) */}
                     <div className="col-md-6 mb-3">
                       <label className="form-label text-secondary fw-bold small text-uppercase">
                         Người nhập
@@ -143,6 +133,13 @@ export default function ImportModal({ bookId, bookTitle }: Props) {
                       onChange={(e) => setNote(e.target.value)}
                     />
                   </div>
+
+                  {/* Hiển thị lỗi nếu có */}
+                  {error && (
+                    <div className="alert alert-danger py-2 small">
+                      <i className="fa-solid fa-circle-exclamation me-1" /> {error}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer */}

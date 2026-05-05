@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PENDING:   { label: "Chờ xác nhận", cls: "bg-gray-200 text-gray-800"    },
-  CONFIRMED: { label: "Đã xác nhận",  cls: "bg-blue-100 text-blue-700"    },
-  SHIPPING:  { label: "Đang giao",    cls: "bg-yellow-100 text-yellow-700" },
-  COMPLETED: { label: "Hoàn thành",  cls: "bg-green-100 text-green-700"   },
-  CANCELLED: { label: "Đã hủy",      cls: "bg-red-100 text-red-700"       },
+  PENDING: { label: "Chờ xác nhận", cls: "bg-gray-200 text-gray-800" },
+  CONFIRMED: { label: "Đã xác nhận", cls: "bg-blue-100 text-blue-700" },
+  SHIPPING: { label: "Đang giao", cls: "bg-yellow-100 text-yellow-700" },
+  COMPLETED: { label: "Hoàn thành", cls: "bg-green-100 text-green-700" },
+  CANCELLED: { label: "Đã hủy", cls: "bg-red-100 text-red-700" },
 };
 
 const STATUS_OPTIONS = ["", "PENDING", "CONFIRMED", "SHIPPING", "COMPLETED", "CANCELLED"];
@@ -21,28 +21,92 @@ const STATUS_LABELS: Record<string, string> = {
 
 const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
+// Helper lấy userId từ token (JWT)
+const getUserIdFromToken = (): number | null => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.userId || payload.id || payload.user_id || null;
+  } catch {
+    return null;
+  }
+};
+
 export default function MyOrdersPage() {
   const router = useRouter();
-  const [orders,  setOrders]  = useState<any[]>([]);
-  const [status,  setStatus]  = useState("");
+  const [orders, setOrders] = useState<any[]>([]);
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const getToken = () => localStorage.getItem("token");
+
+  const fetchOrders = async () => {
+    const token = getToken();
+    const userId = getUserIdFromToken();
+    if (!token || !userId) {
+      router.push("/login");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.append("userId", userId.toString());
+      if (status) params.append("status", status);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const url = `${baseUrl}/api/orders?${params.toString()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        router.push("/login");
+        return;
+      }
+      if (!res.ok) throw new Error("Không thể tải đơn hàng");
+      const data = await res.json();
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Đã xảy ra lỗi khi tải đơn hàng");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    const q = status ? `?status=${status}` : "";
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/my-orders${q}`, { credentials: "include" })
-      .then(r => r.ok ? r.json() : [])
-      .then(setOrders)
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
+    fetchOrders();
   }, [status]);
 
   const cancelOrder = async (id: number) => {
+    const token = getToken();
+    const userId = getUserIdFromToken();
+    if (!token || !userId) return;
     if (!confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders/${id}/cancel`, {
-      method: "POST", credentials: "include",
-    });
-    if (res.ok) setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "CANCELLED" } : o));
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const url = `${baseUrl}/api/orders/cancel/${id}?userId=${userId}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.ok) {
+        // Cập nhật trạng thái local thay vì reload toàn bộ
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "CANCELLED" } : o));
+      } else {
+        const msg = await res.text();
+        alert(`Hủy đơn thất bại: ${msg}`);
+      }
+    } catch (err) {
+      alert("Lỗi kết nối khi hủy đơn.");
+    }
   };
 
   return (
@@ -82,7 +146,14 @@ export default function MyOrdersPage() {
             </div>
           )}
 
-          {!loading && orders.length === 0 && (
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center text-red-600">
+              <p className="font-semibold">{error}</p>
+              <button onClick={() => fetchOrders()} className="mt-2 text-sm underline">Thử lại</button>
+            </div>
+          )}
+
+          {!loading && !error && orders.length === 0 && (
             <div className="bg-white rounded-2xl border p-12 text-center text-gray-500">
               <p className="text-xl font-semibold mb-2">Bạn chưa có đơn hàng nào</p>
               <Link href="/" className="text-blue-600 font-bold hover:underline">Bắt đầu mua sắm →</Link>
@@ -92,7 +163,7 @@ export default function MyOrdersPage() {
           {orders.map(order => {
             const st = STATUS_MAP[order.status] ?? { label: order.status, cls: "bg-gray-100 text-gray-700" };
             const date = order.orderDate
-              ? new Date(order.orderDate).toLocaleString("vi-VN", { day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit" })
+              ? new Date(order.orderDate).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
               : "—";
             return (
               <div key={order.id} className="bg-white rounded-2xl border p-6 hover:shadow-md transition">
@@ -114,7 +185,7 @@ export default function MyOrdersPage() {
                         Hủy đơn
                       </button>
                     )}
-                    <Link href={`/orders/${order.id}`}
+                    <Link href={`/user/orders/${order.id}`}
                       className="px-4 py-2 bg-black text-white rounded-xl text-sm font-semibold hover:opacity-90 transition">
                       Xem chi tiết →
                     </Link>

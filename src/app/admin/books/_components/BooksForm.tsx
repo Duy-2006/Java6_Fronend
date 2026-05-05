@@ -21,20 +21,39 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+  // Hàm tạo URL đầy đủ cho ảnh (xử lý cả dữ liệu cũ có thể còn tiền tố)
+  const getFullImageUrl = (imageUrl?: string) => {
+    if (!imageUrl) return "https://placehold.co/200x300?text=Preview";
+    // Nếu đã là URL tuyệt đối (do người dùng upload tạm) thì giữ nguyên
+    if (imageUrl.startsWith("http")) return imageUrl;
+    // Nếu trong DB vẫn còn lưu "books/..." thì thêm /uploads/ phía trước
+    if (imageUrl.startsWith("books/")) {
+      return `${API_BASE}/uploads/${imageUrl}`;
+    }
+    // Mặc định tên file thuần thêm /uploads/books/
+    return `${API_BASE}/uploads/books/${imageUrl}`;
+  };
+
   const [form, setForm] = useState<Book>({
-    id: book?.id ?? null, title: book?.title ?? "", isbn: book?.isbn ?? "",
-    authorId: book?.authorId ?? "", publisher: book?.publisher ?? "",
-    categoryId: book?.categoryId ?? "", price: book?.price ?? "",
-    quantity: book?.quantity ?? "", active: book?.active ?? true,
-    description: book?.description ?? "", imageUrl: book?.imageUrl ?? "",
+    id: book?.id ?? null,
+    title: book?.title ?? "",
+    isbn: book?.isbn ?? "",
+    authorId: book?.authorId ?? "",
+    publisher: book?.publisher ?? "",
+    categoryId: book?.categoryId ?? "",
+    price: book?.price ?? "",
+    quantity: book?.quantity ?? 0,
+    active: book?.active ?? true,
+    description: book?.description ?? "",
+    imageUrl: book?.imageUrl ?? "",
   });
   const [errors, setErrors] = useState<ReturnType<typeof validateBook>>({});
-  const [preview, setPreview] = useState<string>(
-    book?.imageUrl ? `${process.env.NEXT_PUBLIC_API_URL}/uploads/${book.imageUrl}` : "https://placehold.co/200x300?text=Preview"
-  );
+  const [preview, setPreview] = useState<string>(getFullImageUrl(book?.imageUrl));
   const [loading, setLoading] = useState(false);
 
-  const set = (field: string, value: any) => {
+  const setField = (field: string, value: any) => {
     setForm(f => ({ ...f, [field]: value }));
     setErrors(e => ({ ...e, [field]: undefined }));
   };
@@ -42,43 +61,74 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith("image/")) { alert("Vui lòng chọn file ảnh hợp lệ."); return; }
-      if (file.size > 5 * 1024 * 1024) { alert("Ảnh không được vượt quá 5MB."); return; }
+      if (!file.type.startsWith("image/")) {
+        alert("Vui lòng chọn file ảnh hợp lệ.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Ảnh không được vượt quá 5MB.");
+        return;
+      }
       setPreview(URL.createObjectURL(file));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validateBook({ title: form.title, isbn: form.isbn, price: form.price, quantity: form.quantity });
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    if (isEdit && !form.id) {
+      alert("Không tìm thấy ID sách. Vui lòng tải lại trang.");
+      return;
+    }
+
+    const quantityForValidate = isEdit ? String(form.quantity) : "0";
+    const errs = validateBook({
+      title: form.title,
+      isbn: form.isbn,
+      price: form.price,
+      quantity: quantityForValidate,
+    });
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
 
     setLoading(true);
     try {
       const fd = new FormData();
       if (form.id) fd.append("id", String(form.id));
-      fd.append("title",       form.title);
-      fd.append("isbn",        form.isbn ?? "");
-      fd.append("authorId",    String(form.authorId ?? ""));
-      fd.append("publisher",   form.publisher ?? "");
-      fd.append("categoryId",  String(form.categoryId ?? ""));
-      fd.append("price",       String(form.price));
-      fd.append("quantity",    String(form.quantity));
-      fd.append("active",      String(form.active));
+      fd.append("title", form.title);
+      fd.append("isbn", form.isbn ?? "");
+      fd.append("authorId", String(form.authorId ?? ""));
+      fd.append("publisher", form.publisher ?? "");
+      fd.append("categoryId", String(form.categoryId ?? ""));
+      fd.append("price", String(form.price));
+      fd.append("quantity", isEdit ? String(form.quantity) : "0");
+      fd.append("active", String(form.active));
       fd.append("description", form.description ?? "");
       if (fileRef.current?.files?.[0]) fd.append("imageFile", fileRef.current.files[0]);
 
       const url = isEdit
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/admin/books/${form.id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/api/admin/books`;
+        ? `${API_BASE}/api/admin/books/${form.id}`
+        : `${API_BASE}/api/admin/books`;
 
       const res = await fetch(url, { method: isEdit ? "PUT" : "POST", body: fd });
+
       if (res.ok) {
-        router.push(`/admin/books?success=${encodeURIComponent(isEdit ? "Cập nhật sách thành công." : "Thêm sách mới thành công.")}`);
+        const successMsg = isEdit ? "Cập nhật sách thành công." : "Thêm sách mới thành công.";
+        router.push(`/admin/books?success=${encodeURIComponent(successMsg)}`);
         router.refresh();
-      } else { alert("Có lỗi từ server. Vui lòng thử lại."); }
-    } catch { alert("Không thể kết nối tới server."); }
-    finally { setLoading(false); }
+      } else {
+        const errorText = await res.text();
+        console.error("Server error:", errorText);
+        alert(`Có lỗi từ server (${res.status}). Vui lòng thử lại.`);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      alert("Không thể kết nối tới server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,8 +145,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
 
             <div className="card-body p-4 bg-white">
               <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
-
-                {/* ── Thông tin chung ── */}
+                {/* Thông tin chung */}
                 <h6 className="text-primary fw-bold mb-3 text-uppercase border-bottom pb-2">
                   <i className="fa-solid fa-circle-info me-1" /> Thông tin chung
                 </h6>
@@ -106,8 +155,8 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-book text-muted" /></span>
                       <input type="text" className={`form-control ${errors.title ? "border-danger" : ""}`}
-                        value={form.title} onChange={e => set("title", e.target.value)}
-                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
+                        value={form.title} onChange={e => setField("title", e.target.value)}
+                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: isEdit ? String(form.quantity) : "0" }) }))}
                         placeholder="Nhập tên sách..." maxLength={200} />
                     </div>
                     <FieldError msg={errors.title} />
@@ -118,7 +167,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-barcode text-muted" /></span>
                       <input type="text" className={`form-control ${errors.isbn ? "border-danger" : ""}`}
-                        value={form.isbn} onChange={e => set("isbn", e.target.value)}
+                        value={form.isbn} onChange={e => setField("isbn", e.target.value)}
                         placeholder="Mã vạch..." />
                     </div>
                     <FieldError msg={errors.isbn} />
@@ -130,7 +179,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <label className="form-label">Tác giả</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-user-pen text-muted" /></span>
-                      <select className="form-select" value={form.authorId} onChange={e => set("authorId", e.target.value)}>
+                      <select className="form-select" value={form.authorId} onChange={e => setField("authorId", e.target.value)}>
                         <option value="">-- Chọn tác giả --</option>
                         {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
@@ -141,14 +190,14 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-building text-muted" /></span>
                       <input type="text" className="form-control" value={form.publisher}
-                        onChange={e => set("publisher", e.target.value)} placeholder="NXB..." />
+                        onChange={e => setField("publisher", e.target.value)} placeholder="NXB..." />
                     </div>
                   </div>
                   <div className="col-md-4 mb-3">
                     <label className="form-label">Thể loại</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-layer-group text-muted" /></span>
-                      <select className="form-select" value={form.categoryId} onChange={e => set("categoryId", e.target.value)}>
+                      <select className="form-select" value={form.categoryId} onChange={e => setField("categoryId", e.target.value)}>
                         <option value="">-- Chọn thể loại --</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
@@ -156,7 +205,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   </div>
                 </div>
 
-                {/* ── Kinh doanh ── */}
+                {/* Dữ liệu Kinh doanh */}
                 <h6 className="text-primary fw-bold mb-3 mt-2 text-uppercase border-bottom pb-2">
                   <i className="fa-solid fa-sack-dollar me-1" /> Dữ liệu Kinh doanh
                 </h6>
@@ -165,35 +214,36 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <label className="form-label">Giá bán <span className="text-danger">*</span></label>
                     <div className="input-group">
                       <input type="number" className={`form-control fw-bold text-end text-danger ${errors.price ? "border-danger" : ""}`}
-                        value={form.price} onChange={e => set("price", e.target.value)}
-                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
+                        value={form.price} onChange={e => setField("price", e.target.value)}
+                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: isEdit ? String(form.quantity) : "0" }) }))}
                         min={0} step={1000} />
                       <span className="input-group-text bg-light fw-bold">VNĐ</span>
                     </div>
                     <FieldError msg={errors.price} />
                   </div>
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label">Số lượng tồn <span className="text-danger">*</span></label>
-                    <div className="input-group">
-                      <span className="input-group-text bg-light"><i className="fa-solid fa-boxes-stacked text-muted" /></span>
-                      <input type="number" className={`form-control fw-bold ${errors.quantity ? "border-danger" : ""}`}
-                        value={form.quantity} onChange={e => set("quantity", e.target.value)}
-                        onBlur={() => setErrors(v => ({ ...v, ...validateBook({ title: form.title, price: form.price, quantity: form.quantity }) }))}
-                        min={0} />
+
+                  {isEdit && (
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label">Số lượng tồn kho</label>
+                      <div className="input-group">
+                        <span className="input-group-text bg-light"><i className="fa-solid fa-boxes-stacked text-muted" /></span>
+                        <input type="number" className="form-control fw-bold bg-light" value={form.quantity} readOnly disabled />
+                      </div>
+                      <small className="text-muted">Số lượng được cập nhật từ phiếu nhập kho.</small>
                     </div>
-                    <FieldError msg={errors.quantity} />
-                  </div>
-                  <div className="col-md-4 mb-3 d-flex align-items-center">
+                  )}
+
+                  <div className={`mb-3 ${isEdit ? "col-md-4" : "col-md-4 offset-md-4"}`}>
                     <div className="form-check form-switch mt-4 ps-5">
                       <input className="form-check-input" type="checkbox" role="switch" id="activeSwitch"
-                        checked={form.active} onChange={e => set("active", e.target.checked)}
+                        checked={form.active} onChange={e => setField("active", e.target.checked)}
                         style={{ transform: "scale(1.3)" }} />
                       <label className="form-check-label fw-bold ms-2 text-success" htmlFor="activeSwitch">Đang kinh doanh</label>
                     </div>
                   </div>
                 </div>
 
-                {/* ── Hình ảnh ── */}
+                {/* Hình ảnh & Nội dung */}
                 <h6 className="text-primary fw-bold mb-3 mt-2 text-uppercase border-bottom pb-2">
                   <i className="fa-solid fa-image me-1" /> Hình ảnh & Nội dung
                 </h6>
@@ -204,13 +254,13 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     <div className="mt-3 text-center border rounded p-2 bg-light d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}>
                       <img src={preview} alt="Preview" className="img-fluid rounded shadow-sm"
                         style={{ maxHeight: 250, objectFit: "contain" }}
-                        onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/200x300?text=Preview"; }} />
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/200x300?text=Preview"; }} />
                     </div>
                   </div>
                   <div className="col-md-8 mb-3">
                     <label className="form-label">Mô tả chi tiết</label>
                     <textarea className="form-control" rows={10} value={form.description}
-                      onChange={e => set("description", e.target.value)}
+                      onChange={e => setField("description", e.target.value)}
                       placeholder="Viết mô tả về nội dung sách..." />
                     <div className="d-flex justify-content-end"><small className="text-muted">{(form.description ?? "").length} ký tự</small></div>
                   </div>

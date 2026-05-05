@@ -1,6 +1,9 @@
-import Link from "next/link";
+"use client";
 
-export const metadata = { title: "Danh sách Khuyến mãi" };
+import { getAllPromotions, PromotionDTO } from "@/services/promotionServices";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import DeletePromoButton from "@/app/admin/promotions/_components/DeletePromoButton";
 
 const APPLY_BADGE: Record<string, { label: string; cls: string }> = {
   ALL:      { label: "🌐 Toàn sàn",      cls: "badge-all"  },
@@ -9,24 +12,43 @@ const APPLY_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  UPCOMING: { label: "🕐 Sắp diễn ra", cls: "badge-upcoming" },
-  ACTIVE:   { label: "✅ Đang chạy",   cls: "badge-active"   },
-  EXPIRED:  { label: "❌ Đã kết thúc", cls: "badge-expired"  },
-  UNKNOWN:  { label: "⚠️ Chưa đặt ngày", cls: ""             },
+  UPCOMING: { label: "🕐 Sắp diễn ra",   cls: "badge-upcoming" },
+  ACTIVE:   { label: "✅ Đang chạy",      cls: "badge-active"   },
+  EXPIRED:  { label: "❌ Đã kết thúc",    cls: "badge-expired"  },
+  UNKNOWN:  { label: "⚠️ Chưa đặt ngày", cls: ""               },
 };
 
-async function getPromotions(): Promise<any[]> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/admin/promotions`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) return [];
-  return res.json();
-}
+export default function PromotionsPage() {
+  const [promotions, setPromotions] = useState<PromotionDTO[]>([]);
+  const [fetchError, setFetchError] = useState<string>("");
+  const [loading,    setLoading]    = useState(true);
 
-export default async function PromotionsPage() {
-  let promotions: any[] = [];
-  try { promotions = await getPromotions(); } catch {}
+  useEffect(() => {
+    getData();
+  }, []);
+
+  const getData = async () => {
+    setLoading(true);
+    setFetchError("");
+    try {
+      const token =
+        localStorage.getItem("adminToken") ||
+        localStorage.getItem("token")      ||
+        "";
+
+      if (!token) {
+        setFetchError("Chưa đăng nhập. Vui lòng đăng nhập lại.");
+        return;
+      }
+
+      const data = await getAllPromotions(token);
+      setPromotions(data);
+    } catch (error: any) {
+      setFetchError(error.message || "Không thể tải danh sách khuyến mãi.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -51,6 +73,8 @@ export default async function PromotionsPage() {
         .promo-actions a { margin-right:6px; font-size:13px; padding:6px 10px; border-radius:8px; border:1px solid #d1d5db; color:#374151; text-decoration:none; }
         .promo-actions a:hover { background:#111827; color:#fff; }
         .promo-empty { text-align:center; padding:40px; color:#6b7280; font-size:15px; }
+        .error-msg { background:#fee2e2; color:#991b1b; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px; }
+        .loading-msg { text-align:center; padding:40px; color:#6b7280; font-size:15px; }
       `}</style>
 
       <div className="promo-container">
@@ -60,56 +84,61 @@ export default async function PromotionsPage() {
             <Link href="/admin/promotions/new" className="btn-create">+ Tạo mới</Link>
           </div>
 
-          <table className="promo-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Tên</th>
-                <th>Giá trị giảm</th>
-                <th>Loại áp dụng</th>
-                <th>Ngày bắt đầu</th>
-                <th>Ngày kết thúc</th>
-                <th>Trạng thái</th>
-                <th>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {promotions.length === 0 ? (
+          {fetchError && <div className="error-msg">⚠️ {fetchError}</div>}
+
+          {loading ? (
+            <div className="loading-msg">Đang tải dữ liệu...</div>
+          ) : (
+            <table className="promo-table">
+              <thead>
                 <tr>
-                  <td colSpan={8} className="promo-empty">
-                    Chưa có chương trình khuyến mãi nào
-                  </td>
+                  <th>ID</th>
+                  <th>Tên</th>
+                  <th>Giá trị giảm</th>
+                  <th>Loại áp dụng</th>
+                  <th>Ngày bắt đầu</th>
+                  <th>Ngày kết thúc</th>
+                  <th>Trạng thái</th>
+                  <th>Hành động</th>
                 </tr>
-              ) : (
-                promotions.map((p) => {
-                  const apply  = APPLY_BADGE[p.applyType]  ?? { label: "—", cls: "" };
-                  const status = STATUS_BADGE[p.computedStatus] ?? { label: "—", cls: "" };
-                  return (
-                    <tr key={p.id}>
-                      <td>{p.id}</td>
-                      <td>{p.name}</td>
-                      <td>{p.discountValue}%</td>
-                      <td><span className={`pbadge ${apply.cls}`}>{apply.label}</span></td>
-                      <td>{p.startDate}</td>
-                      <td>{p.endDate}</td>
-                      <td><span className={`pbadge ${status.cls}`}>{status.label}</span></td>
-                      <td className="promo-actions">
-                        <Link href={`/admin/promotions/${p.id}/edit`}>Sửa</Link>
-                        <DeletePromoLink id={p.id} />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {promotions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="promo-empty">
+                      Chưa có chương trình khuyến mãi nào
+                    </td>
+                  </tr>
+                ) : (
+                  promotions.map((p) => {
+                    const apply  = APPLY_BADGE[p.applyType]              ?? { label: "—", cls: "" };
+                    const status = STATUS_BADGE[p.computedStatus ?? "UNKNOWN"] ?? { label: "—", cls: "" };
+                    return (
+                      <tr key={p.id}>
+                        <td>{p.id}</td>
+                        <td>{p.name}</td>
+                        <td>{p.discountValue}%</td>
+                        <td><span className={`pbadge ${apply.cls}`}>{apply.label}</span></td>
+                        <td>{p.startDate}</td>
+                        <td>{p.endDate}</td>
+                        <td><span className={`pbadge ${status.cls}`}>{status.label}</span></td>
+                        <td className="promo-actions">
+                          <Link href={`/admin/promotions/${p.id}/edit`}>Sửa</Link>
+                          {/* ✅ Truyền getData làm onDeleted — xóa xong tự cập nhật list ngay */}
+                          <DeletePromoButton
+                            promoId={p.id!}
+                            onDeleted={getData}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </>
   );
-}
-
-import DeletePromoButton from "@/app/admin/promotions/_components/DeletePromoButton";
-function DeletePromoLink({ id }: { id: number }) {
-  return <DeletePromoButton promoId={id} />;
 }

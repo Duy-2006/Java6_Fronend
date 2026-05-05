@@ -13,7 +13,7 @@ async function getBooks(): Promise<any[]> {
 
 export default async function BooksPage() {
   let books: any[] = [];
-  try { books = await getBooks(); } catch {}
+  try { books = await getBooks(); } catch { }
 
   return (
     <main className="bg-[#f0f0f0] min-h-screen py-8">
@@ -48,12 +48,12 @@ function BookCard({ book }: { book: any }) {
   const hasDiscount = (book.tempDiscountPercent ?? 0) > 0;
   const originalPrice = hasDiscount
     ? new Intl.NumberFormat("vi-VN").format(
-        Math.round((book.price * 100) / (100 - book.tempDiscountPercent))
-      )
+      Math.round((book.price * 100) / (100 - book.tempDiscountPercent))
+    )
     : null;
 
   return (
-    <Link href={`/books/${book.id}`} className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+    <Link href={`user/books/${book.id}`} className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
       {/* Image */}
       <div className="relative aspect-[3/4] overflow-hidden bg-gray-50 flex items-center justify-center p-3">
         <img

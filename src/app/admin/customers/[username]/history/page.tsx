@@ -1,22 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-
-interface HistoryPageProps {
-  params: { username: string };
-}
-
-async function getCustomerHistory(username: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/admin/customers/history/${username}`,
-      { cache: "no-store" }
-    );
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
+import { useParams } from "next/navigation";
+import { getCustomerHistory, CustomerHistory } from "@/services/customersService";
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   PENDING:   { label: "Chờ xác nhận", cls: "bg-warning text-dark border-warning"  },
@@ -26,21 +13,62 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: "Đã hủy",       cls: "bg-danger border-danger"               },
 };
 
-export async function generateMetadata({ params }: HistoryPageProps) {
-  return { title: `Lịch sử mua hàng — ${params.username}` };
-}
+export default function CustomerHistoryPage() {
+  const params = useParams();
+  const username = params.username as string;
 
-export default async function CustomerHistoryPage({ params }: HistoryPageProps) {
-  const customer = await getCustomerHistory(params.username);
-  if (!customer) notFound();
+  const [customer, setCustomer] = useState<CustomerHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const orders: any[] = customer.orders ?? [];
+  const fetchHistory = async () => {
+    if (!username) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getCustomerHistory(username);
+      setCustomer(data);
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+      setError(err.message || "Không thể tải lịch sử mua hàng.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [username]);
+
+  if (loading) {
+    return <div className="text-center p-5">Đang tải lịch sử...</div>;
+  }
+
+  if (error || !customer) {
+    return (
+      <div className="container-fluid p-0">
+        <div className="alert alert-danger shadow-sm m-3">
+          <i className="fa-solid fa-circle-exclamation me-2" />
+          {error || "Không tìm thấy thông tin khách hàng."}
+          <div className="mt-2">
+            <button onClick={fetchHistory} className="btn btn-sm btn-outline-danger me-2">
+              <i className="fa-solid fa-rotate-right me-1" /> Thử lại
+            </button>
+            <Link href="/admin/customers" className="btn btn-sm btn-light border">
+              Quay lại danh sách
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const orders = customer.orders ?? [];
   const totalSpending = new Intl.NumberFormat("vi-VN").format(customer.totalSpending ?? 0);
   const initial = customer.fullName?.charAt(0) ?? "U";
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
-      {/* Back */}
       <div className="mb-4">
         <Link href="/admin/customers" className="btn btn-light border fw-bold text-secondary">
           <i className="fa-solid fa-arrow-left me-2" /> Quay lại danh sách
@@ -63,10 +91,7 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
                 <i className="fa-regular fa-envelope me-1" /> {customer.email}
               </p>
               <div className="border-top pt-4">
-                <small
-                  className="text-uppercase text-secondary fw-bold"
-                  style={{ fontSize: "0.75rem", letterSpacing: 1 }}
-                >
+                <small className="text-uppercase text-secondary fw-bold" style={{ fontSize: "0.75rem", letterSpacing: 1 }}>
                   Tổng chi tiêu tích lũy
                 </small>
                 <h2 className="text-success fw-bold mt-2">
@@ -80,10 +105,7 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
         {/* Orders */}
         <div className="col-md-8 col-xl-9">
           <div className="card border-0 shadow-sm h-100">
-            <div
-              className="card-header text-white py-3 d-flex justify-content-between align-items-center"
-              style={{ background: "linear-gradient(135deg, var(--primary-blue), var(--secondary-blue))" }}
-            >
+            <div className="card-header text-white py-3 d-flex justify-content-between align-items-center" style={{ background: "linear-gradient(135deg, #0d6efd, #0a58ca)" }}>
               <div className="d-flex align-items-center gap-2">
                 <i className="fa-solid fa-clock-rotate-left fs-5" />
                 <h5 className="m-0 fw-bold text-uppercase">Lịch sử đơn hàng</h5>
@@ -92,7 +114,6 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
                 {orders.length} đơn hàng
               </span>
             </div>
-
             <div className="card-body p-0">
               {orders.length === 0 ? (
                 <div className="text-center py-5 text-muted">
@@ -103,10 +124,7 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
                 <div className="table-responsive">
                   <table className="table table-hover align-middle mb-0">
                     <thead>
-                      <tr
-                        className="small fw-bold text-uppercase text-secondary"
-                        style={{ backgroundColor: "#f8f9fa" }}
-                      >
+                      <tr className="small fw-bold text-uppercase text-secondary" style={{ backgroundColor: "#f8f9fa" }}>
                         <th className="ps-4">Mã đơn</th>
                         <th>Ngày đặt</th>
                         <th className="text-end">Tổng tiền</th>
@@ -115,7 +133,7 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((o) => {
+                      {orders.map((o: any) => {
                         const status = STATUS_MAP[o.status] ?? { label: o.status, cls: "bg-secondary" };
                         const orderCode = o.orderCode ?? `ORD${o.id}`;
                         const orderDate = o.orderDate
@@ -125,31 +143,20 @@ export default async function CustomerHistoryPage({ params }: HistoryPageProps) 
                             })
                           : "—";
                         const amount = new Intl.NumberFormat("vi-VN").format(o.totalAmount ?? 0);
-
                         return (
                           <tr key={o.id}>
                             <td className="ps-4">
-                              <span className="badge bg-light text-secondary border font-monospace">
-                                {orderCode}
-                              </span>
+                              <span className="badge bg-light text-secondary border font-monospace">{orderCode}</span>
                             </td>
                             <td className="text-muted small">
-                              <i className="fa-regular fa-clock me-1" />
-                              {orderDate}
+                              <i className="fa-regular fa-clock me-1" /> {orderDate}
                             </td>
                             <td className="text-end fw-bold text-danger">{amount} đ</td>
                             <td className="text-center">
-                              <span className={`badge rounded-pill border ${status.cls}`}>
-                                {status.label}
-                              </span>
+                              <span className={`badge rounded-pill border ${status.cls}`}>{status.label}</span>
                             </td>
                             <td className="text-end pe-4">
-                              <Link
-                                href={`/admin/orders/${o.id}`}
-                                className="btn btn-outline-primary btn-sm rounded-circle shadow-sm"
-                                title="Xem chi tiết"
-                                style={{ width: 32, height: 32, padding: 0, lineHeight: "30px" }}
-                              >
+                              <Link href={`/admin/orders/${o.id}`} className="btn btn-outline-primary btn-sm rounded-circle shadow-sm" title="Xem chi tiết" style={{ width: 32, height: 32, padding: 0, lineHeight: "30px" }}>
                                 <i className="fa-solid fa-chevron-right" />
                               </Link>
                             </td>

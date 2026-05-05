@@ -1,162 +1,174 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { FcGoogle } from "react-icons/fc";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
-interface Category { id: number; name: string }
-interface User { fullName: string; role: string }
-
-export default function Navbar() {
+export default function LoginPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [cartCount, setCartCount] = useState(0);
-  const [keyword, setKeyword] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/";
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    fetch(`${API_URL}/api/auth/me`, {
-      headers: { "Authorization": `Bearer ${token}` },
-    })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(setUser)
-      .catch(() => setUser(null));
-
-    fetch(`${API_URL}/api/categories`)
-      .then(r => r.ok ? r.json() : [])
-      .then(setCategories)
-      .catch(() => {});
-
-    fetch(`${API_URL}/api/cart/count`, { credentials: "include" })
-      .then(r => r.ok ? r.json() : { count: 0 })
-      .then(d => setCartCount(d.count ?? 0))
-      .catch(() => {});
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (keyword.trim()) router.push(`/search?keyword=${encodeURIComponent(keyword.trim())}`);
-  };
-
-  const handleCartClick = (e: React.MouseEvent) => {
-    if (!user) { e.preventDefault(); setShowModal(true); }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    router.push("/");
-    router.refresh();
-  };
-
-  const handleAuthSubmit = async (
-    e: React.FormEvent<HTMLFormElement>,
-    type: "login" | "register"
-  ) => {
-    e.preventDefault();
-
-    let body: any;
-
-    if (type === "login") {
-      body = {
-        usernameOrEmail: (e.currentTarget.usernameOrEmail as HTMLInputElement).value,
-        password: (e.currentTarget.password as HTMLInputElement).value,
-      };
-    } else {
-      body = {
-        username: (e.currentTarget.username as HTMLInputElement).value,
-        name: (e.currentTarget.fullName as HTMLInputElement).value, // backend nhận "name"
-        email: (e.currentTarget.email as HTMLInputElement).value,
-        phone: (e.currentTarget.phone as HTMLInputElement).value,
-        password: (e.currentTarget.password as HTMLInputElement).value,
-      };
-    }
+    setIsLoading(true);
+    setError("");
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/${type}`, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ usernameOrEmail, password }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.message || "Sai thông tin!");
-        return;
-      }
 
       const data = await res.json();
 
-      if (type === "login") {
-        localStorage.setItem("token", data.token);
-        setUser(data.user);
-      } else {
-        alert("Đăng ký thành công! Hãy đăng nhập.");
-        setActiveTab("login");
+      if (!res.ok) {
+        setError(data.message || "Sai tên đăng nhập hoặc mật khẩu");
+        return;
       }
 
-      setShowModal(false);
+      // Lưu token và user
+      localStorage.setItem("token", data.token);
+      if (data.user) {
+        const userData = {
+          id: data.user.id,
+          name: data.user.name || data.user.fullName,
+          role: data.user.role,
+          username: data.user.username,
+          email: data.user.email,
+        };
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("userId", data.user.id.toString());
+      }
+
+      // Chuyển hướng sau khi đăng nhập
+      if (data.user?.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push(redirect);
+      }
     } catch (err) {
-      console.error(err);
-      alert("Lỗi kết nối server!");
+      setError("Lỗi kết nối đến server");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${API_URL}/oauth2/authorization/google`;
   };
 
   return (
     <>
-      {/* Header code giữ nguyên như trước, chỉ logic login/register đã fix */}
-      {/* ... phần giao diện Navbar, mega menu, search, cart ... */}
+      <Navbar />
+      <div className="bg-[#f0f0f0] min-h-screen py-12">
+        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-800">Đăng nhập</h1>
+            <p className="text-gray-500 text-sm mt-2">
+              Chào mừng bạn trở lại
+            </p>
+          </div>
 
-      {/* Auth Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white w-[420px] rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
 
-            {/* Tabs */}
-            <div className="flex border-b">
-              {(["login", "register"] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-4 text-sm font-bold uppercase transition border-b-2
-                    ${activeTab === tab ? "border-red-600 text-red-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
-                  {tab === "login" ? "Đăng nhập" : "Đăng ký"}
-                </button>
-              ))}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email / Username 
+              </label>
+              <input
+                type="text"
+                value={usernameOrEmail}
+                onChange={(e) => setUsernameOrEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-red-500 focus:border-red-500 outline-none transition"
+                placeholder="example@email.com"
+              />
             </div>
 
-            <div className="p-8">
-              {/* Login Form */}
-              {activeTab === "login" && (
-                <form onSubmit={e => handleAuthSubmit(e, "login")} className="space-y-4" noValidate>
-                  <input name="usernameOrEmail" required placeholder="Email / Số điện thoại" className="w-full border rounded-xl px-4 py-3" />
-                  <input name="password" type={showPass ? "text" : "password"} required placeholder="Mật khẩu" className="w-full border rounded-xl px-4 py-3" />
-                  <button type="submit" className="w-full bg-[#C92127] text-white py-3.5 rounded-xl font-bold text-sm uppercase hover:bg-red-700">Đăng nhập</button>
-                </form>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mật khẩu
+              </label>
+              <div className="relative">
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-red-500 focus:border-red-500 outline-none pr-12"
+                  placeholder="••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-red-600"
+                >
+                  {showPass ? "Ẩn" : "Hiện"}
+                </button>
+              </div>
+            </div>
 
-              {/* Register Form */}
-              {activeTab === "register" && (
-                <form onSubmit={e => handleAuthSubmit(e, "register")} className="space-y-4" noValidate>
-                  <input name="username" required placeholder="Tên đăng nhập" className="w-full border rounded-xl px-4 py-2.5" />
-                  <input name="fullName" required placeholder="Họ tên" className="w-full border rounded-xl px-4 py-2.5" />
-                  <input name="email" type="email" required placeholder="Email" className="w-full border rounded-xl px-4 py-2.5" />
-                  <input name="phone" required placeholder="Số điện thoại" className="w-full border rounded-xl px-4 py-2.5" />
-                  <input name="password" type={showPass ? "text" : "password"} required placeholder="Mật khẩu" className="w-full border rounded-xl px-4 py-2.5" />
-                  <button type="submit" className="w-full bg-[#C92127] text-white py-3.5 rounded-xl font-bold text-sm uppercase hover:bg-red-700">Đăng ký tài khoản</button>
-                </form>
-              )}
+            <div className="flex justify-end">
+              <Link
+                href="/user/forgot-password"
+                className="text-sm text-red-600 hover:underline"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-red-600 text-white py-2.5 rounded-xl font-semibold hover:bg-red-700 transition disabled:opacity-50"
+            >
+              {isLoading ? "Đang xử lý..." : "Đăng nhập"}
+            </button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-3 bg-white text-gray-500">Hoặc</span>
             </div>
           </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-2 hover:bg-gray-50 transition"
+          >
+            <FcGoogle size={22} />
+            <span>Đăng nhập với Google</span>
+          </button>
+
+          <p className="text-center text-sm text-gray-600 mt-6">
+            Chưa có tài khoản?{" "}
+            <Link href="/auth/register" className="text-red-600 font-semibold hover:underline">
+              Đăng ký ngay
+            </Link>
+          </p>
         </div>
-      )}
+      </div>
+      <Footer />
     </>
   );
 }

@@ -1,24 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { deletePromotion } from "@/services/promotionServices";
 
-export default function DeletePromoButton({ promoId }: { promoId: number }) {
-  const router = useRouter();
+interface Props {
+  promoId:   number;
+  onDeleted: () => void; // ✅ callback để parent tự refresh data
+}
+
+export default function DeletePromoButton({ promoId, onDeleted }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
-    if (!window.confirm("Bạn có chắc muốn xóa?")) return;
+    if (!window.confirm("Bạn có chắc muốn xóa khuyến mãi này?")) return;
+
+    const token =
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem("token")      ||
+      "";
+
+    if (!token) {
+      alert("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/promotions/${promoId}`,
-        { method: "DELETE" }
-      );
-      if (res.ok) router.refresh();
-      else alert("Xóa thất bại.");
-    } catch {
-      alert("Lỗi kết nối.");
+      await deletePromotion(promoId, token);
+      onDeleted(); // ✅ gọi callback → parent tự gọi lại getData()
+    } catch (err: any) {
+      alert(err.message || "Xóa thất bại.");
     } finally {
       setLoading(false);
     }

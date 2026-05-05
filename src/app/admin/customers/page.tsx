@@ -1,56 +1,65 @@
+// app/admin/customers/page.tsx
+"use client";
+
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import ToggleStatusButton from "@/app/admin/customers/_components/ToggleStatusButton";
 import SearchCustomers from "@/app/admin/customers/_components/SearchCustomers";
-
-interface SearchParams { success?: string; q?: string }
-
-export const metadata = { title: "Quản lý Khách Hàng" };
-
-async function getCustomers(): Promise<any[]> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/admin/customers`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) throw new Error("Lỗi tải danh sách khách hàng.");
-  return res.json();
-}
+import { getAllCustomers, CustomerSummary } from "@/services/customersService";
 
 function CustomerTypeBadge({ type }: { type: string }) {
-  if (type === "VIP (Thân thiết)")
-    return (
-      <span className="badge rounded-pill bg-warning text-dark border border-warning shadow-sm">
-        <i className="fa-solid fa-crown me-1" /> VIP
-      </span>
-    );
-  if (type === "Tiềm năng")
-    return (
-      <span className="badge rounded-pill bg-info bg-opacity-10 text-info border border-info">
-        <i className="fa-solid fa-star me-1" /> Tiềm năng
-      </span>
-    );
-  return (
-    <span className="badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary">
-      <i className="fa-solid fa-user me-1" /> Mới
-    </span>
-  );
+  // ... giữ nguyên
 }
 
-export default async function CustomersPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  let customers: any[] = [];
-  let fetchError = "";
+export default function CustomersPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q")?.toLowerCase() ?? "";
+  const success = searchParams.get("success");
 
-  try {
-    customers = await getCustomers();
-  } catch {
-    fetchError = "Không thể tải danh sách khách hàng.";
-  }
+  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Lọc theo từ khóa tìm kiếm (client-side fallback)
-  const q = searchParams?.q?.toLowerCase() ?? "";
+  // Hiển thị thông báo từ URL (nếu có)
+  useEffect(() => {
+    if (success) {
+      setToast({ msg: success, type: 'success' });
+      // Xóa param khỏi URL
+      router.replace('/admin/customers', { shallow: true });
+    }
+  }, [success, router]);
+
+  // Tự động ẩn toast sau 1 giây
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 1000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllCustomers();
+      setCustomers(data);
+      setFetchError("");
+    } catch (err: any) {
+      setFetchError(err.message || "Không thể tải danh sách khách hàng.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const refreshCustomers = () => {
+    loadCustomers();
+  };
+
   const filtered = q
     ? customers.filter(
         (u) =>
@@ -60,13 +69,17 @@ export default async function CustomersPage({
       )
     : customers;
 
+  if (loading) {
+    return <div className="text-center p-5">Đang tải danh sách khách hàng...</div>;
+  }
+
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
-      {searchParams?.success && (
-        <div className="alert alert-success alert-dismissible fade show shadow-sm mb-3" role="alert">
-          <i className="fa-solid fa-circle-check me-2" />
-          {searchParams.success}
-          <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close" />
+      {toast && (
+        <div className={`alert alert-${toast.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show shadow-sm mb-3`}>
+          <i className={`fa-solid ${toast.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'} me-2`} />
+          {toast.msg}
+          <button type="button" className="btn-close" onClick={() => setToast(null)} />
         </div>
       )}
 
@@ -75,10 +88,9 @@ export default async function CustomersPage({
       )}
 
       <div className="card border-0 shadow-sm">
-        {/* Header */}
         <div
           className="card-header text-white py-3 d-flex justify-content-between align-items-center"
-          style={{ background: "linear-gradient(135deg, var(--primary-blue), var(--secondary-blue))" }}
+          style={{ background: "linear-gradient(135deg, #0d6efd, #0a58ca)" }}
         >
           <div className="d-flex align-items-center gap-2">
             <i className="fa-solid fa-users-gear fs-5" />
@@ -87,15 +99,11 @@ export default async function CustomersPage({
           <SearchCustomers />
         </div>
 
-        {/* Table */}
         <div className="card-body p-0">
           <div className="table-responsive">
             <table className="table table-hover table-bordered align-middle mb-0">
               <thead>
-                <tr
-                  className="text-center text-uppercase small fw-bold text-secondary"
-                  style={{ backgroundColor: "#f8f9fa" }}
-                >
+                <tr className="text-center text-uppercase small fw-bold text-secondary" style={{ backgroundColor: "#f8f9fa" }}>
                   <th className="text-start ps-4">Thông tin Khách hàng</th>
                   <th>Username</th>
                   <th className="text-end">Tổng chi tiêu</th>
@@ -115,13 +123,9 @@ export default async function CustomersPage({
                 ) : (
                   filtered.map((u) => (
                     <tr key={u.username}>
-                      {/* Thông tin */}
                       <td className="ps-4">
                         <div className="d-flex align-items-center">
-                          <div
-                            className="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center fw-bold me-3"
-                            style={{ width: 40, height: 40, fontSize: "1.2rem" }}
-                          >
+                          <div className="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center fw-bold me-3" style={{ width: 40, height: 40, fontSize: "1.2rem" }}>
                             {u.fullName?.charAt(0) ?? "U"}
                           </div>
                           <div>
@@ -132,25 +136,15 @@ export default async function CustomersPage({
                           </div>
                         </div>
                       </td>
-
-                      {/* Username */}
                       <td className="text-center">
-                        <span className="badge bg-light text-secondary border font-monospace">
-                          {u.username}
-                        </span>
+                        <span className="badge bg-light text-secondary border font-monospace">{u.username}</span>
                       </td>
-
-                      {/* Chi tiêu */}
                       <td className="text-end fw-bold text-success">
                         {new Intl.NumberFormat("vi-VN").format(u.totalSpending)} đ
                       </td>
-
-                      {/* Phân loại */}
                       <td className="text-center">
                         <CustomerTypeBadge type={u.customerType} />
                       </td>
-
-                      {/* Trạng thái */}
                       <td className="text-center">
                         {u.active ? (
                           <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
@@ -162,20 +156,16 @@ export default async function CustomersPage({
                           </span>
                         )}
                       </td>
-
-                      {/* Hành động */}
                       <td className="text-center">
                         <div className="btn-group btn-group-sm">
-                          <Link
-                            href={`/admin/customers/${u.username}/history`}
-                            className="btn btn-outline-primary"
-                            title="Xem lịch sử mua hàng"
-                          >
+                          <Link href={`/admin/customers/${u.username}/history`} className="btn btn-outline-primary" title="Xem lịch sử mua hàng">lịch sử 
                             <i className="fa-solid fa-clock-rotate-left" />
                           </Link>
-                          <ToggleStatusButton
-                            username={u.username}
-                            isActive={u.active}
+                          <ToggleStatusButton 
+                            username={u.username} 
+                            isActive={u.active} 
+                            onToggleSuccess={refreshCustomers} 
+                            onShowToast={(msg, type) => setToast({ msg, type })}
                           />
                         </div>
                       </td>

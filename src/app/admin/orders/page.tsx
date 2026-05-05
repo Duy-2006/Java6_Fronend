@@ -1,6 +1,9 @@
-import Link from "next/link";
+'use client';
 
-export const metadata = { title: "Danh sách Đơn Hàng" };
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getAllOrders } from "@/services/ordersService"; // ✅ import service
 
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: string }> = {
   PENDING:   { label: "Chờ xác nhận", cls: "bg-warning text-dark border-warning",  icon: "fa-hourglass-half" },
@@ -10,33 +13,73 @@ const STATUS_MAP: Record<string, { label: string; cls: string; icon: string }> =
   CANCELLED: { label: "Đã hủy",       cls: "bg-danger",                             icon: "fa-ban"            },
 };
 
-async function getOrders(): Promise<any[]> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/admin/orders`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) return [];
-  return res.json();
-}
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-export default async function OrdersPage() {
-  let orders: any[] = [];
-  let fetchError = "";
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const data = await getAllOrders(); // ✅ dùng service đã gắn token
+        setOrders(data || []);
+        if (!data || data.length === 0) setError("Không có đơn hàng nào.");
+      } catch (err: any) {
+        console.error("Fetch orders error:", err);
+        const msg = err.message || "Không thể tải danh sách đơn hàng.";
+        setError(msg);
 
-  try {
-    orders = await getOrders();
-  } catch {
-    fetchError = "Không thể tải danh sách đơn hàng.";
+        // Nếu lỗi do token hết hạn (401) -> xóa token và chuyển về login
+        if (msg.includes("Token hết hạn") || msg.includes("401")) {
+          localStorage.removeItem("access_token");
+          setTimeout(() => {
+            router.push("/admin/login"); // 👈 thay đường dẫn đăng nhập thực tế
+          }, 2000);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [router]);
+
+  useEffect(() => {
+    document.title = "Danh sách Đơn Hàng";
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="container-fluid p-0 text-center py-5">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Đang tải...</span>
+        </div>
+        <p className="mt-3 text-muted">Đang tải danh sách đơn hàng...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container-fluid p-0">
+        <div className="alert alert-danger shadow-sm mb-3">
+          {error}
+          {error.includes("Token hết hạn") && (
+            <div className="mt-2">
+              <Link href="/admin/login" className="btn btn-sm btn-danger">
+                Đăng nhập lại
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
-      {fetchError && (
-        <div className="alert alert-danger shadow-sm mb-3">{fetchError}</div>
-      )}
-
       <div className="card border-0 shadow-sm">
-        {/* Header */}
         <div
           className="card-header text-white py-3 d-flex justify-content-between align-items-center"
           style={{ background: "linear-gradient(135deg, var(--primary-blue), var(--secondary-blue))" }}
@@ -60,10 +103,7 @@ export default async function OrdersPage() {
             <div className="table-responsive">
               <table className="table table-hover table-bordered align-middle mb-0">
                 <thead>
-                  <tr
-                    className="text-center text-uppercase small fw-bold text-secondary"
-                    style={{ backgroundColor: "#f8f9fa" }}
-                  >
+                  <tr className="text-center text-uppercase small fw-bold text-secondary" style={{ backgroundColor: "#f8f9fa" }}>
                     <th style={{ width: 120 }}>Mã Đơn</th>
                     <th className="text-start">Khách hàng</th>
                     <th>Ngày đặt</th>
@@ -84,51 +124,38 @@ export default async function OrdersPage() {
                         })
                       : "—";
                     const amount = new Intl.NumberFormat("vi-VN").format(order.totalAmount ?? 0);
-
                     return (
                       <tr key={order.id}>
-                        {/* Mã đơn */}
                         <td className="text-center">
                           <span className="badge bg-light text-secondary border font-monospace">
-                            {order.orderCode}
+                            {order.orderCode || order.id}
                           </span>
                         </td>
-
-                        {/* Khách hàng */}
                         <td>
                           <div className="d-flex flex-column">
                             <strong className="text-primary mb-1">
                               <i className="fa-regular fa-user me-1 text-muted small" />
-                              {order.customerName}
+                              {order.customerName || "Khách lẻ"}
                             </strong>
                             <small className="text-muted">
                               <i className="fa-solid fa-phone me-1 small" />
-                              {order.customerPhone}
+                              {order.customerPhone || "—"}
                             </small>
                           </div>
                         </td>
-
-                        {/* Ngày đặt */}
                         <td className="text-center text-muted">
                           <i className="fa-regular fa-clock me-1 small" />
                           {orderDate}
                         </td>
-
-                        {/* Tổng tiền */}
                         <td className="text-end fw-bold text-danger fs-6">
-                          {amount}{" "}
-                          <span className="text-muted small text-decoration-underline">đ</span>
+                          {amount} <span className="text-muted small text-decoration-underline">đ</span>
                         </td>
-
-                        {/* Trạng thái */}
                         <td className="text-center">
                           <span className={`badge rounded-pill shadow-sm ${status.cls}`}>
                             <i className={`fa-solid ${status.icon} me-1`} />
                             {status.label}
                           </span>
                         </td>
-
-                        {/* Hành động */}
                         <td className="text-center">
                           <Link
                             href={`/admin/orders/${order.id}`}
