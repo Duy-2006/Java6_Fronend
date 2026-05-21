@@ -10,5 +10,5 @@ export default async function NewBookPage() {
     getAllCategories().catch(() => []),
   ]);
 
-  return <BookForm authors={authors} categories={categories} />;
+  return <BookForm authors={authors as any} categories={categories as any} />;
 }

@@ -44,19 +44,19 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
 
   if (!bookRaw) notFound();
 
-  const book = {
-    id: bookRaw.id,
-    title: bookRaw.title,
-    isbn: bookRaw.isbn ?? "",
-    authorId: bookRaw.author?.id ?? "",
-    publisher: bookRaw.publisher ?? "",
-    categoryId: bookRaw.category?.id ?? "",
-    price: bookRaw.price,
-    quantity: bookRaw.quantity,
-    active: bookRaw.active,
-    description: bookRaw.description ?? "",
-    imageUrl: bookRaw.imageUrl ?? "",
-  };
+ const book = {
+  id: bookRaw.id,
+  title: bookRaw.title,
+  isbn: bookRaw.isbn ?? "",
+  authorId: bookRaw.authorId ?? "",       //  đúng - lấy trực tiếp từ DTO
+  publisher: bookRaw.publisher ?? "",
+  categoryId: bookRaw.categoryId ?? "",   //  đúng - lấy trực tiếp từ DTO
+  price: bookRaw.price,
+  quantity: bookRaw.quantity,
+  active: bookRaw.active,
+  description: bookRaw.description ?? "",
+  imageUrl: bookRaw.imageUrl ?? "",
+};
 
-  return <BookForm book={book} authors={authors} categories={categories} />;
+  return <BookForm book={book} authors={authors as any} categories={categories as any} />;
 }

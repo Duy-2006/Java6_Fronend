@@ -1,7 +1,10 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Manrope, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const manrope = Manrope({ subsets: ["latin"], weight: ["300","400","500","600","700","800"] });
 
@@ -9,7 +12,7 @@ export const metadata: Metadata = { title: "BookStore Online" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={cn("font-sans", geist.variable)}>
       <head>
         {/*  Thêm 2 dòng này */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

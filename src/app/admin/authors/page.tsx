@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { getAllAuthors } from "@/services/authorsService";
 import DeleteAuthorButton from "./_components/DeleteAuthorButton";
 
-export default function AuthorsPage() {
+import { Suspense } from "react";
+
+function AuthorsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [authors, setAuthors] = useState<any[]>([]);
@@ -21,7 +23,7 @@ export default function AuthorsPage() {
     if (error) setAlert({ msg: error, type: 'error' });
     // Xóa params khỏi URL để không hiện lại khi refresh
     if (success || error) {
-      router.replace('/admin/authors', { shallow: true });
+      window.history.replaceState(null, '', '/admin/authors');
     }
   }, [searchParams, router]);
 
@@ -127,5 +129,13 @@ export default function AuthorsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthorsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-5">Đang tải...</div>}>
+      <AuthorsContent />
+    </Suspense>
   );
 }

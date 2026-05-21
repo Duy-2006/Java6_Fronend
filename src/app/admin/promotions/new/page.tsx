@@ -9,5 +9,5 @@ export default async function NewPromotionPage() {
     getAllBooks().catch(() => []),
     getAllCategories().catch(() => []),
   ]);
-  return <PromotionForm books={books} categories={categories} />;
+  return <PromotionForm books={books as any} categories={categories as any} />;
 }

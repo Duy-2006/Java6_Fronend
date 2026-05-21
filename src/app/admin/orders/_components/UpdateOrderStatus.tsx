@@ -18,20 +18,35 @@ interface Props {
 
 export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpdated }: Props) {
   const [status, setStatus] = useState(currentStatus);
+  const [cancelReason, setCancelReason] = useState("");
+  const [showReasonInput, setShowReasonInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  // Reset status khi currentStatus thay đổi (khi chọn đơn hàng khác)
+  // Reset khi chuyển đơn hàng
   useEffect(() => {
     setStatus(currentStatus);
+    setCancelReason("");
+    setShowReasonInput(false);
+    setMessage(null);
   }, [currentStatus]);
 
   const availableOptions = STATUS_CONFIG[currentStatus]?.allowedNext || [];
 
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value;
+    setStatus(newStatus);
+    const isCancelled = newStatus === "CANCELLED";
+    setShowReasonInput(isCancelled);
+    if (!isCancelled) {
+      setCancelReason("");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderId) {
-      alert("Mã đơn hàng không hợp lệ.");
+      setMessage({ type: 'error', text: "Mã đơn hàng không hợp lệ." });
       return;
     }
     if (!availableOptions.includes(status)) {
@@ -42,10 +57,15 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
       setMessage({ type: 'error', text: 'Vui lòng chọn trạng thái khác trước khi lưu.' });
       return;
     }
+    // Nếu chọn hủy đơn thì bắt buộc nhập lý do
+    if (status === "CANCELLED" && !cancelReason.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập lý do hủy đơn hàng.' });
+      return;
+    }
 
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("Bạn chưa đăng nhập.");
+      setMessage({ type: 'error', text: "Bạn chưa đăng nhập." });
       return;
     }
 
@@ -53,18 +73,26 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
     setMessage(null);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const payload: any = { status };
+      if (status === "CANCELLED") {
+        payload.cancelReason = cancelReason.trim();
+      }
+
       const res = await fetch(`${baseUrl}/api/admin/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         onStatusUpdated?.(status);
         setMessage({ type: 'success', text: 'Cập nhật trạng thái thành công!' });
+        // Reset form sau khi thành công
+        setCancelReason("");
+        setShowReasonInput(false);
         setTimeout(() => setMessage(null), 3000);
       } else {
         const errorText = await res.text();
@@ -81,7 +109,6 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
 
   return (
     <>
-      {/* Thông báo nằm phía trên, không trong card */}
       {message && (
         <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show mb-3`}>
           {message.text}
@@ -100,7 +127,8 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
               <select
                 className="form-select form-select-lg fw-bold text-primary"
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={handleStatusChange}
+                disabled={availableOptions.length === 0}
               >
                 {availableOptions.length === 0 ? (
                   <option value={currentStatus} disabled>Không thể thay đổi</option>
@@ -114,6 +142,26 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
                 )}
               </select>
             </div>
+
+            {showReasonInput && (
+              <div className="mb-3">
+                <label className="form-label small text-muted">
+                  <span className="text-danger">*</span> Lý do hủy đơn:
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  placeholder="Nhập lý do hủy (ví dụ: Khách yêu cầu hủy, Hết hàng, Sai thông tin...)"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  required
+                />
+                <div className="form-text text-muted">
+                  Lý do này sẽ được hiển thị cho khách hàng biết.
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading || availableOptions.length === 0 || status === currentStatus}

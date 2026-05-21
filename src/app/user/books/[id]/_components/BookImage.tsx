@@ -14,7 +14,7 @@ interface BookImageProps {
 export default function BookImage({ 
   imageUrl, 
   title, 
-  className = "max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-105",
+  className = "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
   containerClassName 
 }: BookImageProps) {
   const [imgError, setImgError] = useState(false);

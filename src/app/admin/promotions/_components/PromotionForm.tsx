@@ -15,6 +15,7 @@ interface Promotion {
   startDate?: string;
   endDate?: string;
   applyType?: string;
+  usageLimit?: number | string;
   bookIds?: number[];
   categoryIds?: number[];
 }
@@ -43,6 +44,7 @@ export default function PromotionForm({
     startDate:     promotion?.startDate     ?? "",
     endDate:       promotion?.endDate       ?? "",
     applyType:     promotion?.applyType     ?? "ALL",
+    usageLimit:    promotion?.usageLimit    ?? "",
   });
   const [selBooks,          setSelBooks]          = useState<Set<number>>(new Set(selectedBookIds));
   const [selCats,           setSelCats]           = useState<Set<number>>(new Set(selectedCategoryIds));
@@ -98,6 +100,7 @@ export default function PromotionForm({
       endDate:       form.endDate   || undefined,
       applyType,
       status:        true,
+      usageLimit:    form.usageLimit ? Number(form.usageLimit) : null,
       bookIds,
       categoryIds,
     };
@@ -237,6 +240,21 @@ export default function PromotionForm({
                   />
                   <FieldError msg={errors.endDate} />
                 </div>
+              </div>
+
+              <div className="pf-group">
+                <label className="pf-label">
+                  Giới hạn số lượng (Để trống nếu không giới hạn)
+                </label>
+                <input
+                  className={`pf-input ${errors.usageLimit ? "error" : ""}`}
+                  type="number"
+                  value={form.usageLimit}
+                  onChange={e => set("usageLimit", e.target.value)}
+                  placeholder="VD: 100"
+                  min={1}
+                />
+                <FieldError msg={errors.usageLimit} />
               </div>
 
               <div className="pf-group">

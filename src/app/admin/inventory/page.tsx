@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { getAllInventoryBooks, getInventoryLogs, getLowStockBooks, BookInventory, InventoryLog } from "@/services/inventoryService";
 import ImportModal from "./_components/ImportModal";
 
-export default function InventoryPage() {
+import { Suspense } from "react";
+
+function InventoryContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [books, setBooks] = useState<BookInventory[]>([]);
@@ -22,7 +24,7 @@ export default function InventoryPage() {
     if (success) setAlert({ msg: success, type: 'success' });
     if (error) setAlert({ msg: error, type: 'error' });
     if (success || error) {
-      router.replace('/admin/inventory', { shallow: true });
+      window.history.replaceState(null, '', '/admin/inventory');
     }
   }, [searchParams, router]);
 
@@ -214,5 +216,13 @@ export default function InventoryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-5">Đang tải dữ liệu kho...</div>}>
+      <InventoryContent />
+    </Suspense>
   );
 }

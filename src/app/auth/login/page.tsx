@@ -7,7 +7,9 @@ import { FcGoogle } from "react-icons/fc";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
-export default function LoginPage() {
+import { Suspense } from "react";
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
@@ -170,5 +172,13 @@ export default function LoginPage() {
       </div>
       <Footer />
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12 bg-[#f0f0f0]">Đang tải...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

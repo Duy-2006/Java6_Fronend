@@ -62,7 +62,7 @@ export function validateUser(f: UserFields): FieldErrors<Omit<UserFields,"isEdit
 }
 
 /* ── Promotion ──────────────────────── */
-export interface PromotionFields { name: string; discountValue: string|number; startDate: string; endDate: string; applyType: string; selBooks: number; selCats: number }
+export interface PromotionFields { name: string; discountValue: string|number; startDate: string; endDate: string; applyType: string; selBooks: number; selCats: number; usageLimit?: string|number }
 export function validatePromotion(f: PromotionFields): FieldErrors<PromotionFields> {
   const e: FieldErrors<PromotionFields> = {};
   if (isBlank(f.name))                        e.name          = "Tên khuyến mãi không được để trống.";
@@ -75,5 +75,10 @@ export function validatePromotion(f: PromotionFields): FieldErrors<PromotionFiel
                                               e.endDate       = "Ngày kết thúc phải sau ngày bắt đầu.";
   if (f.applyType === "BOOK"     && f.selBooks === 0) e.applyType = "Vui lòng chọn ít nhất 1 sách.";
   if (f.applyType === "CATEGORY" && f.selCats  === 0) e.applyType = "Vui lòng chọn ít nhất 1 thể loại.";
+  if (f.usageLimit !== undefined && f.usageLimit !== "") {
+    if (!isValidQty(f.usageLimit) || Number(f.usageLimit) <= 0) {
+      e.usageLimit = "Giới hạn phải là số nguyên lớn hơn 0.";
+    }
+  }
   return e;
 }

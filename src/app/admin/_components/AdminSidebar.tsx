@@ -13,37 +13,40 @@ interface NavItem {
 const NAV_GROUPS: { heading?: string; items: NavItem[] }[] = [
   {
     items: [
-      { href: "/admin/dashboard", icon: "fa-gauge",      label: "Dashboard" },
+      { href: "/admin/dashboard", icon: "fa-gauge", label: "Dashboard" },
     ],
   },
   {
     heading: "Danh mục sản phẩm",
     items: [
-      { href: "/admin/categories", icon: "fa-list",      label: "Thể loại"  },
-      { href: "/admin/authors",    icon: "fa-pen-nib",   label: "Tác giả"   },
-      { href: "/admin/books",      icon: "fa-book",      label: "Sách"      },
+      { href: "/admin/categories", icon: "fa-list", label: "Thể loại" },
+      { href: "/admin/authors", icon: "fa-pen-nib", label: "Tác giả" },
+      { href: "/admin/books", icon: "fa-book", label: "Sách" },
     ],
   },
   {
     heading: "Kinh doanh",
     items: [
-      { href: "/admin/inventory",  icon: "fa-warehouse",       label: "Kho hàng"  },
-      { href: "/admin/orders",     icon: "fa-cart-shopping",   label: "Đơn hàng"  },
-      { href: "/admin/customers",  icon: "fa-users",           label: "Khách hàng"},
+      { href: "/admin/inventory", icon: "fa-warehouse", label: "Kho hàng" },
+      { href: "/admin/orders", icon: "fa-cart-shopping", label: "Đơn hàng" },
+      { href: "/admin/customers", icon: "fa-users", label: "Khách hàng" },
     ],
   },
   {
     heading: "Quản lý Thanh toán",
     items: [
-      { href: "/admin/revenue", icon: "fa-cart-shopping", label: "Doanh thu & Hoa hồng" },
+      { href: "/admin/revenue", icon: "fa-cart-shopping", label: "Thống Kê doanh thu" },
     ],
   },
   {
     heading: "Marketing & Khuyến mại",
     items: [
-      { href: "/admin/promotions/new", icon: "fa-tag",  label: "Tạo khuyến mãi"   },
-      { href: "/admin/promotions",        icon: "fa-tags", label: "Danh sách khuyến mãi" },
+      { href: "/admin/promotions/new", icon: "fa-tag", label: "Tạo khuyến mãi" },
+      { href: "/admin/promotions", icon: "fa-tags", label: "Danh sách khuyến mãi" },
+      { href: "/admin/voucher/new", icon: "fa-tag", label: "Thêm Voucher" },
+      { href: "/admin/voucher", icon: "fa-tags", label: "Quản lý Voucher" },
       
+
     ],
   },
 ];
@@ -92,5 +95,5 @@ export default function AdminSidebar() {
       </div>
     </aside>
   );
-  
+
 }

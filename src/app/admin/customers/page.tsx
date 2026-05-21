@@ -9,10 +9,17 @@ import SearchCustomers from "@/app/admin/customers/_components/SearchCustomers";
 import { getAllCustomers, CustomerSummary } from "@/services/customersService";
 
 function CustomerTypeBadge({ type }: { type: string }) {
-  // ... giữ nguyên
+  const isVip = type?.toUpperCase() === "VIP";
+  return (
+    <span className={`badge ${isVip ? "bg-warning text-dark" : "bg-secondary text-white"} px-3 py-2 rounded-pill`}>
+      {type || "MEMBER"}
+    </span>
+  );
 }
 
-export default function CustomersPage() {
+import { Suspense } from "react";
+
+function CustomersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q")?.toLowerCase() ?? "";
@@ -28,7 +35,7 @@ export default function CustomersPage() {
     if (success) {
       setToast({ msg: success, type: 'success' });
       // Xóa param khỏi URL
-      router.replace('/admin/customers', { shallow: true });
+      window.history.replaceState(null, '', '/admin/customers');
     }
   }, [success, router]);
 
@@ -186,5 +193,13 @@ export default function CustomersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-5">Đang tải...</div>}>
+      <CustomersContent />
+    </Suspense>
   );
 }

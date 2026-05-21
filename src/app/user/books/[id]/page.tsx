@@ -1,46 +1,92 @@
-// app/books/[id]/page.tsx (hoặc user/books/[id]/page.tsx)
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import AddToCartSection from "./_components/AddToCartSection";
 import BookImage from "./_components/BookImage";
+import SuggestedBooks from "./_components/SuggestedBooks";
+import ReviewsSection from "./_components/ReviewsSection";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+// Helper chuyển đổi an toàn sang số
+const toNumber = (val: any): number => {
+  const num = Number(val);
+  return isNaN(num) ? 0 : num;
+};
+
+// Lấy thông tin sách + flash sale
 async function getBook(id: string) {
   try {
-    const res = await fetch(`${API_URL}/api/admin/books/${id}`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(`${API_URL}/api/admin/books/${id}`, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const book = await res.json();
-    
-    // Lấy thông tin flash sale để biết giá khuyến mãi
+
+    const price = toNumber(book.price);
     let discountPercent = 0;
-    let discountPrice = null;
+    let discountPrice: number | null = null;
+    let usageLimit: number | null = null;
+
     try {
       const flashRes = await fetch(`${API_URL}/api/books/flash-sale`, { next: { revalidate: 30 } });
       if (flashRes.ok) {
         const flashData = await flashRes.json();
-        const found = flashData.find((item: any) => item.id === book.id);
+        const found = Array.isArray(flashData) ? flashData.find((item: any) => item.id === book.id) : null;
         if (found) {
-          discountPrice = found.discountPrice;
-          discountPercent = found.discountValue || 0;
-          // Nếu có discountPrice và không có discountPercent, tự tính
-          if (discountPrice && book.price && !discountPercent) {
-            discountPercent = Math.round((1 - discountPrice / book.price) * 100);
+          discountPrice = found.discountPrice ? toNumber(found.discountPrice) : null;
+          discountPercent = found.discountValue ? toNumber(found.discountValue) : 0;
+          usageLimit = found.usageLimit ? toNumber(found.usageLimit) : null;
+
+          if (discountPrice && price && !discountPercent) {
+            discountPercent = Math.round((1 - discountPrice / price) * 100);
+          }
+          if (discountPercent && !discountPrice && price) {
+            discountPrice = price * (100 - discountPercent) / 100;
           }
         }
       }
     } catch (e) {
-      console.error("Error fetching flash sale", e);
+      console.error("Flash sale error", e);
     }
-    
-    return { ...book, discountPercent, discountPrice };
+
+    return { ...book, price, discountPercent, discountPrice, usageLimit };
   } catch (error) {
     console.error("Error fetching book:", error);
     return null;
+  }
+}
+
+// Lấy sách gợi ý
+async function getSuggestedBooks(bookId: number, categoryName?: string, authorName?: string) {
+  try {
+    const res = await fetch(`${API_URL}/api/books`, { next: { revalidate: 120 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const allBooks = Array.isArray(data) ? data : (data.content || []);
+    const sameCategory = allBooks.filter(
+      (b: any) => b.id !== bookId && b.categoryName === categoryName && categoryName
+    );
+    const sameAuthor = allBooks.filter(
+      (b: any) => b.id !== bookId && b.authorName === authorName && authorName
+    );
+    const suggestedMap = new Map();
+    [...sameCategory, ...sameAuthor].forEach((book) => suggestedMap.set(book.id, book));
+    return Array.from(suggestedMap.values()).slice(0, 8);
+  } catch (error) {
+    console.error("Error fetching suggested books:", error);
+    return [];
+  }
+}
+
+// Lấy danh sách đánh giá của sách
+async function getBookReviews(bookId: number) {
+  try {
+    const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`, { next: { revalidate: 30 } });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    console.error("Error fetching reviews for page title:", e);
+    return [];
   }
 }
 
@@ -55,141 +101,207 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
   const book = await getBook(id);
   if (!book) notFound();
 
-  const hasDiscount = (book.discountPercent ?? 0) > 0;
-  const originalPrice = book.price ?? 0;
-  const discountedPrice = hasDiscount 
-    ? (book.discountPrice ?? originalPrice * (100 - book.discountPercent) / 100)
-    : originalPrice;
+  const [suggestedBooks, reviews] = await Promise.all([
+    getSuggestedBooks(
+      book.id,
+      book.category?.name || book.categoryName,
+      book.authorName
+    ),
+    getBookReviews(book.id),
+  ]);
 
-  const formattedDiscountedPrice = new Intl.NumberFormat("vi-VN").format(discountedPrice);
+  // Tính toán giá
+  const originalPrice = book.price;
+  const discountPercent = book.discountPercent;
+  let discountPriceRaw = book.discountPrice ? toNumber(book.discountPrice) : null;
+  const usageLimit = book.usageLimit;
+
+  const hasDiscount = (discountPercent > 0) || (discountPriceRaw !== null && discountPriceRaw > 0 && discountPriceRaw < originalPrice);
+  let finalPrice = originalPrice;
+  if (hasDiscount) {
+    if (discountPriceRaw !== null && discountPriceRaw > 0) {
+      finalPrice = discountPriceRaw;
+    } else if (discountPercent > 0) {
+      finalPrice = originalPrice * (100 - discountPercent) / 100;
+    }
+  }
+
+  const formattedFinalPrice = new Intl.NumberFormat("vi-VN").format(finalPrice);
   const formattedOriginalPrice = hasDiscount ? new Intl.NumberFormat("vi-VN").format(originalPrice) : null;
-  const discountValue = book.discountPercent ?? 0;
+  const displayDiscountPercent = hasDiscount ? (discountPercent > 0 ? discountPercent : Math.round((1 - finalPrice / originalPrice) * 100)) : 0;
 
-  // ---- Lấy thông tin linh hoạt ----
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : "0";
+
   const authorName =
     book.authorName ||
     (typeof book.author === "object" && book.author?.name) ||
     (typeof book.author === "string" ? book.author : null) ||
     "—";
-
   const publisher = book.publisher || "—";
-  const supplier = book.supplier || book.publisher || "—";
   const description = book.description || "";
 
   return (
     <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
-        rel="stylesheet"
-      />
-      <div className="bg-[#f0f0f0] min-h-screen flex flex-col">
+      <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+      <div className="min-h-screen bg-white">
         <Navbar />
-        <main className="flex-1">
-          <div className="max-w-[1230px] mx-auto px-4 py-4 space-y-4">
-            {/* Breadcrumb */}
-            <nav className="text-[13px] text-gray-500 flex gap-2 items-center flex-wrap">
-              <span className="text-gray-300">/</span>
-              {book.category && (
-                <>
-                  <Link
-                    href={`/category/${book.category.id}`}
-                    className="hover:text-red-600 transition"
-                  >
-                    {book.category.name}
-                  </Link>
-                  <span className="text-gray-300">/</span>
-                </>
-              )}
-              <span className="text-gray-800 font-medium truncate max-w-[300px]">
-                {book.title}
-              </span>
-            </nav>
+        <main className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-            <div className="grid grid-cols-12 gap-4">
-              {/* LEFT COLUMN - Ảnh */}
-              <div className="col-span-12 lg:col-span-5 space-y-4 h-fit lg:sticky lg:top-24">
-                <div className="bg-white rounded-2xl p-4 shadow-sm relative group overflow-hidden">
-                  <div className="aspect-square flex items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                    <BookImage imageUrl={book.imageUrl} title={book.title} />
-                  </div>
-                  {hasDiscount && (
-                    <span className="absolute top-4 left-4 bg-red-600 text-white text-xs px-2 py-1 rounded-sm font-bold shadow">
-                      -{discountValue}%
-                    </span>
-                  )}
+          {/* Breadcrumb - PDP style */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-8 flex-wrap">
+            <Link href="/books" className="hover:text-black transition">Sách</Link>
+            <span className="text-gray-300">/</span>
+            <span className="hover:text-black transition cursor-pointer">{book.category?.name || book.categoryName || "Danh mục"}</span>
+            <span className="text-gray-300">/</span>
+            <span className="text-gray-900 font-medium truncate max-w-[200px]">{book.title}</span>
+          </div>
+
+          {/* Book Detail Section - 2 columns split (58% / 42% on desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-12 items-start">
+
+            {/* Left Column (58% width): Gallery + Description + Specs */}
+            <div className="space-y-12">
+              {/* Product Gallery container with {rounded.xxxl} (32px) and Soft Cloud bg */}
+              <div className="relative aspect-[4/3] max-h-[500px] rounded-[32px] overflow-hidden bg-[#f5f5f7] border border-gray-100 flex items-center justify-center p-8 group">
+                <div className="w-full h-full max-w-[280px] transition-transform duration-300 group-hover:scale-105">
+                  <BookImage imageUrl={book.imageUrl} title={book.title} />
                 </div>
+                {hasDiscount && (
+                  <span className="absolute top-6 left-6 bg-[#ffc700] text-black text-xs px-3 py-1 rounded-full font-extrabold shadow-sm">
+                    -{displayDiscountPercent}% OFF
+                  </span>
+                )}
+                {book.quantity === 0 && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
+                    <span className="bg-black text-white px-6 py-2 rounded-full font-bold text-sm uppercase tracking-wider">Hết hàng</span>
+                  </div>
+                )}
               </div>
 
-              {/* RIGHT COLUMN - Thông tin chi tiết */}
-              <div className="col-span-12 lg:col-span-7 space-y-4">
-                <div className="bg-white rounded-2xl p-6 shadow-sm space-y-5">
-                  <h1 className="text-[22px] font-semibold text-gray-800">
-                    {book.title}
-                  </h1>
-                  <div className="grid grid-cols-2 text-[13px] gap-y-2 border-b border-gray-100 pb-4">
-                    <p className="text-gray-500">
-                      Nhà cung cấp:
-                      <span className="text-blue-600 font-bold ml-1">{supplier}</span>
-                    </p>
-                    <p className="text-gray-500">
-                      Tác giả:
-                      <strong className="text-gray-800 ml-1">{authorName}</strong>
-                    </p>
-                    <p className="text-gray-500">
-                      Nhà xuất bản:
-                      <span className="text-gray-700 ml-1">{publisher}</span>
-                    </p>
-                    <p className="text-gray-500">
-                      Hình thức bìa:
-                      <strong className="text-gray-800 ml-1">Bìa Mềm</strong>
-                    </p>
+              {/* Description */}
+              {description && (
+                <div className="space-y-4 pt-4">
+                  <h2 className="text-xl font-bold tracking-tight text-gray-900 uppercase">Mô tả sách</h2>
+                  <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line text-justify">{description}</p>
+                </div>
+              )}
+
+              {/* Technical Specs table style */}
+              <div className="space-y-4 pt-4">
+                <h2 className="text-xl font-bold tracking-tight text-gray-900 uppercase">Thông tin chi tiết</h2>
+                <div className="border border-gray-100 rounded-2xl overflow-hidden divide-y divide-gray-100">
+                  {[
+                    { label: "Tác giả", value: authorName },
+                    { label: "Nhà xuất bản", value: publisher },
+                    { label: "Thể loại", value: book.category?.name || book.categoryName || "Đang cập nhật" },
+                    { label: "Tình trạng", value: book.quantity > 0 ? `Còn hàng (${book.quantity} cuốn)` : "Hết hàng", isSuccess: book.quantity > 0 },
+                  ].map((spec, idx) => (
+                    <div key={idx} className="flex justify-between py-3.5 px-5 text-sm bg-white">
+                      <span className="font-semibold text-gray-800">{spec.label}</span>
+                      <span className={spec.isSuccess ? "text-green-600 font-bold" : "text-gray-600"}>{spec.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column (42% width): Sticky Purchase Rail */}
+            <div className="sticky top-24 space-y-6">
+              <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-[0_1px_4px_rgba(20,22,26,0.08)] space-y-6">
+
+                {/* Title */}
+                <div className="space-y-3">
+                  <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight">{book.title}</h1>
+                  <p className="text-xs text-gray-500 font-medium">Tác giả: <span className="text-gray-800 font-bold">{authorName}</span></p>
+
+                  {/* Rating / Review count */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-[#ffc700]/10 px-2.5 py-0.5 rounded-full text-[#ffc700] text-xs font-bold">
+                      <span>{avgRating}</span>
+                      <span className="text-[10px]">★</span>
+                    </div>
+                    <span className="text-xs text-gray-400 font-semibold">({reviews.length} đánh giá thực tế)</span>
                   </div>
-                  <div className="flex items-baseline gap-3 flex-wrap py-1">
-                    <span className="text-[30px] font-bold text-red-600">
-                      {formattedDiscountedPrice} ₫
-                    </span>
+                </div>
+
+                <hr className="border-gray-100" />
+
+                {/* Price Display */}
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-black text-[#C92127]">{formattedFinalPrice} đ</span>
                     {hasDiscount && (
                       <>
-                        <span className="text-gray-400 line-through text-base">
-                          {formattedOriginalPrice} ₫
-                        </span>
-                        <span className="bg-red-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
-                          -{discountValue}%
+                        <span className="text-base text-gray-400 line-through font-medium">{formattedOriginalPrice} đ</span>
+                        <span className="text-xs font-bold text-black bg-[#ffc700] px-2.5 py-0.5 rounded-full">
+                          -{displayDiscountPercent}%
                         </span>
                       </>
                     )}
                   </div>
-                  <div className="p-4 bg-gray-50 rounded-xl space-y-2 text-[13px] border border-gray-100">
-                    <p className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base text-gray-500">
-                        local_shipping
-                      </span>
-                      Giao hàng toàn quốc
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base text-gray-500">
-                        payments
-                      </span>
-                      Thanh toán khi nhận hàng (COD)
-                    </p>
+                  {hasDiscount && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-green-600 font-semibold">✓ Tiết kiệm thêm {(originalPrice - finalPrice).toLocaleString('vi-VN')} đ</p>
+                      {usageLimit && (
+                        <p className="text-xs text-[#C92127] font-bold">⚠️ Chỉ áp dụng giá ưu đãi tối đa {usageLimit} sản phẩm/đơn hàng</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <hr className="border-gray-100" />
+
+                {/* Warranty/Perks Card */}
+                <div className="bg-[#f5f5f7] rounded-2xl p-4 space-y-3 text-xs text-gray-600">
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">local_shipping</span>
+                    <span className="font-semibold">Miễn phí giao hàng toàn quốc từ 500.000 đ</span>
                   </div>
-                  <div className="pt-2 space-y-4 border-t border-gray-100">
-                    <AddToCartSection bookId={book.id} stock={book.quantity ?? 0} />
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">verified_user</span>
+                    <span className="font-semibold">Đảm bảo sách chính hãng 100% từ NXB</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">assignment_return</span>
+                    <span className="font-semibold">Đổi trả dễ dàng miễn phí trong vòng 30 ngày</span>
                   </div>
                 </div>
 
-                {/* Mô tả sách */}
-                {description && (
-                  <div className="bg-white rounded-2xl p-6 shadow-sm">
-                    <h2 className="text-lg font-bold mb-2">Mô tả sách</h2>
-                    <p className="text-gray-700 whitespace-pre-line text-sm">
-                      {description}
-                    </p>
-                  </div>
-                )}
+                <hr className="border-gray-100" />
+
+                {/* Purchase / Add to Cart control */}
+                <div className="space-y-4">
+                  <AddToCartSection bookId={book.id} stock={book.quantity ?? 0} usageLimit={usageLimit} />
+
+                  <button className="w-full border-2 border-gray-900 text-gray-900 py-3 rounded-full font-bold hover:bg-gray-900 hover:text-white transition duration-200 text-sm flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-lg">favorite</span>
+                    Thêm vào yêu thích
+                  </button>
+                </div>
+
               </div>
             </div>
+
           </div>
+
+          {/* Reviews Section */}
+          <div className="mt-20">
+            <ReviewsSection bookId={book.id} />
+          </div>
+
+          {/* Related / Suggested Books Section */}
+          {suggestedBooks.length > 0 && (
+            <div className="mt-20 border-t border-gray-100 pt-16 space-y-8">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-gray-900 uppercase">Có thể bạn cũng thích</h2>
+                <p className="text-sm text-gray-500 font-medium">Khám phá các đầu sách cùng thể loại hoặc cùng tác giả</p>
+              </div>
+              <SuggestedBooks books={suggestedBooks} />
+            </div>
+          )}
+
         </main>
         <Footer />
       </div>

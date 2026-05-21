@@ -38,26 +38,36 @@ export default function Navbar() {
           setUser(data);
           localStorage.setItem("user", JSON.stringify(data));
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     // Lấy danh mục (public)
     fetch(`${API_URL}/api/categories`)
       .then(r => r.ok ? r.json() : [])
       .then(setCategories)
-      .catch(() => {});
+      .catch(() => { });
 
     // Lấy số lượng giỏ hàng nếu có token
-    if (token && !isAuthRoute) {
-      fetch(`${API_URL}/api/cart/count`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(r => r.ok ? r.json() : { count: 0 })
-        .then(d => setCartCount(d.count ?? 0))
-        .catch(() => {});
-    } else {
-      setCartCount(0);
-    }
+    const fetchCartCount = () => {
+      const currentToken = localStorage.getItem("token");
+      if (currentToken && !isAuthRoute) {
+        fetch(`${API_URL}/api/cart/count`, {
+          headers: { "Authorization": `Bearer ${currentToken}` }
+        })
+          .then(r => r.ok ? r.json() : { count: 0 })
+          .then(d => setCartCount(d.count ?? 0))
+          .catch(() => { });
+      } else {
+        setCartCount(0);
+      }
+    };
+
+    fetchCartCount();
+
+    window.addEventListener("cartUpdated", fetchCartCount);
+    return () => {
+      window.removeEventListener("cartUpdated", fetchCartCount);
+    };
   }, [API_URL, pathname]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -161,7 +171,7 @@ export default function Navbar() {
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Xin chào,</p>
                   <p className="text-sm font-bold truncate text-red-600">{user.name}</p>
                 </div>
-                <Link href="user/profile" className="flex items-center gap-2 px-4 py-3 hover:bg-red-50 text-sm text-gray-700 border-b">
+                <Link href="/user/profile" className="flex items-center gap-2 px-4 py-3 hover:bg-red-50 text-sm text-gray-700 border-b">
                   Thông tin tài khoản
                 </Link>
                 <Link href="/user/my-orders" className="flex items-center gap-2 px-4 py-3 hover:bg-red-50 text-sm text-gray-700 border-b">

@@ -21,6 +21,7 @@ interface FlashSaleBook {
   discountValue?: number;
   discountPrice?: number;
   price?: number;
+  usageLimit?: number | null;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -29,7 +30,7 @@ const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " ₫";
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
-  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, number>>(new Map());
+  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number, limit: number | null }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
@@ -61,8 +62,7 @@ export default function CartPage() {
           }
         }
         if (finalPrice !== null && !isNaN(finalPrice) && finalPrice > 0) {
-          map.set(book.id, finalPrice);
-          console.log(`✅ Mapped book ${book.id} -> discountPrice = ${finalPrice}`);
+          map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null });
         }
       });
       setFlashSaleMap(map);
@@ -140,12 +140,8 @@ export default function CartPage() {
     return () => window.removeEventListener('cartUpdated', handleCartUpdate);
   }, [fetchFlashSale, fetchCart]);
 
-  const getDisplayPrice = (item: CartItem) => {
-    const discounted = flashSaleMap.get(item.bookId);
-    console.log(`📘 bookId=${item.bookId}, discounted=${discounted}, original=${item.price}`);
-    if (discounted && discounted < item.price) return discounted;
-    return item.price;
-  };
+  // Hàm này không còn dùng nữa, ta tính trực tiếp trong render
+  const getDisplayPrice = (item: CartItem) => item.price;
 
   // Các hàm cập nhật số lượng, chọn, xóa (giữ nguyên như cũ)
   const updateQuantity = async (cartDetailId: number, newQuantity: number) => {
@@ -242,11 +238,17 @@ export default function CartPage() {
 
   const selectedItems = items.filter(item => item.selected);
   const subTotal = selectedItems.reduce((sum, item) => {
-    const displayPrice = getDisplayPrice(item);
-    return sum + displayPrice * item.quantity;
+    const promoInfo = flashSaleMap.get(item.bookId);
+    let itemTotal = item.price * item.quantity;
+    if (promoInfo && promoInfo.price < item.price) {
+      const promoQty = promoInfo.limit !== null ? Math.min(item.quantity, promoInfo.limit) : item.quantity;
+      const normalQty = item.quantity - promoQty;
+      itemTotal = (promoQty * promoInfo.price) + (normalQty * item.price);
+    }
+    return sum + itemTotal;
   }, 0);
-  const shippingFee = subTotal >= 500000 ? 0 : 30000;
-  const total = subTotal + shippingFee;
+  const shippingFee = 0;
+  const total = subTotal;
   const allSelected = items.length > 0 && items.every(item => item.selected);
 
   // Render (giữ nguyên phần JSX)
@@ -317,8 +319,21 @@ export default function CartPage() {
                   </div>
                   <div className="divide-y">
                     {items.map((item) => {
-                      const displayPrice = getDisplayPrice(item);
-                      const hasDiscount = displayPrice < item.price;
+                      const promoInfo = flashSaleMap.get(item.bookId);
+                      let hasDiscount = false;
+                      let itemTotal = item.price * item.quantity;
+                      let promoQty = 0;
+                      let normalQty = item.quantity;
+                      let promoPrice = item.price;
+
+                      if (promoInfo && promoInfo.price < item.price) {
+                        hasDiscount = true;
+                        promoPrice = promoInfo.price;
+                        promoQty = promoInfo.limit !== null ? Math.min(item.quantity, promoInfo.limit) : item.quantity;
+                        normalQty = item.quantity - promoQty;
+                        itemTotal = (promoQty * promoPrice) + (normalQty * item.price);
+                      }
+
                       return (
                         <div key={item.cartDetailId} className="p-4 flex gap-4">
                           <input
@@ -346,9 +361,16 @@ export default function CartPage() {
                                 </h3>
                                 <div className="mt-1">
                                   {hasDiscount ? (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-red-600 font-bold text-lg">{fmt(displayPrice)}</span>
-                                      <span className="text-gray-400 text-sm line-through">{fmt(item.price)}</span>
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-red-600 font-bold text-lg">{fmt(promoPrice)}</span>
+                                        <span className="text-gray-400 text-sm line-through">{fmt(item.price)}</span>
+                                      </div>
+                                      {promoInfo?.limit !== null && item.quantity > promoInfo.limit && (
+                                        <p className="text-[11px] text-orange-600 font-medium">
+                                          (Áp dụng ưu đãi cho {promoInfo.limit} sản phẩm. {normalQty} sản phẩm còn lại tính giá gốc)
+                                        </p>
+                                      )}
                                     </div>
                                   ) : (
                                     <p className="text-red-600 font-bold text-lg">{fmt(item.price)}</p>
@@ -379,7 +401,7 @@ export default function CartPage() {
                               </div>
                               <div className="text-right">
                                 <p className="text-sm text-gray-500">Thành tiền</p>
-                                <p className="text-red-600 font-bold">{fmt(displayPrice * item.quantity)}</p>
+                                <p className="text-red-600 font-bold">{fmt(itemTotal)}</p>
                               </div>
                             </div>
                           </div>
@@ -397,15 +419,7 @@ export default function CartPage() {
                       <span className="text-gray-600">Tạm tính ({selectedItems.length} sản phẩm)</span>
                       <span className="font-medium">{fmt(subTotal)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Phí vận chuyển</span>
-                      <span className="font-medium">{shippingFee === 0 ? "Miễn phí" : fmt(shippingFee)}</span>
-                    </div>
-                    {subTotal > 0 && subTotal < 500000 && (
-                      <div className="text-xs text-blue-600">
-                        * Mua thêm {fmt(500000 - subTotal)} để được miễn phí vận chuyển
-                      </div>
-                    )}
+
                     <div className="border-t pt-3 flex justify-between">
                       <span className="font-bold">Tổng cộng</span>
                       <span className="text-xl font-bold text-red-600">{fmt(total)}</span>

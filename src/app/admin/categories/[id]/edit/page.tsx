@@ -39,5 +39,5 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
     console.error("[DEBUG] Category not found for id:", id);
     notFound();
   }
-  return <CategoryForm category={category} />;
+  return <CategoryForm category={category}/>;
 }

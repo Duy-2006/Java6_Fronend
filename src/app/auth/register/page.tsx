@@ -43,12 +43,12 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: formData.username,
-          name: formData.fullName,               // Backend dùng "name"
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          confirmPassword: formData.confirmPassword, // Bắt buộc
+          username: formData.username.trim(),  // thêm .trim()
+          name: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          password: formData.password,         // password không trim
+          confirmPassword: formData.confirmPassword,
         }),
       });
 

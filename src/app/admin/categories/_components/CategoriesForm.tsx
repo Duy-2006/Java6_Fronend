@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { validateCategory } from "@/services/validation";
 import FieldError from "@/components/layout/FieldError";
@@ -8,42 +8,53 @@ import FieldError from "@/components/layout/FieldError";
 interface Category {
   id?: number | null;
   name: string;
+  imageUrl?: string;
 }
 
 export default function CategoryForm({ category }: { category?: Category }) {
   const router = useRouter();
-
-  // Xác định chế độ: edit chỉ khi có id hợp lệ
   const isEdit = !!category?.id && typeof category.id === "number";
   const [name, setName] = useState(category?.name ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(category?.imageUrl ?? "");
   const [errors, setErrors] = useState<ReturnType<typeof validateCategory>>({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Lấy base URL từ biến môi trường, có fallback cho development
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  // Nếu đang ở chế độ edit nhưng không có id, chuyển sang chế độ tạo mới (tránh lỗi undefined)
   useEffect(() => {
     if (isEdit && !category?.id) {
-      console.warn("CategoryForm: Edit mode but id is missing. Switching to create mode.");
-      // Có thể chuyển hướng hoặc chỉ log, ở đây ta không ép buộc thay đổi state.
-      // Tuy nhiên, để an toàn, ta sẽ không cho phép submit khi thiếu id.
+      console.warn("CategoryForm: Edit mode but id is missing.");
     }
   }, [isEdit, category?.id]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setPreviewUrl("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
 
-    // Validate dữ liệu
     const errs = validateCategory({ name });
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
 
-    // Kiểm tra thêm nếu là edit nhưng thiếu id
     if (isEdit && !category?.id) {
       setApiError("Không tìm thấy ID thể loại. Vui lòng quay lại trang danh sách và thử lại.");
       return;
@@ -51,18 +62,32 @@ export default function CategoryForm({ category }: { category?: Category }) {
 
     setLoading(true);
 
+    // Lấy token từ localStorage
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setApiError("Bạn chưa đăng nhập. Vui lòng đăng nhập để thực hiện chức năng này.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Xây dựng URL dựa trên chế độ
+      const formData = new FormData();
+      formData.append("name", name);
+      if (imageFile) {
+        formData.append("image", imageFile);
+      }
+
       const endpoint = isEdit
         ? `${API_BASE_URL}/api/categories/${category!.id}`
         : `${API_BASE_URL}/api/categories`;
-
       const method = isEdit ? "PUT" : "POST";
 
       const response = await fetch(endpoint, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData, // Không set Content-Type, browser tự thêm boundary
       });
 
       if (response.ok) {
@@ -72,14 +97,19 @@ export default function CategoryForm({ category }: { category?: Category }) {
         router.push(`/admin/categories?success=${encodeURIComponent(successMsg)}`);
         router.refresh();
       } else {
-        // Xử lý lỗi từ server chi tiết hơn
         let errorText = "Có lỗi từ server. Vui lòng thử lại.";
-        try {
-          const errorData = await response.json();
-          if (errorData.message) errorText = errorData.message;
-          else if (Array.isArray(errorData)) errorText = errorData.join(", ");
-        } catch {
-          // Nếu response không phải JSON, giữ nguyên errorText
+        if (response.status === 401) {
+          errorText = "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.";
+        } else if (response.status === 403) {
+          errorText = "Bạn không có quyền thực hiện thao tác này.";
+        } else {
+          try {
+            const errorData = await response.json();
+            if (errorData.message) errorText = errorData.message;
+            else if (Array.isArray(errorData)) errorText = errorData.join(", ");
+          } catch {
+            // Bỏ qua nếu response không phải JSON
+          }
         }
         setApiError(errorText);
       }
@@ -115,8 +145,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
             </div>
 
             <div className="card-body p-4 bg-white">
-              <form onSubmit={handleSubmit} noValidate>
-                {/* Hiển thị lỗi API nếu có */}
+              <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
                 {apiError && (
                   <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                     <i className="fa-solid fa-circle-exclamation me-2"></i>
@@ -140,9 +169,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                     </span>
                     <input
                       type="text"
-                      className={`form-control form-control-lg ${
-                        errors.name ? "border-danger" : ""
-                      }`}
+                      className={`form-control form-control-lg ${errors.name ? "border-danger" : ""}`}
                       value={name}
                       onChange={(e) => {
                         setName(e.target.value);
@@ -164,11 +191,46 @@ export default function CategoryForm({ category }: { category?: Category }) {
                   </div>
                 </div>
 
+                {/* Upload ảnh */}
+                <div className="mb-4">
+                  <label className="form-label fw-bold text-secondary">Hình ảnh danh mục</label>
+                  <div className="input-group">
+                    <span className="input-group-text bg-light">
+                      <i className="fa-solid fa-image text-muted" />
+                    </span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="form-control"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-text text-muted small mt-1">
+                    Chọn ảnh đại diện (JPEG, PNG, WebP, tối đa 2MB). Nếu không chọn, ảnh cũ sẽ được giữ nguyên (khi sửa).
+                  </div>
+                  {previewUrl && (
+                    <div className="mt-3 d-flex align-items-start gap-3">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="img-thumbnail"
+                        style={{ maxHeight: "120px", maxWidth: "120px", objectFit: "cover" }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={handleRemoveImage}
+                      >
+                        <i className="fa-solid fa-trash-alt me-1"></i> Xóa ảnh
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="d-flex gap-2 justify-content-end mt-5">
-                  <a
-                    href="/admin/categories"
-                    className="btn btn-light border fw-bold px-4"
-                  >
+                  <a href="/admin/categories" className="btn btn-light border fw-bold px-4">
                     <i className="fa-solid fa-arrow-left me-1" /> Quay lại
                   </a>
                   <button
@@ -177,11 +239,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                     className="btn btn-primary fw-bold px-4 shadow-sm"
                   >
                     <i className="fa-solid fa-floppy-disk me-1" />
-                    {loading
-                      ? "Đang lưu..."
-                      : isEdit
-                      ? "Cập nhật"
-                      : "Lưu mới"}
+                    {loading ? "Đang lưu..." : isEdit ? "Cập nhật" : "Lưu mới"}
                   </button>
                 </div>
               </form>

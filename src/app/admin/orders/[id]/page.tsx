@@ -14,7 +14,9 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: "Đã hủy",        cls: "bg-danger border border-danger"              },
 };
 
-export default function OrderDetailPage() {
+import { Suspense } from "react";
+
+function OrderDetailContent() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,7 +24,6 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Callback để cập nhật state khi trạng thái thay đổi
   const handleStatusUpdate = (newStatus: string) => {
     setOrder((prev: any) => ({ ...prev, status: newStatus }));
   };
@@ -173,6 +174,13 @@ export default function OrderDetailPage() {
                     <span className="badge bg-success ms-1">Đã thanh toán</span>
                   )}
                 </div>
+                {/* Hiển thị lý do hủy nếu có */}
+                {order.status === "CANCELLED" && order.cancelReason && (
+                  <div className="alert alert-danger mt-3 mb-0">
+                    <i className="fa-solid fa-circle-exclamation me-2" />
+                    <strong>Lý do hủy đơn:</strong> {order.cancelReason}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -180,12 +188,11 @@ export default function OrderDetailPage() {
               <UpdateOrderStatus
                 orderId={order.id}
                 currentStatus={order.status}
-                onStatusUpdated={handleStatusUpdate} // 👈 truyền callback
+                onStatusUpdated={handleStatusUpdate}
               />
             </div>
           </div>
 
-          {/* Phần bảng sản phẩm giữ nguyên */}
           <h6 className="fw-bold text-secondary mb-3 mt-4">DANH SÁCH SẢN PHẨM</h6>
           <div className="table-responsive">
             <table className="table table-bordered align-middle mb-0">
@@ -255,5 +262,18 @@ export default function OrderDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OrderDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container-fluid p-0 text-center py-5">
+        <div className="spinner-border text-primary" role="status" />
+        <p className="mt-3">Đang tải đơn hàng...</p>
+      </div>
+    }>
+      <OrderDetailContent />
+    </Suspense>
   );
 }

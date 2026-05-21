@@ -44,7 +44,9 @@ function BookImage({ book, baseUrl }: { book: Book; baseUrl: string }) {
   );
 }
 
-export default function SearchPage() {
+import { Suspense } from "react";
+
+function SearchContent() {
   const searchParams = useSearchParams();
   const keyword = searchParams.get("keyword") ?? "";
   const [books, setBooks] = useState<Book[]>([]);
@@ -138,5 +140,13 @@ export default function SearchPage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20">Đang tải...</div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

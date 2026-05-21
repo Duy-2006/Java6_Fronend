@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { getAllBooks } from "@/services/booksService";
 import BookRow from "./_components/BookRow";
 
-export default function BooksPage() {
+import { Suspense } from "react";
+
+function BooksContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [books, setBooks] = useState<any[]>([]);
@@ -20,7 +22,7 @@ export default function BooksPage() {
     if (success) setAlert({ msg: success, type: 'success' });
     if (error) setAlert({ msg: error, type: 'error' });
     if (success || error) {
-      router.replace('/admin/books', { shallow: true });
+      window.history.replaceState(null, '', '/admin/books');
     }
   }, [searchParams, router]);
 
@@ -111,5 +113,13 @@ export default function BooksPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BooksPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-5">Đang tải...</div>}>
+      <BooksContent />
+    </Suspense>
   );
 }
