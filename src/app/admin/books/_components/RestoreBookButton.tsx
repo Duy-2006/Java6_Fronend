@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { Eye } from "lucide-react";
 
 export default function RestoreBookButton({ bookId, onSuccess }: { bookId: number; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   const handleRestore = async () => {
-    if (!confirm("Bật sách này để kinh doanh lại?")) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/books/${bookId}/restore`, { method: "PUT" });
       if (res.ok) {
-        onSuccess(); // ✅ Gọi callback refresh
+        onSuccess(); // Gọi callback refresh
       } else {
         let errorMsg = "Không thể bật sách.";
         try {
@@ -30,8 +30,17 @@ export default function RestoreBookButton({ bookId, onSuccess }: { bookId: numbe
   };
 
   return (
-    <button className="btn btn-outline-success btn-sm" onClick={handleRestore} disabled={loading}>
-      {loading ? <span className="spinner-border spinner-border-sm" /> : <><i className="fa-solid fa-eye me-1"></i> Mở</>}
+    <button
+      className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center border border-emerald-200/50 cursor-pointer"
+      title="Hiển thị sách"
+      onClick={handleRestore}
+      disabled={loading}
+    >
+      {loading ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-600 border-t-transparent" />
+      ) : (
+        <Eye className="w-4 h-4" />
+      )}
     </button>
   );
 }

@@ -7,11 +7,7 @@ import { getOrderById } from "@/services/ordersService";
 import UpdateOrderStatus from "@/app/admin/orders/_components/UpdateOrderStatus";
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PENDING:   { label: "Chờ xác nhận",  cls: "bg-warning text-dark border border-warning" },
-  CONFIRMED: { label: "Đã xác nhận",   cls: "bg-info text-dark border border-info"        },
-  SHIPPING:  { label: "Đang giao hàng",cls: "bg-light text-primary fw-bold"               },
-  COMPLETED: { label: "Hoàn thành",    cls: "bg-success border border-success"            },
-  CANCELLED: { label: "Đã hủy",        cls: "bg-danger border border-danger"              },
+
 };
 
 import { Suspense } from "react";
@@ -90,9 +86,9 @@ function OrderDetailContent() {
   const status = STATUS_MAP[order.status] ?? { label: order.status, cls: "bg-secondary" };
   const orderDate = order.orderDate
     ? new Date(order.orderDate).toLocaleString("vi-VN", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-      })
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    })
     : "—";
 
   const details: any[] = order.orderDetails ?? [];
@@ -207,7 +203,7 @@ function OrderDetailContent() {
               </thead>
               <tbody>
                 {details.map((detail, idx) => {
-                  const price    = new Intl.NumberFormat("vi-VN").format(detail.price ?? 0);
+
                   const subtotal = new Intl.NumberFormat("vi-VN").format((detail.price ?? 0) * (detail.quantity ?? 0));
                   return (
                     <tr key={idx}>
@@ -220,7 +216,7 @@ function OrderDetailContent() {
                       <td className="text-center">
                         <span className="badge bg-light text-dark border px-3">{detail.quantity}</span>
                       </td>
-                      <td className="text-end">{price} đ</td>
+                      <td className="text-end">{new Intl.NumberFormat("vi-VN").format(detail.price ?? 0)} đ</td>
                       <td className="text-end fw-bold">{subtotal} đ</td>
                     </tr>
                   );
@@ -237,17 +233,27 @@ function OrderDetailContent() {
                 <tr>
                   <td colSpan={4} className="text-end text-uppercase text-muted small pt-3">Tổng tiền hàng:</td>
                   <td className="text-end fw-bold pt-3">
-                    {new Intl.NumberFormat("vi-VN").format(order.totalAmount ?? 0)} đ
+                    {new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.discountAmount ?? 0))} đ
                   </td>
                 </tr>
+                {order.discountAmount && order.discountAmount > 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-end text-uppercase text-muted small border-0">Giảm giá voucher:</td>
+                    <td className="text-end fw-bold text-success border-0">
+                      -{new Intl.NumberFormat("vi-VN").format(order.discountAmount)} đ
+                    </td>
+                  </tr>
+                ) : null}
                 <tr>
                   <td colSpan={4} className="text-end text-uppercase text-muted small border-0">Phí vận chuyển:</td>
-                  <td className="text-end fw-bold border-0">0 đ</td>
+                  <td className="text-end fw-bold border-0">
+                    {new Intl.NumberFormat("vi-VN").format(order.shippingFee ?? 0)} đ
+                  </td>
                 </tr>
                 <tr className="border-top border-2 border-primary">
                   <td colSpan={4} className="text-end text-uppercase fw-bold text-primary fs-5 pt-3">Tổng thanh toán:</td>
                   <td className="text-end fw-bold text-danger fs-4 pt-3">
-                    {new Intl.NumberFormat("vi-VN").format(order.totalAmount ?? 0)} đ
+                    {new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0))} đ
                   </td>
                 </tr>
               </tfoot>

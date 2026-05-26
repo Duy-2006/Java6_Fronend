@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 
 export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
   const router = useRouter();
@@ -10,12 +11,12 @@ export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
 
   const handleDelete = async () => {
     if (!authorId) {
-      router.push("/admin/authors?error=ID tác giả không hợp lệ.");
+      router.push("/admin/authors?error=" + encodeURIComponent("ID tác giả không hợp lệ."));
       return;
     }
 
     const confirmed = window.confirm(
-      "Cảnh báo: Xóa tác giả sẽ ảnh hưởng đến các sách liên quan. Bạn chắc chắn chứ?"
+      "Cảnh báo: Xóa tác giả sẽ ảnh hưởng đến các sách liên quan. Bạn chắc chắn muốn xóa?"
     );
     if (!confirmed) return;
 
@@ -26,14 +27,14 @@ export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
       });
 
       if (res.ok) {
-        router.push("/admin/authors?success=Đã xóa tác giả thành công.");
+        router.push("/admin/authors?success=" + encodeURIComponent("Đã xóa tác giả thành công."));
         router.refresh();
       } else {
         const errorText = await res.text();
         router.push(`/admin/authors?error=${encodeURIComponent(errorText || "Không thể xóa tác giả này.")}`);
       }
     } catch {
-      router.push("/admin/authors?error=Lỗi kết nối tới server.");
+      router.push("/admin/authors?error=" + encodeURIComponent("Lỗi kết nối tới server."));
     } finally {
       setLoading(false);
     }
@@ -41,17 +42,15 @@ export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
 
   return (
     <button
-      className="btn btn-outline-danger btn-sm"
+      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-50 flex items-center justify-center border border-red-200/50 cursor-pointer"
       title="Xóa"
       onClick={handleDelete}
       disabled={loading}
     >
       {loading ? (
-        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent" />
       ) : (
-        <>
-        <i className="fa-solid fa-trash-can me-1" /> Xóa
-      </>
+        <Trash2 className="w-4.5 h-4.5" />
       )}
     </button>
   );

@@ -155,53 +155,57 @@ export default function ProfilePage() {
   };
 
   const inputCls = (field: keyof ProfileUpdateRequest) =>
-    `w-full border rounded-xl px-4 py-3 text-sm outline-none transition ${
+    `w-full border rounded-lg px-4 py-3 h-[46px] text-sm outline-none transition-all duration-150 tracking-tight ${
       errors[field]
-        ? "border-red-400 bg-red-50"
-        : "border-gray-200 focus:border-red-500"
+        ? "border-[#C92127] bg-[#C92127]/5 text-[#C92127] placeholder-[#C92127]/40 focus:ring-2 focus:ring-[#C92127]/10"
+        : "border-[#e5e5e7] bg-white text-[#1c1c1e] placeholder-gray-400 focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/10"
     }`;
 
   if (loading)
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#C92127] border-t-transparent rounded-full animate-spin" />
       </div>
     );
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-[#f5f5f7] min-h-screen">
       <Navbar />
 
-      <div className="max-w-5xl mx-auto px-4 py-10">
-        {/* Toast hiển thị trong vùng nội dung, căn trái, không bị lệch */}
+      <div className="max-w-5xl mx-auto px-4 py-10 md:py-16">
+        {/* Floating Toast Notification */}
         {toast && (
-          <div className="mb-4 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg font-medium text-sm flex items-center gap-2 w-full md:w-auto md:min-w-[300px]">
-            <span className="material-symbols-outlined text-base">check_circle</span> {toast}
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-[#0a1317] text-white px-6 py-3.5 rounded-full shadow-xl font-bold text-sm flex items-center gap-2 border border-[#e5e5e7]/10 animate-in fade-in slide-in-from-top-4 duration-300">
+            <span className="material-symbols-outlined text-[#34c759] text-lg">check_circle</span>
+            <span className="tracking-tight">{toast}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
           {/* Avatar card */}
           <div className="md:col-span-4">
-            <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-              <div className="w-28 h-28 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-5xl font-black">
-                {form.name.charAt(0).toUpperCase() || "U"}
+            <div className="bg-white rounded-[32px] border border-[#e5e5e7] p-8 text-center transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+              <div className="w-28 h-28 rounded-full bg-[#C92127]/8 text-[#C92127] flex items-center justify-center mx-auto text-4xl font-semibold border-2 border-white ring-4 ring-[#C92127]/5 select-none font-mono">
+                {form.name ? form.name.trim().charAt(0).toUpperCase() : "U"}
               </div>
-              <h4 className="mt-4 font-bold text-lg">{form.name || "Tên người dùng"}</h4>
-              <span className="inline-block mt-1 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                {role}
-              </span>
-              <p className="text-gray-400 text-sm mt-2 font-mono">{username}</p>
+              <h4 className="mt-5 font-bold text-xl text-[#0a1317] tracking-tight truncate max-w-full">
+                {form.name || "Tên người dùng"}
+              </h4>
+              <div className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1 bg-[#0066cc]/8 text-[#0066cc] text-xs font-bold tracking-tight rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0066cc] animate-pulse"></span>
+                {role || "USER"}
+              </div>
+              <p className="text-[#86868b] text-sm mt-3 font-medium tracking-tight font-mono">{username}</p>
             </div>
           </div>
 
-          {/* Form chỉnh sửa trực tiếp */}
+          {/* Edit Form */}
           <div className="md:col-span-8">
-            <div className="bg-white rounded-2xl shadow-sm p-8">
-              <h4 className="mb-6 font-bold text-xl">Thông tin cá nhân</h4>
-              <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <div className="bg-white rounded-[32px] border border-[#e5e5e7] p-8 md:p-10 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
+              <h4 className="mb-8 font-bold text-2xl text-[#0a1317] tracking-tight">Thông tin cá nhân</h4>
+              <form onSubmit={handleSubmit} noValidate className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-[#86868b] mb-2 uppercase tracking-widest">
                     Họ tên
                   </label>
                   <input
@@ -210,10 +214,16 @@ export default function ProfilePage() {
                     onChange={(e) => setField("name", e.target.value)}
                     placeholder="Nguyễn Văn A"
                   />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  {errors.name && (
+                    <p className="text-[#C92127] text-xs font-semibold mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {errors.name}
+                    </p>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-[#86868b] mb-2 uppercase tracking-widest">
                     Email
                   </label>
                   <input
@@ -223,10 +233,16 @@ export default function ProfilePage() {
                     onChange={(e) => setField("email", e.target.value)}
                     placeholder="email@example.com"
                   />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                  {errors.email && (
+                    <p className="text-[#C92127] text-xs font-semibold mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-[#86868b] mb-2 uppercase tracking-widest">
                     Số điện thoại
                   </label>
                   <input
@@ -235,25 +251,35 @@ export default function ProfilePage() {
                     onChange={(e) => setField("phone", e.target.value)}
                     placeholder="0901 234 567"
                   />
-                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                  {errors.phone && (
+                    <p className="text-[#C92127] text-xs font-semibold mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {errors.phone}
+                    </p>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-[#86868b] mb-2 uppercase tracking-widest">
                     Username
                   </label>
                   <input
-                    className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-not-allowed"
+                    className="w-full border border-[#f5f5f7] bg-[#f5f5f7] rounded-lg px-4 py-3 h-[46px] text-sm text-[#86868b] cursor-not-allowed font-medium tracking-tight"
                     value={username}
                     readOnly
                   />
-                  <p className="text-gray-400 text-xs mt-1">Username không thể thay đổi.</p>
+                  <p className="text-[#86868b] text-[11px] font-medium mt-2 tracking-tight">Username không thể thay đổi.</p>
                 </div>
-                <div className="pt-2">
+
+                <div className="pt-4 border-t border-[#e5e5e7]/80">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="bg-[#C92127] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-red-700 transition active:scale-95 disabled:opacity-60"
+                    className="bg-[#C92127] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-tight hover:bg-[#A8171C] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-sm flex items-center justify-center gap-2"
                   >
+                    {saving && (
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    )}
                     {saving ? "Đang lưu..." : "Cập nhật thông tin"}
                   </button>
                 </div>

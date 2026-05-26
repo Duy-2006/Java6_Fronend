@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getAllOrders } from "@/services/ordersService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,18 @@ export default function RevenueStatisticsPage() {
       const res = await fetch(`${baseUrl}/api/admin/stats?range=${range}`, { headers });
       if (!res.ok) throw new Error("Lỗi khi tải dữ liệu thống kê");
       const data = await res.json();
-      setSummary(data.summary);
+      
+      // Lọc các đơn hàng đã giao thành công (COMPLETED) để tính tổng doanh thu
+      const allOrders = await getAllOrders();
+      const completedOrders = allOrders.filter(o => o.status === "COMPLETED");
+      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      
+      const updatedSummary = {
+        ...data.summary,
+        totalRevenue: calculatedRevenue
+      };
+      
+      setSummary(updatedSummary);
       setMonthlyData(data.monthlyRevenue);
       setCategoryData(data.categoryStats);
       setTopBooks(data.topBooks);

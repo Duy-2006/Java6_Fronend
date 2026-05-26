@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 
 export default function DeleteCategoryButton({ categoryId }: { categoryId: number }) {
   const router = useRouter();
@@ -13,7 +14,6 @@ export default function DeleteCategoryButton({ categoryId }: { categoryId: numbe
 
     setLoading(true);
     try {
-      //  Thêm fallback URL
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
       const res = await fetch(`${baseUrl}/api/categories/${categoryId}`, {
         method: "DELETE",
@@ -23,7 +23,6 @@ export default function DeleteCategoryButton({ categoryId }: { categoryId: numbe
         router.push("/admin/categories?success=" + encodeURIComponent("Đã xóa thể loại thành công."));
         router.refresh();
       } else {
-        //  Lấy nội dung lỗi từ backend để hiển thị chi tiết
         const errorText = await res.text();
         router.push("/admin/categories?error=" + encodeURIComponent(errorText || "Không thể xóa thể loại này."));
       }
@@ -35,19 +34,17 @@ export default function DeleteCategoryButton({ categoryId }: { categoryId: numbe
   };
 
   return (
-  <button
-    className="btn btn-outline-danger btn-sm"
-    title="Xóa"
-    onClick={handleDelete}
-    disabled={loading}
-  >
-    {loading ? (
-      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-    ) : (
-      <>
-        <i className="fa-solid fa-trash-can me-1" /> Xóa
-      </>
-    )}
-  </button>
-);
-}
+    <button
+      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-50 flex items-center justify-center border border-red-200/50 cursor-pointer"
+      title="Xóa"
+      onClick={handleDelete}
+      disabled={loading}
+    >
+      {loading ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent" />
+      ) : (
+        <Trash2 className="w-4.5 h-4.5" />
+      )}
+    </button>
+  );
+}

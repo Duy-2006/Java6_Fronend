@@ -2,20 +2,36 @@
 
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { getAllCategories } from "@/services/categoriesService";
 import DeleteCategoryButton from "@/app/admin/categories/_components/DeleteCategoryButton";
+import {
+  Grid,
+  List,
+  Search,
+  Plus,
+  Edit,
+  Download,
+  Filter,
+  ArrowRight,
+  Layers,
+  Sparkles,
+  RefreshCw,
+  FolderKanban,
+  BookOpen
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-import { Suspense } from "react";
 
 function CategoriesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -29,136 +45,393 @@ function CategoriesContent() {
 
   useEffect(() => {
     if (!alert) return;
-    const timer = setTimeout(() => setAlert(null), 1000);
+    const timer = setTimeout(() => setAlert(null), 3000);
     return () => clearTimeout(timer);
   }, [alert]);
 
+  const loadCategories = async (silent = false) => {
+    if (silent) setRefreshing(true);
+    else setLoading(false);
+
+    try {
+      const data = await getAllCategories();
+      setCategories(data);
+    } catch (err) {
+      setAlert({ msg: "Không thể tải danh sách thể loại.", type: 'error' });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    getAllCategories()
-      .then(setCategories)
-      .catch(() => setAlert({ msg: "Không thể tải danh sách thể loại.", type: 'error' }))
-      .finally(() => setLoading(false));
+    loadCategories();
   }, []);
 
-  // Helper: lấy đường dẫn ảnh đầy đủ
   const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith('http')) return imageUrl;
     return `${API_URL}${imageUrl}`;
   };
 
-  if (loading) return <div className="text-center py-5">Đang tải...</div>;
+  // Vietnamese Slug generator
+  const generateSlug = (name: string) => {
+    return '/the-loai/' + name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  };
+
+  // Thematic fallback cover images based on category name
+  const getCategoryFallbackImage = (name: string) => {
+    const lowercaseName = name.toLowerCase();
+    if (lowercaseName.includes("van hoc") || lowercaseName.includes("tieu thuyet") || lowercaseName.includes("co dien")) {
+      return "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&auto=format&fit=crop&q=60";
+    }
+    if (lowercaseName.includes("khoa hoc") || lowercaseName.includes("ky thuat") || lowercaseName.includes("cong nghe")) {
+      return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=60";
+    }
+    if (lowercaseName.includes("nghe thuat") || lowercaseName.includes("sang tao") || lowercaseName.includes("thiet ke")) {
+      return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&auto=format&fit=crop&q=60";
+    }
+    if (lowercaseName.includes("ky nang") || lowercaseName.includes("tam ly") || lowercaseName.includes("phat trien")) {
+      return "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&auto=format&fit=crop&q=60";
+    }
+    if (lowercaseName.includes("kinh te") || lowercaseName.includes("tai chinh") || lowercaseName.includes("doanh nghiep")) {
+      return "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=600&auto=format&fit=crop&q=60";
+    }
+    return "https://images.unsplash.com/photo-1513001900722-370f803f498d?w=600&auto=format&fit=crop&q=60";
+  };
+
+  // Custom descriptions to make the cards look beautiful and high density
+  const getCategoryDescription = (name: string) => {
+    return `Các tác phẩm sách và tài liệu nghiên cứu thuộc chủ đề ${name} được tuyển chọn và cập nhật liên tục từ các tác giả tên tuổi trong nước và quốc tế.`;
+  };
+
+  // Client-side search filtering
+  const filteredCategories = categories.filter(cat =>
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Export categories to Excel using SheetJS
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+
+      const dataToExport = categories.map(cat => ({
+        'ID': cat.id,
+        'Tên Thể Loại': cat.name,
+        'Slug': generateSlug(cat.name),
+        'Số lượng sách': cat.books?.length ?? 0,
+        'Trạng thái': 'Hoạt động'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Thể loại');
+
+      XLSX.writeFile(wb, `Danh_sach_the_loai_Libris_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (err: any) {
+      console.error('Error exporting categories:', err);
+      setAlert({ msg: 'Không thể xuất file báo cáo: ' + err.message, type: 'error' });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
+        <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải danh sách thể loại...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="container-fluid p-0 animate__animated animate__fadeIn">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
+
+      {/* Alert Banners */}
       {alert && (
-        <div className={`alert alert-${alert.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show shadow-sm mb-4`} role="alert">
-          <i className={`fa-solid ${alert.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'} me-2`} />
-          {alert.msg}
-          <button type="button" className="btn-close" onClick={() => setAlert(null)} aria-label="Close" />
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${alert.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-200'
+            : 'bg-red-50 text-red-800 border-red-200'
+          }`}>
+          <div className="flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${alert.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+            <p className="text-sm font-semibold">{alert.msg}</p>
+          </div>
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer"
+            onClick={() => setAlert(null)}
+          >
+            &times;
+          </button>
         </div>
       )}
 
-      <div className="card border-0 shadow-sm">
-        <div
-          className="card-header text-white py-3 d-flex justify-content-between align-items-center"
-          style={{ background: "linear-gradient(135deg, var(--primary-blue), var(--secondary-blue))" }}
-        >
-          <div className="d-flex align-items-center gap-2">
-            <i className="fa-solid fa-layer-group fs-5" />
-            <h5 className="m-0 fw-bold text-uppercase">Danh sách Thể Loại</h5>
+      {/* Header & Stats section */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 text-[#b70011] mb-1">
+            <FolderKanban className="w-5 h-5" />
+            <span className="text-xs font-bold uppercase tracking-widest">Danh mục hệ thống</span>
           </div>
-          <Link href="/admin/categories/new" className="btn btn-light text-primary fw-bold btn-sm shadow-sm">
-            <i className="fa-solid fa-plus me-1" /> Thêm mới
-          </Link>
+          <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Thể loại</h2>
+          <p className="text-sm text-[#5c403c] font-sans">Tổ chức và phân loại kho sách của bạn theo các chủ đề khoa học.</p>
         </div>
 
-        <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-hover table-bordered align-middle mb-0">
+        {/* Total Categories Stat Card */}
+        <div className="bg-white border border-[#e6bdb8]/30 p-4 rounded-xl flex items-center gap-4 min-w-[240px] shadow-sm">
+          <div className="w-12 h-12 bg-[#ffdad6] text-[#b70011] rounded-full flex items-center justify-center">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider">Tổng số thể loại</p>
+            <p className="text-2xl font-bold text-[#191c1e]">
+              {categories.length} <span className="text-sm font-normal text-slate-500 ml-1">Danh mục</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
+        {/* Left Actions: Search, Filter, Export, View Toggle */}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* Search bar */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm thể loại..."
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Xuất File</span>
+          </button>
+
+          <button
+            onClick={() => loadCategories(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Tải lại</span>
+          </button>
+
+          {/* View Toggles */}
+          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
+            <button
+              className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setViewMode('grid')}
+              title="Dạng lưới"
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+            <button
+              className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setViewMode('table')}
+              title="Dạng bảng"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Actions: Add New Button */}
+        <Link
+          href="/admin/categories/new"
+          className="w-full sm:w-auto bg-[#b70011] text-white px-5 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#b70011]/15 hover:bg-[#b70011]/90 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Thêm thể loại mới</span>
+        </Link>
+      </div>
+
+      {/* Categories Content Grid / Table */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredCategories.map((item) => {
+            const imgSrc = getImageUrl(item.imageUrl);
+            return (
+              <div key={item.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
+                <div>
+                  <div className="h-40 relative overflow-hidden bg-slate-100">
+                    <img
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      src={imgSrc || getCategoryFallbackImage(item.name)}
+                      alt={item.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getCategoryFallbackImage(item.name);
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
+                      <span className="bg-[#b70011] px-3 py-1 rounded-full text-white text-[11px] font-bold tracking-wide uppercase">
+                        {item.books?.length ?? 0} Sách
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-slate-800 truncate" title={item.name}>{item.name}</h3>
+                        <p className="text-xs font-mono text-[#916f6b] truncate mt-0.5">{generateSlug(item.name)}</p>
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <Link
+                          href={`/admin/categories/${item.id}/edit`}
+                          className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="w-4.5 h-4.5" />
+                        </Link>
+                        <DeleteCategoryButton categoryId={item.id} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2">
+                      {getCategoryDescription(item.name)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <Link
+                    href={`/admin/categories/${item.id}/edit`}
+                    className="text-[#b70011] text-xs font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    Xem chi tiết <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <div className="flex -space-x-1.5">
+                    <div className="w-6 h-6 rounded-full bg-red-100 border-2 border-white flex items-center justify-center text-[9px] font-bold text-[#b70011]">L</div>
+                    <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[9px] font-bold text-slate-600">A</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Bento Add New Placeholder */}
+          <Link
+            href="/admin/categories/new"
+            className="border-2 border-dashed border-[#e6bdb8]/50 hover:border-[#b70011] rounded-xl flex flex-col items-center justify-center p-6 bg-slate-50/50 hover:bg-red-50/20 group cursor-pointer transition-all duration-300 min-h-[310px]"
+          >
+            <div className="w-12 h-12 rounded-full bg-slate-200/50 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-[#ffdad6] group-hover:text-[#b70011] text-slate-500 transition-all">
+              <Plus className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-bold text-slate-700 group-hover:text-[#b70011] transition-colors">Thêm thể loại mới</p>
+            <p className="text-xs text-slate-400 text-center mt-1.5 max-w-[200px]">
+              Mở rộng danh mục sách của Libris bằng cách thêm các thể loại mới.
+            </p>
+          </Link>
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-[#e6bdb8]/20 bg-slate-50/50 flex items-center justify-between">
+            <h4 className="text-sm font-bold text-slate-800">Danh sách chi tiết</h4>
+            <span className="text-xs text-slate-500">Hiển thị {filteredCategories.length} thể loại</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr 
-                className="text-center text-uppercase small fw-bold text-secondary"
-                  style={{ backgroundColor: "#f8f9fa" }}
-                >
-                  <th style={{ width: 80 }}>ID</th>                 
-                  <th style={{ width: 100 }}>Hình ảnh</th>          
-                  <th className="text-start">Tên Thể Loại</th>
-                  <th style={{ width: 200 }}>Thống kê</th>
-                  <th style={{ width: 150 }}>Hành động</th>
+                <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
+                  <th className="px-6 py-4">Thể loại</th>
+                  <th className="px-6 py-4">Slug</th>
+                  <th className="px-6 py-4 text-center">Số lượng sách</th>
+                  <th className="px-6 py-4">Trạng thái</th>
+                  <th className="px-6 py-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody>
-                {categories.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-5 text-muted">
-                      <i className="fa-solid fa-folder-open fa-3x mb-3 opacity-25 d-block" />
-                      <p className="m-0 fw-bold">Chưa có dữ liệu thể loại.</p>
-                      <small>Hãy bấm "Thêm mới" để bắt đầu.</small>
-                    </td>
-                  </tr>
-                ) : (
-                  categories.map((item) => {
-                    const imgSrc = getImageUrl(item.imageUrl);
-                    return (
-                      <tr key={item.id}>
-                        <td className="text-center fw-bold text-muted">{item.id}</td>
-                        <td className="text-center">
-                          {imgSrc ? (
+              <tbody className="divide-y divide-[#e6bdb8]/10">
+                {filteredCategories.map((item) => {
+                  const imgSrc = getImageUrl(item.imageUrl);
+                  return (
+                    <tr key={item.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
                             <img
-                              src={imgSrc}
+                              className="w-full h-full object-cover"
+                              src={imgSrc || getCategoryFallbackImage(item.name)}
                               alt={item.name}
-                              className="rounded border"
-                              style={{ width: "50px", height: "50px", objectFit: "cover" }}
                               onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                                // Có thể thay bằng icon fallback
+                                (e.target as HTMLImageElement).src = getCategoryFallbackImage(item.name);
                               }}
                             />
-                          ) : (
-                            <div className="bg-light rounded d-flex align-items-center justify-content-center"
-                                 style={{ width: "50px", height: "50px" }}>
-                              <i className="fa-solid fa-image text-secondary opacity-50"></i>
-                            </div>
-                          )}
-                        </td>
-                        <td className="fw-bold" style={{ color: "var(--primary-blue)" }}>
-                          {item.name}
-                        </td>
-                        <td className="text-center">
-                          <span className="badge rounded-pill bg-light text-dark border border-secondary-subtle px-3 py-2">
-                            <i className="fa-solid fa-book me-1 text-info" />
-                            {item.books?.length ?? 0} đầu sách
-                          </span>
-                        </td>
-                        <td className="text-center">
-                          <div className="btn-group btn-group-sm">
-                            <Link
-                              href={`/admin/categories/${item.id}/edit`}
-                              className="btn btn-outline-primary btn-sm"
-                              title="Chỉnh sửa"
-                            >
-                              <i className="fa-solid fa-pen-to-square me-1" /> Sửa
-                            </Link>
-                            <DeleteCategoryButton categoryId={item.id} />
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{item.name}</p>
+                            <p className="text-[11px] text-slate-400">ID: {item.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-[#f2f4f6] px-2 py-0.5 rounded text-xs font-mono text-[#5c403c] border border-slate-200/50">
+                          {generateSlug(item.name)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-700">
+                        {item.books?.length ?? 0}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-800 border border-green-200 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
+                          Hoạt động
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end items-center gap-1.5">
+                          <Link
+                            href={`/admin/categories/${item.id}/edit`}
+                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="w-4.5 h-4.5" />
+                          </Link>
+                          <DeleteCategoryButton categoryId={item.id} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredCategories.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="text-center text-slate-400 py-12 text-sm">
+                      Không tìm thấy thể loại nào phù hợp.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export default function CategoriesPage() {
   return (
-    <Suspense fallback={<div className="text-center py-5">Đang tải...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
+        <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải trang...</p>
+      </div>
+    }>
       <CategoriesContent />
     </Suspense>
   );

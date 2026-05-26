@@ -30,10 +30,10 @@ const getImageUrl = (imagePath: string | undefined): string => {
 
 const getOrderStatusText = (status: string): string => {
   const statusMap: Record<string, string> = {
-    PENDING:   "Chờ xác nhận",
+    PENDING: "Chờ xác nhận",
     CONFIRMED: "Đã xác nhận",
-    PROCESSING:"Đang xử lý",
-    SHIPPING:  "Đang giao hàng",
+    PROCESSING: "Đang xử lý",
+    SHIPPING: "Đang giao hàng",
     DELIVERED: "Đã giao hàng",
     CANCELLED: "Đã hủy",
     COMPLETED: "Hoàn thành",
@@ -47,9 +47,9 @@ const getPaymentDisplay = (order: any) => {
   if (order.status === "CANCELLED")
     return { text: "Đã hủy", color: "text-red-600" };
   switch (order.paymentStatus) {
-    case "PAID":   return { text: "Đã thanh toán",       color: "text-green-600" };
-    case "FAILED": return { text: "Thanh toán thất bại", color: "text-red-600"   };
-    default:       return { text: "Chưa thanh toán",     color: "text-yellow-600"};
+    case "PAID": return { text: "Đã thanh toán", color: "text-green-600" };
+    case "FAILED": return { text: "Thanh toán thất bại", color: "text-red-600" };
+    default: return { text: "Chưa thanh toán", color: "text-yellow-600" };
   }
 };
 
@@ -58,26 +58,26 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 import { Suspense } from "react";
 
 function OrderDetailContent() {
-  const { id }         = useParams();
-  const searchParams   = useSearchParams();
-  const router         = useRouter();
-  const urlUserId      = searchParams.get("userId");
-  const tokenUserId    = getUserIdFromToken();
-  const userId         = urlUserId || tokenUserId;
+  const { id } = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlUserId = searchParams.get("userId");
+  const tokenUserId = getUserIdFromToken();
+  const userId = urlUserId || tokenUserId;
 
-  const [order, setOrder]               = useState<any>(null);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState<string | null>(null);
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // State cho modal hủy đơn
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason]       = useState("");
-  const [cancelLoading, setCancelLoading]     = useState(false);
-  const [cancelError, setCancelError]         = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   // State cho modal xác nhận nhận hàng
   const [showReceivedModal, setShowReceivedModal] = useState(false);
-  const [receivedLoading, setReceivedLoading]     = useState(false);
+  const [receivedLoading, setReceivedLoading] = useState(false);
 
   const [shippingFee, setShippingFee] = useState(0);
   const [calculating, setCalculating] = useState(false);
@@ -85,6 +85,11 @@ function OrderDetailContent() {
   useEffect(() => {
     if (!order || !order.customerAddress) {
       setShippingFee(0);
+      return;
+    }
+
+    if (order.shippingFee != null) {
+      setShippingFee(order.shippingFee);
       return;
     }
 
@@ -131,9 +136,9 @@ function OrderDetailContent() {
       // FALLBACK
       const isHaNoi = provName.includes("Hà Nội");
       const northernProvinces = [
-        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc", 
-        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên", 
-        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng", 
+        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc",
+        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên",
+        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng",
         "Bắc Kạn", "Lạng Sơn", "Thái Bình", "Nam Định", "Ninh Bình", "Thanh Hóa"
       ];
       const isNorthern = northernProvinces.some((p: string) => provName.includes(p));
@@ -267,7 +272,7 @@ function OrderDetailContent() {
 
   if (!order) return null;
 
-  const details        = order.details || order.orderDetails || [];
+  const details = order.details || order.orderDetails || [];
   const paymentDisplay = getPaymentDisplay(order);
 
   return (
@@ -299,9 +304,9 @@ function OrderDetailContent() {
               <div>
                 <p className="text-gray-500">Phương thức thanh toán</p>
                 <p className="font-semibold">
-                  {order.paymentMethod === "COD"   ? "Thanh toán khi nhận hàng (COD)"
-                  : order.paymentMethod === "VNPAY" ? "VNPay"
-                  : order.paymentMethod}
+                  {order.paymentMethod === "COD" ? "Thanh toán khi nhận hàng (COD)"
+                    : order.paymentMethod === "VNPAY" ? "VNPay"
+                      : order.paymentMethod}
                 </p>
               </div>
               <div>
@@ -368,8 +373,14 @@ function OrderDetailContent() {
               <div className="text-right w-full max-w-[280px] space-y-2 text-sm text-gray-600">
                 <div className="flex justify-between">
                   <span>Tạm tính:</span>
-                  <span className="font-semibold text-gray-800">{fmt(order.totalAmount)} đ</span>
+                  <span className="font-semibold text-gray-800">{fmt((order.totalAmount ?? 0) + (order.discountAmount ?? 0))} đ</span>
                 </div>
+                {order.discountAmount && order.discountAmount > 0 ? (
+                  <div className="flex justify-between">
+                    <span>Giảm giá voucher:</span>
+                    <span className="font-semibold text-emerald-600">-{fmt(order.discountAmount)} đ</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <span>Phí vận chuyển:</span>
                   <span className="font-semibold text-gray-800">
@@ -379,9 +390,9 @@ function OrderDetailContent() {
                     {shippingFee === 0 ? "Miễn phí" : `${fmt(shippingFee)} đ`}
                   </span>
                 </div>
-                <div className="flex justify-between border-t pt-2 text-base font-bold text-gray-900">
-                  <span>Tổng thanh toán:</span>
-                  <span className="text-xl text-red-600">{fmt(order.totalAmount + shippingFee)} đ</span>
+                <div className="flex justify-between items-center pt-2 border-t mt-2">
+                  <span className="text-gray-600 font-bold">Tổng thanh toán:</span>
+                  <span className="text-xl font-bold text-red-600">{fmt((order.totalAmount ?? 0) + (shippingFee ?? 0))} đ</span>
                 </div>
               </div>
             </div>

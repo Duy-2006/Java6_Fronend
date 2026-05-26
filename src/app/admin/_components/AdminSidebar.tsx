@@ -27,7 +27,6 @@ const NAV_GROUPS: { heading?: string; items: NavItem[] }[] = [
   {
     heading: "Kinh doanh",
     items: [
-      { href: "/admin/inventory", icon: "fa-warehouse", label: "Kho hàng" },
       { href: "/admin/orders", icon: "fa-cart-shopping", label: "Đơn hàng" },
       { href: "/admin/customers", icon: "fa-users", label: "Khách hàng" },
     ],
@@ -45,8 +44,6 @@ const NAV_GROUPS: { heading?: string; items: NavItem[] }[] = [
       { href: "/admin/promotions", icon: "fa-tags", label: "Danh sách khuyến mãi" },
       { href: "/admin/voucher/new", icon: "fa-tag", label: "Thêm Voucher" },
       { href: "/admin/voucher", icon: "fa-tags", label: "Quản lý Voucher" },
-      
-
     ],
   },
 ];
@@ -95,5 +92,4 @@ export default function AdminSidebar() {
       </div>
     </aside>
   );
-
 }

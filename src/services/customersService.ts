@@ -77,7 +77,11 @@ export async function getCustomerHistory(username: string): Promise<CustomerHist
 export async function toggleCustomerStatus(username: string): Promise<ToggleStatusResponse> {
   const res = await fetch(`${BASE_URL}/api/admin/customers/toggle/${username}`, {
     method: 'PUT',
-    headers: getAuthHeaders(),
+    headers: {
+      ...getAuthHeaders(),
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
   });
   return handleResponse(res);
 }

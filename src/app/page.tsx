@@ -209,10 +209,11 @@ export default function HomePage() {
   const fetchNewBooks = async (page: number, isLoadMore = false) => {
     try {
       setLoadingNewBooks(true);
-      const res = await fetch(`${API_URL}/api/books/new?page=${page}&size=12`);
+      const res = await fetch(`${API_URL}/api/books/new?page=${page}&size=12&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        const content = data.content || (Array.isArray(data) ? data : []);
+        let content = data.content || (Array.isArray(data) ? data : []);
+        content = content.filter((b: any) => b.active !== false);
         const totalPages = data.totalPages || 1;
         if (isLoadMore) {
           setNewBooks(prev => [...prev, ...content]);
@@ -222,9 +223,10 @@ export default function HomePage() {
         setNewBooksTotalPages(totalPages);
       } else {
         // fallback
-        const allRes = await fetch(`${API_URL}/api/books/new`);
+        const allRes = await fetch(`${API_URL}/api/books/new?t=${Date.now()}`);
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
+        allBooks = allBooks.filter((b: any) => b.active !== false);
         const sorted = [...allBooks].sort((a, b) => b.id - a.id);
         const pageSize = 12;
         const start = page * pageSize;
@@ -249,19 +251,21 @@ export default function HomePage() {
   const fetchBestSellers = async (page: number, isLoadMore = false) => {
     try {
       setLoadingBestSellers(true);
-      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10`);
+      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10&t=${Date.now()}`);
       let books: any[] = [];
       let totalPages = 0;
       if (res.ok) {
         const data = await res.json();
         books = data.content ?? (Array.isArray(data) ? data : []);
+        books = books.filter((b: any) => b.active !== false);
         totalPages = data.totalPages ?? 1;
       } else {
         // fallback client-side
-        const allRes = await fetch(`${API_URL}/api/books/best-sellers`);
+        const allRes = await fetch(`${API_URL}/api/books/best-sellers?t=${Date.now()}`);
         if (!allRes.ok) throw new Error();
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
+        allBooks = allBooks.filter((b: any) => b.active !== false);
         const pageSize = 10;
         const start = page * pageSize;
         books = allBooks.slice(start, start + pageSize);
@@ -309,10 +313,11 @@ export default function HomePage() {
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/books/flash-sale`);
+        const response = await fetch(`${API_URL}/api/books/flash-sale?t=${Date.now()}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        setFlashSaleBooks(Array.isArray(data) ? data : []);
+        let fBooks = Array.isArray(data) ? data : [];
+        setFlashSaleBooks(fBooks.filter((b: any) => b.active !== false));
       } catch (err) {
         console.error("Flash sale error:", err);
         setFlashSaleBooks([]);

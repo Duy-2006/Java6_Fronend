@@ -32,7 +32,7 @@ export default function OrderSuccessPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = params.id;
-  
+
   const [order, setOrder] = useState<OrderFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +88,9 @@ export default function OrderSuccessPage() {
       // FALLBACK
       const isHaNoi = provName.includes("Hà Nội");
       const northernProvinces = [
-        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc", 
-        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên", 
-        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng", 
+        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc",
+        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên",
+        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng",
         "Bắc Kạn", "Lạng Sơn", "Thái Bình", "Nam Định", "Ninh Bình", "Thanh Hóa"
       ];
       const isNorthern = northernProvinces.some(p => provName.includes(p));
@@ -117,18 +117,18 @@ export default function OrderSuccessPage() {
       console.log(' No token found');
       return null;
     }
-    
+
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
-      
+
       const payload = JSON.parse(jsonPayload);
       console.log(' Token payload:', payload);
       console.log(' User ID from token:', payload.userId);
-      
+
       return payload.userId || null;
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -139,26 +139,26 @@ export default function OrderSuccessPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       setLoading(true);
-      
+
       console.log('=== OrderSuccessPage Debug ===');
       console.log('Order ID from params:', orderId);
       console.log('Order ID type:', typeof orderId);
-      
+
       const token = localStorage.getItem('token');
       console.log('Token exists:', !!token);
-      
+
       if (!token) {
         setError('Vui lòng đăng nhập để xem thông tin đơn hàng');
         setLoading(false);
         return;
       }
-      
+
       if (!orderId) {
         setError('Không tìm thấy mã đơn hàng');
         setLoading(false);
         return;
       }
-      
+
       // Chuyển orderId sang int
       const orderIdInt = parseInt(orderId as string, 10);
       if (isNaN(orderIdInt)) {
@@ -166,24 +166,24 @@ export default function OrderSuccessPage() {
         setLoading(false);
         return;
       }
-      
+
       // Lấy userId từ token
       const userId = getUserIdFromToken();
       console.log('User ID:', userId);
       console.log('Order ID (int):', orderIdInt);
-      
+
       if (!userId) {
         setError('Không thể xác thực người dùng');
         setLoading(false);
         return;
       }
-      
+
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      
+
       //  Gọi đúng API lấy chi tiết 
       const url = `${API_URL}/api/orders/${orderIdInt}?userId=${userId}`;
       console.log('Fetching URL:', url);
-      
+
       try {
         const response = await fetch(url, {
           headers: {
@@ -191,9 +191,9 @@ export default function OrderSuccessPage() {
             'Content-Type': 'application/json'
           }
         });
-        
+
         console.log('Response status:', response.status);
-        
+
         if (response.ok) {
           const orderData: OrderFull = await response.json();
           console.log(' Order data:', orderData);
@@ -213,7 +213,7 @@ export default function OrderSuccessPage() {
         setLoading(false);
       }
     };
-    
+
     if (orderId) {
       fetchOrder();
     }
@@ -237,7 +237,7 @@ export default function OrderSuccessPage() {
           <div className="text-red-600 text-6xl mb-4"></div>
           <h2 className="text-2xl font-bold mb-2">Có lỗi xảy ra</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <Link 
+          <Link
             href="/"
             className="inline-block bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition"
           >
@@ -258,11 +258,11 @@ export default function OrderSuccessPage() {
         {/* Success Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-500 to-green-600 px-8 py-6 text-white text-center">           
+          <div className="bg-gradient-to-r from-green-500 to-green-600 px-8 py-6 text-white text-center">
             <h1 className="text-2xl font-bold">ĐẶT HÀNG THÀNH CÔNG!</h1>
             <p className="text-green-100 mt-2">Cảm ơn bạn đã mua sắm tại BookStore</p>
           </div>
-          
+
           {/* Body */}
           <div className="p-8">
             {/* Order Info */}
@@ -273,7 +273,7 @@ export default function OrderSuccessPage() {
                   {order.orderCode}
                 </p>
               </div>
-              
+
               <div className="border-t border-gray-200 pt-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Trạng thái:</span>
@@ -324,7 +324,7 @@ export default function OrderSuccessPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Order Details */}
             {order.orderDetails && order.orderDetails.length > 0 && (
               <div className="mb-6">
@@ -341,7 +341,7 @@ export default function OrderSuccessPage() {
                 </div>
               </div>
             )}
-            
+
             {/* Customer Info */}
             <div className="bg-gray-50 rounded-xl p-4 mb-6">
               <h3 className="font-bold mb-2">Thông tin giao hàng:</h3>
@@ -349,21 +349,21 @@ export default function OrderSuccessPage() {
               <p className="text-gray-700"> {order.customerPhone}</p>
               <p className="text-gray-700"> {order.customerAddress}</p>
             </div>
-            
+
             {/* Actions */}
             <div className="space-y-3">
-              <Link 
+              <Link
                 href="/user/my-orders"
                 className="block w-full bg-red-600 text-white text-center py-3 rounded-xl font-semibold hover:bg-red-700 transition"
               >
-                 Xem tất cả đơn hàng
+                Xem tất cả đơn hàng
               </Link>
-              
-              <Link 
+
+              <Link
                 href="/"
                 className="block w-full border-2 border-red-600 text-red-600 text-center py-3 rounded-xl font-semibold hover:bg-red-50 transition"
               >
-                 Tiếp tục mua sắm
+                Tiếp tục mua sắm
               </Link>
             </div>
           </div>

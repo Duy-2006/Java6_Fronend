@@ -15,7 +15,7 @@ export interface Book {
 }
 
 export async function getAllBooks(): Promise<Book[]> {
-  const res = await fetch(`${BASE_URL}/api/admin/books`, { cache: "no-store" });
+  const res = await fetch(`${BASE_URL}/api/admin/books?t=${Date.now()}`, { cache: "no-store" });
   if (!res.ok) throw new Error("Không thể tải danh sách sách.");
   return res.json();
 }

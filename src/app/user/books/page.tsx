@@ -8,7 +8,8 @@ async function getBooks(): Promise<any[]> {
     cache: "no-store",
   });
   if (!res.ok) return [];
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data.filter((b: any) => b.active !== false) : [];
 }
 
 export default async function BooksPage() {
