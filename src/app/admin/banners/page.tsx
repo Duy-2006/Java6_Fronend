@@ -15,10 +15,14 @@ export default function BannerManager() {
   const [formData, setFormData] = useState<Banner>({ image_url: "", link: "", position: 0, active: true });
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
+  
+  // Trạng thái cấu hình phương thức nhập ảnh (Mặc định chọn 'link')
+  const [uploadMode, setUploadMode] = useState<"link" | "file">("link");
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  // 1. Lấy danh sách banner từ API
+  // 1. Tải danh sách banner từ API Backend
   const fetchBanners = async () => {
     try {
       const res = await fetch(`${API_URL}/api/banners`);
@@ -35,9 +39,54 @@ export default function BannerManager() {
     fetchBanners();
   }, []);
 
+  // 1.5. Xử lý tải tập tin ảnh trực tiếp lên Backend
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Đóng gói file vào đối tượng FormData để gửi qua Request HTTP Multipart
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+
+    setIsUploading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${API_URL}/api/banners/upload`, {
+        method: "POST",
+        body: uploadData, // Trình duyệt sẽ tự động thiết lập Header Content-Type phù hợp kèm boundary
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Nhận đường dẫn file ngắn do Backend trả về (Ví dụ: /uploads/banners/xyz.png)
+        const fileUrl = data.fileUrl || data.url || data.image_url;
+        
+        if (fileUrl) {
+          setFormData((prev) => ({ ...prev, image_url: fileUrl }));
+          setMessage("Tải ảnh lên máy chủ thành công!");
+        } else {
+          setMessage("Lỗi: Không lấy được đường dẫn file trả về từ máy chủ.");
+        }
+      } else {
+        setMessage("Lỗi: Máy chủ từ chối file hoặc sai định dạng.");
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối API upload file:", error);
+      setMessage("Không thể kết nối với máy chủ để tải tệp tin.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // 2. Thêm hoặc Sửa banner
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.image_url) {
+      setMessage("Vui lòng nhập đường dẫn hình ảnh hoặc tải file ảnh lên trước!");
+      return;
+    }
+
     const method = isEditing ? "PUT" : "POST";
     const url = isEditing ? `${API_URL}/api/banners/${formData.id}` : `${API_URL}/api/banners`;
 
@@ -54,10 +103,10 @@ export default function BannerManager() {
         setIsEditing(false);
         fetchBanners();
       } else {
-        setMessage("Có lỗi xảy ra khi xử lý.");
+        setMessage("Có lỗi xảy ra khi lưu thông tin.");
       }
     } catch (error) {
-      console.error("Lỗi xử lý Form:", error);
+      console.error("Lỗi dữ liệu xử lý Form:", error);
     }
   };
 
@@ -65,6 +114,8 @@ export default function BannerManager() {
   const handleEdit = (banner: Banner) => {
     setFormData(banner);
     setIsEditing(true);
+    // Tự động nhận diện và chuyển đổi tab hiển thị phù hợp cho Admin
+    setUploadMode(banner.image_url.startsWith("http") ? "link" : "file");
   };
 
   // 4. Xóa banner
@@ -89,7 +140,7 @@ export default function BannerManager() {
       </h2>
 
       {message && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded font-medium">
+        <div className={`mb-4 p-3 border rounded font-medium ${message.includes("Lỗi") ? "bg-red-100 border-red-400 text-red-700" : "bg-green-100 border-green-400 text-green-700"}`}>
           {message}
         </div>
       )}
@@ -99,18 +150,57 @@ export default function BannerManager() {
         <h3 className="text-lg font-semibold text-gray-700 mb-4">
           {isEditing ? "🔄 Cập Nhật Banner" : "➕ Thêm Banner Mới"}
         </h3>
+
+        {/* CHUYỂN ĐỔI PHƯƠNG THỨC NẠP ẢNH */}
+        <div className="flex gap-4 mb-4 border-b pb-2">
+          <button
+            type="button"
+            className={`pb-2 px-2 font-medium text-sm transition-all ${uploadMode === "link" ? "border-b-2 border-blue-600 text-blue-600 font-semibold" : "text-gray-400 hover:text-gray-600"}`}
+            onClick={() => setUploadMode("link")}
+          >
+            🔗 Sử dụng Link ảnh công khai
+          </button>
+          <button
+            type="button"
+            className={`pb-2 px-2 font-medium text-sm transition-all ${uploadMode === "file" ? "border-b-2 border-blue-600 text-blue-600 font-semibold" : "text-gray-400 hover:text-gray-600"}`}
+            onClick={() => setUploadMode("file")}
+          >
+            📁 Tải ảnh lên từ máy tính
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600">Đường dẫn hình ảnh:</label>
-            <input 
-              type="text" 
-              placeholder="Ví dụ: /uploads/banner1.jpg"
-              value={formData.image_url} 
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              required 
-              className="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* Ô NHẬP ẢNH ĐỘNG DỰA TRÊN TAB ĐANG CHỌN */}
+          {uploadMode === "link" ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Đường dẫn hình ảnh (URL):</label>
+              <input 
+                type="text" 
+                placeholder="Ví dụ: https://images.unsplash.com/photo-abc..."
+                value={formData.image_url} 
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                required={uploadMode === "link"} 
+                className="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Chọn file ảnh từ thiết bị:</label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleFileChange}
+                className="mt-1 block w-full p-1.5 border border-gray-300 rounded bg-white text-sm text-gray-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {isUploading && (
+                <p className="text-xs text-amber-600 mt-1 animate-pulse">⏳ Đang tải tệp lên máy chủ, vui lòng đợi...</p>
+              )}
+              {formData.image_url && !isUploading && (
+                <p className="text-xs text-green-600 mt-1 truncate">🎯 Đường dẫn hiện tại: <strong>{formData.image_url}</strong></p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-600">Link liên kết điều hướng (Optional):</label>
             <input 
@@ -144,11 +234,19 @@ export default function BannerManager() {
         </div>
         
         <div className="flex gap-2">
-          <button type="submit" className={`px-4 py-2 rounded text-white font-medium ${isEditing ? "bg-amber-500 hover:bg-amber-600" : "bg-green-600 hover:bg-green-700"}`}>
+          <button 
+            type="submit" 
+            disabled={isUploading}
+            className={`px-4 py-2 rounded text-white font-medium ${isUploading ? "bg-gray-400 cursor-not-allowed" : isEditing ? "bg-amber-500 hover:bg-amber-600" : "bg-green-600 hover:bg-green-700"}`}
+          >
             {isEditing ? "Cập Nhật" : "Thêm Mới"}
           </button>
           {isEditing && (
-            <button type="button" onClick={() => { setIsEditing(false); setFormData({ image_url: "", link: "", position: 0, active: true }); }} className="px-4 py-2 bg-gray-400 text-white rounded font-medium hover:bg-gray-500">
+            <button 
+              type="button" 
+              onClick={() => { setIsEditing(false); setFormData({ image_url: "", link: "", position: 0, active: true }); }} 
+              className="px-4 py-2 bg-gray-400 text-white rounded font-medium hover:bg-gray-500"
+            >
               Hủy Bỏ
             </button>
           )}
