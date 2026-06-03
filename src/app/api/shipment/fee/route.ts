@@ -4,9 +4,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   try {
+    const ghtkToken = process.env.GHTK_API_TOKEN;
+    if (!ghtkToken) {
+      return NextResponse.json(
+        { success: false, message: "Server configuration error: GHTK API token is missing." },
+        { status: 500 }
+      );
+    }
+
     const res = await fetch(`https://services-staging.ghtklab.com/services/shipment/fee?${searchParams.toString()}`, {
       headers: {
-        "Token": "d98A2c8152eA645c38981e7d08c5c76741F70949",
+        "Token": ghtkToken,
         "X-Client-Source": "BookStore"
       }
     });

@@ -10,7 +10,7 @@ interface Category { id: number; name: string }
 interface Book {
   id?: number | null; title: string; isbn?: string;
   authorId?: number | string; publisher?: string; categoryId?: number | string;
-  price: number | string; quantity: number | string; active: boolean;
+  price: number | string; audioPrice?: number | string; quantity: number | string; active: boolean;
   description?: string; imageUrl?: string;
 }
 
@@ -46,6 +46,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
     publisher: book?.publisher ?? "",
     categoryId: book?.categoryId ?? "",
     price: book?.price ?? "",
+    audioPrice: book?.audioPrice ?? "",
     quantity: book?.quantity ?? 0,
     active: book?.active ?? true,
     description: book?.description ?? "",
@@ -91,6 +92,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
       fd.append("publisher", form.publisher ?? "");
       fd.append("categoryId", String(form.categoryId ?? ""));
       fd.append("price", String(form.price));
+      if (form.audioPrice) fd.append("audioPrice", String(form.audioPrice));
       fd.append("quantity", String(form.quantity));
       fd.append("active", String(form.active));
       fd.append("description", form.description ?? "");
@@ -236,6 +238,22 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                       <span className="input-group-text bg-light fw-bold">VNĐ</span>
                     </div>
                     <FieldError msg={errors.price} />
+                  </div>
+
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Giá sách nói (Audio) <span className="text-muted text-sm">(Tùy chọn)</span></label>
+                    <div className="input-group">
+                      <input
+                        type="number"
+                        className="form-control fw-bold text-end text-success"
+                        value={form.audioPrice}
+                        onChange={e => setField("audioPrice", e.target.value)}
+                        placeholder="Để trống nếu không có bản Audio..."
+                        min={0}
+                        step={1000}
+                      />
+                      <span className="input-group-text bg-light fw-bold">VNĐ</span>
+                    </div>
                   </div>
 
                   <div className="col-md-4 mb-3">

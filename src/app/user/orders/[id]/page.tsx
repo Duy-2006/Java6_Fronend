@@ -88,7 +88,7 @@ function OrderDetailContent() {
       return;
     }
 
-    if (order.shippingFee != null) {
+    if (order.shippingFee != null && order.shippingFee > 0) {
       setShippingFee(order.shippingFee);
       return;
     }
@@ -247,6 +247,9 @@ function OrderDetailContent() {
     }
   };
 
+  const details = order?.details || order?.orderDetails || [];
+  const itemsSubtotal = details.reduce((sum: number, item: any) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0);
+
   if (loading) return (
     <div className="bg-gray-100 min-h-screen">
       <Navbar />
@@ -271,8 +274,6 @@ function OrderDetailContent() {
   );
 
   if (!order) return null;
-
-  const details = order.details || order.orderDetails || [];
   const paymentDisplay = getPaymentDisplay(order);
 
   return (
@@ -373,7 +374,7 @@ function OrderDetailContent() {
               <div className="text-right w-full max-w-[280px] space-y-2 text-sm text-gray-600">
                 <div className="flex justify-between">
                   <span>Tạm tính:</span>
-                  <span className="font-semibold text-gray-800">{fmt((order.totalAmount ?? 0) + (order.discountAmount ?? 0))} đ</span>
+                  <span className="font-semibold text-gray-800">{fmt(itemsSubtotal)} đ</span>
                 </div>
                 {order.discountAmount && order.discountAmount > 0 ? (
                   <div className="flex justify-between">
@@ -392,7 +393,7 @@ function OrderDetailContent() {
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t mt-2">
                   <span className="text-gray-600 font-bold">Tổng thanh toán:</span>
-                  <span className="text-xl font-bold text-red-600">{fmt((order.totalAmount ?? 0) + (shippingFee ?? 0))} đ</span>
+                  <span className="text-xl font-bold text-red-600">{fmt(itemsSubtotal - (order.discountAmount ?? 0) + (shippingFee ?? 0))} đ</span>
                 </div>
               </div>
             </div>

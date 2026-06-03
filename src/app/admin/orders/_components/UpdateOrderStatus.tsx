@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Edit, Save, AlertCircle, Check, X } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; allowedNext: string[] }> = {
   PENDING:   { label: "Chờ xác nhận", allowedNext: ["CONFIRMED", "CANCELLED"] },
@@ -23,7 +24,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  // Reset khi chuyển đơn hàng
+  // Reset when status updates
   useEffect(() => {
     setStatus(currentStatus);
     setCancelReason("");
@@ -57,7 +58,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
       setMessage({ type: 'error', text: 'Vui lòng chọn trạng thái khác trước khi lưu.' });
       return;
     }
-    // Nếu chọn hủy đơn thì bắt buộc nhập lý do
+    // Cancel status requires reason
     if (status === "CANCELLED" && !cancelReason.trim()) {
       setMessage({ type: 'error', text: 'Vui lòng nhập lý do hủy đơn hàng.' });
       return;
@@ -90,7 +91,6 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
       if (res.ok) {
         onStatusUpdated?.(status);
         setMessage({ type: 'success', text: 'Cập nhật trạng thái thành công!' });
-        // Reset form sau khi thành công
         setCancelReason("");
         setShowReasonInput(false);
         setTimeout(() => setMessage(null), 3000);
@@ -108,24 +108,43 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
   };
 
   return (
-    <>
+    <div className="space-y-4">
       {message && (
-        <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show mb-3`}>
-          {message.text}
-          <button type="button" className="btn-close" onClick={() => setMessage(null)}></button>
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown text-xs font-semibold ${
+          message.type === 'success' 
+            ? 'bg-green-50 text-green-800 border-green-200' 
+            : 'bg-red-50 text-red-800 border-red-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {message.type === 'success' ? (
+              <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            )}
+            <p>{message.text}</p>
+          </div>
+          <button 
+            type="button" 
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            onClick={() => setMessage(null)}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      <div className="card h-100 shadow-sm" style={{ border: "2px dashed var(--primary-blue)" }}>
-        <div className="card-body">
-          <h6 className="fw-bold text-dark text-uppercase mb-3">
-            <i className="fa-solid fa-pen-to-square me-1" /> Cập nhật trạng thái
+      <div className="bg-white border-2 border-dashed border-[#b70011]/30 rounded-xl p-5 shadow-sm h-full flex flex-col justify-between">
+        <div className="space-y-4">
+          <h6 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Edit className="w-4 h-4 text-[#b70011]" />
+            <span>Cập nhật trạng thái</span>
           </h6>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label className="form-label small text-muted">Trạng thái đơn hàng:</label>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Trạng thái đơn hàng:</label>
               <select
-                className="form-select form-select-lg fw-bold text-primary"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-3.5 text-sm font-bold text-[#b70011] focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none disabled:opacity-50 cursor-pointer"
                 value={status}
                 onChange={handleStatusChange}
                 disabled={availableOptions.length === 0}
@@ -144,20 +163,20 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
             </div>
 
             {showReasonInput && (
-              <div className="mb-3">
-                <label className="form-label small text-muted">
-                  <span className="text-danger">*</span> Lý do hủy đơn:
+              <div className="space-y-1.5 animate__animated animate__fadeIn">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                  <span className="text-[#b70011]">*</span> Lý do hủy đơn:
                 </label>
                 <textarea
-                  className="form-control"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
                   rows={3}
-                  placeholder="Nhập lý do hủy (ví dụ: Khách yêu cầu hủy, Hết hàng, Sai thông tin...)"
+                  placeholder="Nhập lý do hủy đơn (ví dụ: Khách yêu cầu hủy, hết hàng...)"
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   required
                 />
-                <div className="form-text text-muted">
-                  Lý do này sẽ được hiển thị cho khách hàng biết.
+                <div className="text-[10px] text-slate-400 font-semibold">
+                  Lý do này sẽ hiển thị cho khách hàng.
                 </div>
               </div>
             )}
@@ -165,14 +184,14 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
             <button
               type="submit"
               disabled={loading || availableOptions.length === 0 || status === currentStatus}
-              className="btn btn-primary w-100 fw-bold"
+              className="w-full py-2.5 bg-[#b70011] text-white rounded-lg font-bold text-sm hover:bg-[#b70011]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-[#b70011]/10"
             >
-              <i className="fa-solid fa-floppy-disk me-1" />
-              {loading ? "Đang lưu..." : "Lưu thay đổi"}
+              <Save className="w-4 h-4" />
+              <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
             </button>
           </form>
         </div>
       </div>
-    </>
+    </div>
   );
 }

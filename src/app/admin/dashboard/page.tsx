@@ -95,7 +95,7 @@ export default function AdminDashboard() {
       
       // Lọc các đơn hàng đã giao thành công (COMPLETED) để tính tổng doanh thu
       const completedOrders = allOrders.filter(o => o.status === 'COMPLETED');
-      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
       
       const { summary, monthlyRevenue, topBooks, recentTransactions } = data;
 
@@ -109,8 +109,15 @@ export default function AdminDashboard() {
         customersGrowth: summary?.customerGrowth || 0
       });
 
-      // Recent Orders
-      setRecentOrders(recentTransactions || []);
+      // Recent Orders - Cập nhật số tiền bao gồm cả phí ship như trang doanh thu
+      const updatedRecentTransactions = (recentTransactions || []).map((tx: any) => {
+        const orderInfo = allOrders.find((o: any) => o.orderCode === tx.orderCode);
+        return {
+          ...tx,
+          amount: orderInfo ? ((orderInfo.totalAmount ?? 0) + (orderInfo.shippingFee ?? 0)) : tx.amount
+        };
+      });
+      setRecentOrders(updatedRecentTransactions);
 
       // Generate Monthly Trend
       const trendData = (monthlyRevenue || []).map((item: any) => ({

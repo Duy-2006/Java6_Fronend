@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { deletePromotion } from "@/services/promotionServices";
+import { Trash2 } from "lucide-react";
 
 interface Props {
   promoId:   number;
@@ -39,13 +40,14 @@ export default function DeletePromoButton({ promoId, onDeleted }: Props) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      style={{
-        marginRight: 6, fontSize: 13, padding: "6px 10px",
-        borderRadius: 8, border: "1px solid #d1d5db",
-        color: "#dc2626", background: "none", cursor: "pointer",
-      }}
+      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent disabled:opacity-50"
+      title="Xóa"
     >
-      {loading ? "..." : "Xóa"}
+      {loading ? (
+        <span className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent inline-block"></span>
+      ) : (
+        <Trash2 className="w-4 h-4" />
+      )}
     </button>
   );
 }

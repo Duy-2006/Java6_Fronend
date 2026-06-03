@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { 
+  Info, Sparkles, RefreshCw, Calendar, Save, Copy, Check, ChevronRight, HelpCircle
+} from "lucide-react";
 
 export interface VoucherFormData {
   id?: number;
@@ -39,6 +42,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -52,15 +56,29 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
     }
   }, [initialData]);
 
-  // Sửa lỗi TypeScript: không gán undefined vào Record<string, string>
   const setField = (field: keyof VoucherFormData, value: any) => {
     setForm((f) => ({ ...f, [field]: value }));
-    // Xóa lỗi của field đó khỏi errors object
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[field];
       return newErrors;
     });
+  };
+
+  const generateCode = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let randomCode = "";
+    for (let i = 0; i < 8; i++) {
+      randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setField("code", randomCode);
+  };
+
+  const handleCopyCode = () => {
+    const codeToCopy = form.code || "SUMMER2024";
+    navigator.clipboard.writeText(codeToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const validate = (): Record<string, string> => {
@@ -90,15 +108,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
       return;
     }
 
-    // Lấy token từ nhiều nguồn khả dĩ
-    let token = localStorage.getItem("adminToken");
-    if (!token) token = localStorage.getItem("token");
-    if (!token) token = sessionStorage.getItem("adminToken");
-    if (!token) token = sessionStorage.getItem("token");
-
-    // Log để kiểm tra
-    console.log("🔑 Token retrieved:", token ? "Có token (dài " + token.length + ")" : "KHÔNG có token");
-
+    let token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
     if (!token) {
       setServerError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
@@ -118,13 +128,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
         active: form.active,
       };
 
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
       const url = isEdit
-        ? `http://localhost:8080/api/vouchers/admin/${form.id}`
-        : "http://localhost:8080/api/vouchers/admin";
+        ? `${API_URL}/api/vouchers/admin/${form.id}`
+        : `${API_URL}/api/vouchers/admin`;
       const method = isEdit ? "PUT" : "POST";
-
-      console.log(`📡 Gửi request ${method} đến: ${url}`);
-      console.log("📦 Payload:", payload);
 
       const res = await fetch(url, {
         method,
@@ -135,15 +143,12 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
         body: JSON.stringify(payload),
       });
 
-      console.log("📥 Response status:", res.status);
-
       let errorMessage = "";
       try {
         const data = await res.json();
         if (!res.ok) {
           errorMessage = data.error || data.message || (isEdit ? "Cập nhật thất bại" : "Tạo voucher thất bại");
         } else {
-          // Thành công
           router.push("/admin/voucher");
           router.refresh();
           return;
@@ -154,299 +159,329 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
       if (res.status === 401) {
         errorMessage = "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.";
-        // Xóa token cũ
         localStorage.removeItem("adminToken");
         localStorage.removeItem("token");
-        // Có thể redirect về login
-        // router.push("/admin/login");
       }
       throw new Error(errorMessage);
     } catch (err: any) {
-      console.error("❌ Lỗi khi gọi API:", err);
       setServerError(err.message || "Có lỗi xảy ra, vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Preview computations
+  const formatMinOrder = () => {
+    const val = Number(form.minOrderValue);
+    if (!val) return "đơn hàng từ 0đ";
+    if (val >= 1000) {
+      return `đơn hàng từ ${(val / 1000).toLocaleString("vi-VN")}k`;
+    }
+    return `đơn hàng từ ${val.toLocaleString("vi-VN")}đ`;
+  };
+
+  const formatDiscountVal = () => {
+    const val = Number(form.discountValue);
+    if (!val) return "Giảm giá";
+    if (form.discountType === "PERCENT") {
+      return `Giảm ${val}%`;
+    }
+    return `Giảm ${val.toLocaleString("vi-VN")}đ`;
+  };
+
   return (
-    <>
-      <style jsx>{`
-        /* ... giữ nguyên style như cũ ... */
-        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
-        .voucher-wrapper {
-          display: flex;
-          justify-content: center;
-          margin-top: 32px;
-          padding: 0 16px 32px;
-          font-family: 'Be Vietnam Pro', sans-serif;
-        }
-        .voucher-card {
-          max-width: 680px;
-          width: 100%;
-          background: #fff;
-          padding: 32px 28px;
-          border-radius: 16px;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-          border: 1px solid #f0f0f0;
-        }
-        .voucher-card h3 {
-          text-align: center;
-          margin: 0 0 28px;
-          font-size: 19px;
-          font-weight: 700;
-          color: #111827;
-        }
-        .vf-group {
-          margin-bottom: 16px;
-        }
-        .vf-label {
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 6px;
-          display: block;
-          color: #374151;
-        }
-        .vf-input, .vf-select {
-          width: 100%;
-          padding: 10px 13px;
-          border-radius: 9px;
-          border: 1.5px solid #e5e7eb;
-          font-size: 14px;
-          color: #111827;
-          background: #fafafa;
-          transition: border-color .2s, box-shadow .2s;
-          box-sizing: border-box;
-          font-family: inherit;
-        }
-        .vf-input:focus, .vf-select:focus {
-          outline: none;
-          border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99,102,241,.12);
-          background: #fff;
-        }
-        .vf-input.error, .vf-select.error {
-          border-color: #c0392b !important;
-        }
-        .vf-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 8px;
-        }
-        .vf-checkbox input {
-          width: 16px;
-          height: 16px;
-          accent-color: #6366f1;
-        }
-        .vf-date-row {
-          display: flex;
-          gap: 12px;
-        }
-        .vf-date-row .vf-group {
-          flex: 1;
-        }
-        .vf-submit {
-          width: 100%;
-          margin-top: 20px;
-          padding: 13px;
-          background: linear-gradient(135deg, #6366f1, #22c55e);
-          border: none;
-          border-radius: 10px;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          font-family: inherit;
-          transition: opacity .2s;
-        }
-        .vf-submit:hover {
-          opacity: .92;
-        }
-        .vf-submit:disabled {
-          opacity: .6;
-          cursor: not-allowed;
-        }
-        .vf-cancel {
-          display: block;
-          width: 100%;
-          margin-top: 10px;
-          padding: 11px;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 10px;
-          color: #6b7280;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          text-align: center;
-          text-decoration: none;
-          transition: background .2s;
-          font-family: inherit;
-        }
-        .vf-cancel:hover {
-          background: #e5e7eb;
-          color: #374151;
-        }
-        .vf-error-box {
-          background: #fee2e2;
-          color: #991b1b;
-          padding: 10px 14px;
-          border-radius: 9px;
-          font-size: 13px;
-          margin-bottom: 14px;
-          border: 1px solid #fca5a5;
-        }
-        .field-error {
-          color: #c0392b;
-          font-size: 12px;
-          margin-top: 4px;
-        }
-        .vf-note {
-          text-align: center;
-          font-size: 12px;
-          color: #9ca3af;
-          margin-top: 12px;
-          line-height: 1.5;
-        }
-        .inline-hint {
-          font-size: 11px;
-          color: #6c757d;
-          margin-top: 2px;
-        }
-      `}</style>
+    <div className="max-w-4xl mx-auto w-full p-4 md:p-6 animate__animated animate__fadeIn font-sans">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-2xl font-bold text-[#191c1e] font-sans">
+            {isEdit ? "Chỉnh sửa Voucher" : "Thêm Voucher mới"}
+          </h2>
+          <nav className="flex items-center gap-1.5 text-xs text-[#5c403c] mt-1.5">
+            <Link href="/admin/voucher" className="hover:text-[#b70011] transition-colors">Vouchers</Link>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="text-[#b70011] font-bold">
+              {isEdit ? "Cập nhật" : "Tạo mới"}
+            </span>
+          </nav>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/voucher"
+            className="px-5 py-2 border border-[#916f6b]/50 rounded-xl font-semibold text-xs text-[#5c403c] hover:bg-[#eceef0] transition-all cursor-pointer text-center"
+          >
+            Hủy
+          </Link>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-5 py-2 bg-[#b70011] hover:bg-[#b70011]/90 text-white rounded-xl font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block"></span>
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {isEdit ? "Lưu thay đổi" : "Lưu Voucher"}
+          </button>
+        </div>
+      </div>
 
-      <div className="voucher-wrapper">
-        <div className="voucher-card">
-          <h3>{isEdit ? "✏️ Chỉnh sửa voucher" : "➕ Thêm voucher mới"}</h3>
+      {serverError && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 mb-6 text-sm font-sans">
+          {serverError}
+        </div>
+      )}
 
-          {serverError && (
-            <div className="vf-error-box">⚠️ {serverError}</div>
-          )}
-
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="vf-group">
-              <label className="vf-label">Mã voucher <span style={{ color: "#c0392b" }}>*</span></label>
-              <input
-                className={`vf-input ${errors.code ? "error" : ""}`}
-                type="text"
-                value={form.code}
-                onChange={(e) => setField("code", e.target.value)}
-                placeholder="VD: SUMMER20"
-                maxLength={20}
-              />
-              {errors.code && <div className="field-error">{errors.code}</div>}
-              <div className="inline-hint">Sẽ tự động chuyển thành chữ hoa, không dấu</div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Main Grid Card Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Card 1: General Info */}
+          <div className="bg-white p-6 rounded-xl border border-[#e6bdb8]/30 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[#e6bdb8]/10">
+              <div className="p-2 bg-[#ffdad6] text-[#b70011] rounded-lg">
+                <Info className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-[#191c1e]">Thông tin chung</h3>
             </div>
 
-            <div className="vf-group">
-              <label className="vf-label">Loại giảm giá</label>
+            {/* Voucher Code */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Mã Voucher <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setField("code", e.target.value.toUpperCase())}
+                  placeholder="VD: SUMMER20"
+                  maxLength={20}
+                  className={`flex-1 bg-slate-50 border ${errors.code ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm font-bold tracking-widest focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
+                />
+                <button
+                  type="button"
+                  onClick={generateCode}
+                  className="bg-[#e0e3e5] hover:bg-[#e6e8ea] px-4 py-2 rounded-xl text-[#b70011] text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Tạo mã
+                </button>
+              </div>
+              {errors.code && <p className="mt-1 text-xs text-red-600 font-medium">{errors.code}</p>}
+              <p className="mt-1.5 text-[11px] text-[#916f6b]">Mã tự động chuyển thành in hoa không dấu</p>
+            </div>
+
+            {/* Active Toggle Switch */}
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-[#e6bdb8]/10 mt-6">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-[#191c1e]">Kích hoạt Voucher</span>
+                <span className="text-[10px] text-[#916f6b]">Cho phép khách hàng sử dụng ngay sau khi tạo</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setField("active", e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#b70011]"></div>
+              </label>
+            </div>
+          </div>
+
+          {/* Card 2: Discount Config */}
+          <div className="bg-white p-6 rounded-xl border border-[#e6bdb8]/30 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[#e6bdb8]/10">
+              <div className="p-2 bg-[#ffdad6] text-[#b70011] rounded-lg">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-[#191c1e]">Cấu hình giảm giá</h3>
+            </div>
+
+            {/* Discount Type */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Loại giảm giá
+              </label>
               <select
-                className="vf-select"
                 value={form.discountType}
                 onChange={(e) => setField("discountType", e.target.value as any)}
+                className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20 cursor-pointer"
               >
                 <option value="PERCENT">Phần trăm (%)</option>
                 <option value="FIXED">Số tiền cố định (VNĐ)</option>
               </select>
             </div>
 
-            <div className="vf-group">
-              <label className="vf-label">Giá trị giảm <span style={{ color: "#c0392b" }}>*</span></label>
-              <input
-                className={`vf-input ${errors.discountValue ? "error" : ""}`}
-                type="number"
-                step="any"
-                value={form.discountValue}
-                onChange={(e) => setField("discountValue", e.target.value)}
-                placeholder={form.discountType === "PERCENT" ? "VD: 10 (10%)" : "VD: 50000"}
-              />
-              {errors.discountValue && <div className="field-error">{errors.discountValue}</div>}
+            {/* Discount Value */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Giá trị giảm <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="any"
+                  value={form.discountValue}
+                  onChange={(e) => setField("discountValue", e.target.value)}
+                  placeholder={form.discountType === "PERCENT" ? "Ví dụ: 15 (15%)" : "Ví dụ: 50000"}
+                  className={`w-full bg-slate-50 border ${errors.discountValue ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
+                  {form.discountType === "PERCENT" ? "%" : "VNĐ"}
+                </span>
+              </div>
+              {errors.discountValue && <p className="mt-1 text-xs text-red-600 font-medium">{errors.discountValue}</p>}
             </div>
 
-            <div className="vf-group">
-              <label className="vf-label">Đơn hàng tối thiểu (VNĐ)</label>
+            {/* Max Discount (Only for PERCENT type) */}
+            {form.discountType === "PERCENT" && (
+              <div>
+                <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                  Mức giảm tối đa (VNĐ)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.maxDiscount ?? ""}
+                    onChange={(e) => setField("maxDiscount", e.target.value)}
+                    placeholder="Để trống nếu không giới hạn"
+                    className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
+                    VNĐ
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] text-[#916f6b]">Chỉ áp dụng cho hình thức giảm theo phần trăm</p>
+              </div>
+            )}
+          </div>
+
+          {/* Card 3: Conditions */}
+          <div className="bg-white p-6 rounded-xl border border-[#e6bdb8]/30 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[#e6bdb8]/10">
+              <div className="p-2 bg-[#ffdad6] text-[#b70011] rounded-lg">
+                <HelpCircle className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-[#191c1e]">Điều kiện áp dụng</h3>
+            </div>
+
+            {/* Min Order Value */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Đơn hàng tối thiểu (VNĐ)
+              </label>
               <input
-                className={`vf-input ${errors.minOrderValue ? "error" : ""}`}
                 type="number"
                 step="any"
                 value={form.minOrderValue}
                 onChange={(e) => setField("minOrderValue", e.target.value)}
-                placeholder="0 = không yêu cầu"
+                placeholder="0 = không yêu cầu tối thiểu"
+                className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20"
               />
-              {errors.minOrderValue && <div className="field-error">{errors.minOrderValue}</div>}
+              {errors.minOrderValue && <p className="mt-1 text-xs text-red-600 font-medium">{errors.minOrderValue}</p>}
             </div>
 
-            {form.discountType === "PERCENT" && (
-              <div className="vf-group">
-                <label className="vf-label">Giảm tối đa (VNĐ)</label>
-                <input
-                  className={`vf-input ${errors.maxDiscount ? "error" : ""}`}
-                  type="number"
-                  step="any"
-                  value={form.maxDiscount ?? ""}
-                  onChange={(e) => setField("maxDiscount", e.target.value)}
-                  placeholder="Để trống nếu không giới hạn"
-                />
-                <div className="inline-hint">Chỉ áp dụng khi giảm theo phần trăm</div>
-              </div>
-            )}
-
-            <div className="vf-group">
-              <label className="vf-label">Số lượt sử dụng tối đa</label>
+            {/* Total Usage Limit */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Số lượt sử dụng tối đa
+              </label>
               <input
-                className={`vf-input ${errors.usageLimit ? "error" : ""}`}
                 type="number"
                 value={form.usageLimit}
                 onChange={(e) => setField("usageLimit", e.target.value)}
                 placeholder="Mặc định: 100"
+                className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20"
               />
-              {errors.usageLimit && <div className="field-error">{errors.usageLimit}</div>}
+              {errors.usageLimit && <p className="mt-1 text-xs text-red-600 font-medium">{errors.usageLimit}</p>}
+            </div>
+          </div>
+
+          {/* Card 4: Date Config */}
+          <div className="bg-white p-6 rounded-xl border border-[#e6bdb8]/30 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[#e6bdb8]/10">
+              <div className="p-2 bg-[#ffdad6] text-[#b70011] rounded-lg">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-[#191c1e]">Thời gian áp dụng</h3>
             </div>
 
-            <div className="vf-date-row">
-              <div className="vf-group">
-                <label className="vf-label">Ngày bắt đầu <span style={{ color: "#c0392b" }}>*</span></label>
-                <input
-                  className={`vf-input ${errors.startDate ? "error" : ""}`}
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => setField("startDate", e.target.value)}
-                />
-                {errors.startDate && <div className="field-error">{errors.startDate}</div>}
-              </div>
-              <div className="vf-group">
-                <label className="vf-label">Ngày kết thúc <span style={{ color: "#c0392b" }}>*</span></label>
-                <input
-                  className={`vf-input ${errors.endDate ? "error" : ""}`}
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => setField("endDate", e.target.value)}
-                />
-                {errors.endDate && <div className="field-error">{errors.endDate}</div>}
-              </div>
-            </div>
-
-            <div className="vf-checkbox">
+            {/* Start Date */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Ngày bắt đầu <span className="text-red-500">*</span>
+              </label>
               <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setField("active", e.target.checked)}
-                id="active"
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setField("startDate", e.target.value)}
+                className={`w-full bg-slate-50 border ${errors.startDate ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
               />
-              <label htmlFor="active" className="vf-label" style={{ marginBottom: 0 }}>Kích hoạt</label>
+              {errors.startDate && <p className="mt-1 text-xs text-red-600 font-medium">{errors.startDate}</p>}
             </div>
 
-            <button type="submit" className="vf-submit" disabled={loading}>
-              {loading ? "Đang xử lý..." : isEdit ? "Lưu thay đổi" : "Tạo voucher"}
-            </button>
-            <Link href="/admin/voucher" className="vf-cancel">Hủy</Link>
-            <p className="vf-note">
-              Voucher sau khi tạo có thể được quản lý, chỉnh sửa hoặc vô hiệu hóa trong danh sách.
-            </p>
-          </form>
+            {/* End Date */}
+            <div>
+              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Ngày kết thúc <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => setField("endDate", e.target.value)}
+                className={`w-full bg-slate-50 border ${errors.endDate ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
+              />
+              {errors.endDate && <p className="mt-1 text-xs text-red-600 font-medium">{errors.endDate}</p>}
+            </div>
+          </div>
         </div>
-      </div>
-    </>
+
+        {/* Real-time Atmospheric Ticket Preview */}
+        <div className="mt-8 bg-gradient-to-r from-[#b70011] to-[#8a000d] p-8 rounded-2xl shadow-md text-white relative overflow-hidden group">
+          {/* Subtle circles background pattern */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none transition-transform duration-1000 group-hover:scale-110">
+            <svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="circlePattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <circle cx="20" cy="20" r="1.5" fill="white" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#circlePattern)" />
+            </svg>
+          </div>
+
+          <div className="relative z-10 text-center flex flex-col items-center">
+            <div className="inline-block p-4 bg-white/10 backdrop-blur-md rounded-full mb-4">
+              <div className="w-8 h-8 flex items-center justify-center font-bold text-lg border-2 border-white rounded-md">
+                %
+              </div>
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest opacity-80 mb-1">
+              Xem trước thẻ Voucher
+            </p>
+            <h4 className="text-xl md:text-2xl font-bold leading-tight mb-3">
+              {formatDiscountVal()} {formatMinOrder()}
+            </h4>
+            
+            <div className="bg-white/20 px-6 py-2.5 rounded-lg inline-flex items-center gap-3 border border-white/30 backdrop-blur-sm">
+              <span className="text-base font-bold tracking-widest font-mono">
+                {form.code || "SUMMER2024"}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="hover:text-[#ffdad6] transition-colors focus:outline-none"
+                title="Sao chép mã"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }

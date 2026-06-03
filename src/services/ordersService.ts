@@ -40,6 +40,8 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   orderDate?: string;
+  shippingFee?: number;
+  discountAmount?: number;
   totalAmount?: number;
   status: string;
 }

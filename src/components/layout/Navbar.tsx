@@ -15,6 +15,12 @@ export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
   const [keyword, setKeyword] = useState("");
 
+  // States for Image Search
+  const [showImageSearchModal, setShowImageSearchModal] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   // Lấy user, categories, cart count
@@ -27,7 +33,6 @@ export default function Navbar() {
       } catch (e) { console.error(e); }
     }
 
-    // Nếu đang ở route auth (login, register, forgot-password...) thì không gọi API /me
     const isAuthRoute = pathname === '/auth/login' || pathname === '/auth/register' || pathname === '/auth/forgot-password';
     if (token && !isAuthRoute) {
       fetch(`${API_URL}/api/auth/me`, {
@@ -41,7 +46,7 @@ export default function Navbar() {
         .catch(() => { });
     }
 
-    // Lấy danh mục (public)
+    // Lấy danh mục
     fetch(`${API_URL}/api/categories`)
       .then(r => r.ok ? r.json() : [])
       .then(setCategories)
@@ -91,106 +96,313 @@ export default function Navbar() {
     router.refresh();
   };
 
+  const handleImageSearchClick = () => {
+    setShowImageSearchModal(true);
+    setImagePreview(null);
+    setIsScanning(false);
+    setImageSearchResults([]);
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+        setIsScanning(true);
+        setImageSearchResults([]);
+        
+        // Giả lập quét ảnh tìm sách trong 2.5 giây
+        setTimeout(() => {
+          setIsScanning(false);
+          setImageSearchResults([
+            { id: 1, title: "Mắt Biếc", author: "Nguyễn Nhật Ánh", price: 110000, image: "/images/book-default.jpg" },
+            { id: 2, title: "Cho Tôi Xin Một Vé Đi Tuổi Thơ", author: "Nguyễn Nhật Ánh", price: 85000, image: "/images/book-default.jpg" }
+          ]);
+        }, 2500);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <>
-      {/* Banner quảng cáo */}
-      <div className="w-full bg-[#C92127] h-[48px] flex justify-center items-center overflow-hidden cursor-pointer">
-        <p className="text-white text-sm font-bold animate-pulse">🎉 MIỄN PHÍ GIAO HÀNG cho đơn từ 500K — Ưu đãi có hạn!</p>
+      {/* Component-specific scanner line animation */}
+      <style>{`
+        @keyframes scanAnimation {
+          0% { top: 0%; }
+          50% { top: 100%; }
+          100% { top: 0%; }
+        }
+        .scan-line {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background-color: #b70011;
+          box-shadow: 0 0 15px #b70011;
+          animation: scanAnimation 2s infinite ease-in-out;
+        }
+      `}</style>
+
+      {/* Top Banner */}
+      <div className="bg-[#b70011] text-white py-2 px-6 text-center text-xs font-semibold tracking-wide sticky top-0 z-[70] uppercase">
+        SĂN DEAL HÈ RỰC RỠ - GIẢM ĐẾN 50% TOÀN BỘ SÁCH NÓI.{" "}
+        <a className="underline font-bold ml-2 hover:opacity-80 transition-all duration-300" href="#">XEM NGAY</a>
       </div>
 
-      <header className="bg-white shadow-sm sticky top-0 z-[1000]">
-        <div className="max-w-[1230px] mx-auto flex items-center gap-6 px-4 py-3">
-          {/* Logo */}
-          <Link href="/" className="block">
-            <span className="text-2xl font-black text-[#C92127] tracking-tight">📚 BOOKSTORE</span>
-          </Link>
+      {/* Header / Navigation */}
+      <nav className="bg-white/95 backdrop-blur-xl sticky top-8 w-full z-[60] border-b border-[#eceef0] shadow-sm">
+        <div className="flex items-center justify-between px-6 h-20 w-full max-w-7xl mx-auto gap-8">
+          {/* Logo & Catalog */}
+          <div className="flex items-center gap-8 flex-shrink-0">
+            <Link href="/" className="font-extrabold tracking-tight group text-2xl flex items-center">
+              <span className="text-[#b70011] group-hover:text-[#dc2626] transition-all duration-300">BOOKS</span>
+              <span className="text-[#191c1e] font-light">STORE</span>
+            </Link>
 
-          {/* Mega menu danh mục */}
-          <div className="relative group/mega">
-            <button className="flex items-center hover:text-red-600 transition">
-              <span className="material-symbols-outlined text-3xl text-gray-500 group-hover/mega:text-red-600 transition">widgets</span>
-            </button>
-            <div className="absolute top-[calc(100%+8px)] left-0 w-[900px] bg-white shadow-2xl rounded-xl border border-gray-100
-              invisible opacity-0 group-hover/mega:visible group-hover/mega:opacity-100 transition-all duration-200 flex z-[2000]">
-              <div className="w-[260px] bg-gray-50 border-r rounded-l-xl overflow-hidden py-2">
-                {categories.map(c => (
-                  <Link key={c.id} href={`/user/category/${c.id}`}
-                    className="flex items-center justify-between px-5 py-2.5 hover:bg-white hover:text-red-600 cursor-pointer transition text-sm font-medium">
-                    {c.name}
-                    <span className="material-symbols-outlined text-sm opacity-40">chevron_right</span>
-                  </Link>
-                ))}
-              </div>
-              <div className="flex-1 p-6 bg-white rounded-r-xl">
-                <p className="text-xs text-gray-400 italic">Chọn danh mục để khám phá sách...</p>
+            <div className="hidden lg:flex items-center">
+              {/* Catalog / Mega Menu Trigger */}
+              <div className="relative group/mega h-20 flex items-center">
+                <button className="flex items-center gap-1.5 text-[#191c1e] text-[15px] font-semibold hover:text-[#b70011] transition-all duration-300">
+                  Danh mục
+                  <span className="material-symbols-outlined text-sm">expand_more</span>
+                </button>
+                {/* Mega Menu Content */}
+                <div className="absolute top-full left-0 w-[600px] bg-white shadow-2xl rounded-2xl border border-[#eceef0] p-8 invisible opacity-0 -translate-y-2 group-hover/mega:visible group-hover/mega:opacity-100 group-hover/mega:translate-y-0 transition-all duration-300 z-[100] flex gap-8">
+                  <div className="w-1/2 pr-4">
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-[#b70011] mb-5">Danh mục nổi bật</h4>
+                    <ul className="space-y-4 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
+                      {categories.map((c) => (
+                        <li key={c.id}>
+                          <Link href={`/user/category/${c.id}`} className="flex items-center gap-3 text-[#191c1e] hover:text-[#b70011] transition-all duration-300 font-medium text-sm">
+                            <span className="material-symbols-outlined text-gray-400 text-base">auto_stories</span> {c.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  {/* Gợi ý hôm nay */}
+                  <div className="w-1/2 bg-[#f2f4f6] rounded-xl p-6 flex flex-col justify-between">
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-4">Gợi ý hôm nay</h4>
+                    <div className="flex gap-4">
+                      <div className="w-16 h-24 bg-gray-300 rounded shadow-sm overflow-hidden flex-shrink-0">
+                        <img
+                          alt="Sách hot"
+                          className="w-full h-full object-cover"
+                          src="/images/book-default.jpg"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = "/images/book-default.jpg";
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-[#191c1e] leading-tight mb-1">Mắt Biếc</p>
+                        <p className="text-xs text-gray-500 mb-3">Nguyễn Nhật Ánh</p>
+                        <Link className="text-[#b70011] text-[11px] font-bold hover:underline" href="/user/books/1">Chi tiết →</Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Thanh tìm kiếm */}
-          <div className="flex-1">
-            <form onSubmit={handleSearch} className="relative">
+          {/* Search bar - flex-1 and max-w-[650px] to expand beautifully */}
+          <div className="flex-1 max-w-[650px] hidden md:block">
+            <form onSubmit={handleSearch} className="relative w-full">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#b70011] text-xl">search</span>
               <input
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
-                className="w-full h-10 border-2 border-gray-100 rounded-lg pl-4 pr-12 text-sm outline-none focus:border-red-600"
+                className="py-2.5 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400"
+                style={{ paddingLeft: "44px", paddingRight: "44px" }}
                 placeholder="Tìm kiếm sách, tác giả..."
+                type="text"
               />
-              <button
-                type="submit"
-                className="absolute right-1 top-1 bottom-1 w-8 bg-[#C92127] text-white rounded-md flex items-center justify-center hover:bg-red-300"
+              {/* Image Search Button inside the search bar */}
+              <button 
+                type="button" 
+                onClick={handleImageSearchClick}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#b70011] transition-all duration-300 flex items-center justify-center"
+                title="Tìm kiếm bằng hình ảnh"
               >
-                <span className="material-symbols-outlined text-base">search</span>
+                <span className="material-symbols-outlined text-xl">photo_camera</span>
               </button>
             </form>
           </div>
 
-          {/* Giỏ hàng */}
-          <button onClick={handleCartClick} className="flex flex-col items-center hover:text-red-600 transition relative text-gray-500">
-            <span className="material-symbols-outlined text-2xl">shopping_cart</span>
-            <span className="text-[11px] font-bold">Giỏ hàng</span>
-            {cartCount > 0 && (
-              <span className="absolute -top-1 right-1 bg-orange-500 text-white text-[10px] px-1.5 rounded-full border border-white font-bold">
-                {cartCount}
-              </span>
-            )}
-          </button>
-
-          {/* User menu */}
-          {user ? (
-            <div className="relative group/user text-gray-500">
-              <button className="flex flex-col items-center hover:text-red-600 transition">
-                <span className="material-symbols-outlined text-2xl">person</span>
-                <span className="text-[11px] font-bold whitespace-nowrap max-w-[70px] truncate">
-                  {user.name}
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Cart Button */}
+            <button onClick={handleCartClick} className="relative p-2.5 text-[#191c1e] hover:bg-[#b70011]/10 hover:text-[#b70011] transition-all duration-300 rounded-full group">
+              <span className="material-symbols-outlined text-[26px]">shopping_cart</span>
+              {cartCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-[#b70011] text-white text-[10px] flex items-center justify-center rounded-full font-bold group-hover:scale-110 transition-transform duration-300">
+                  {cartCount}
                 </span>
-              </button>
-              <div className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-xl
-                invisible group-hover/user:visible opacity-0 group-hover/user:opacity-100 transition-all duration-200 z-[100]">
-                <div className="px-4 py-3 bg-gray-50 rounded-t-xl border-b text-center">
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Xin chào,</p>
-                  <p className="text-sm font-bold truncate text-red-600">{user.name}</p>
-                </div>
-                <Link href="/user/profile" className="flex items-center gap-2 px-4 py-3 hover:bg-red-50 text-sm text-gray-700 border-b">
-                  Thông tin tài khoản
-                </Link>
-                <Link href="/user/my-orders" className="flex items-center gap-2 px-4 py-3 hover:bg-red-50 text-sm text-gray-700 border-b">
-                  Đơn hàng của tôi
-                </Link>
-                
-                <button onClick={handleLogout} className="w-full text-left flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-red-50 text-sm font-bold rounded-b-xl">
-                  Đăng xuất
+              )}
+            </button>
+
+            {/* User Dropdown / Login */}
+            {user ? (
+              <div className="relative group/user h-20 flex items-center">
+                <button className="flex items-center gap-2 p-1.5 pr-4 rounded-full hover:bg-[#f2f4f6] transition-all duration-300">
+                  <div className="w-9 h-9 rounded-full bg-[#eceef0] flex items-center justify-center overflow-hidden border border-[#eceef0]">
+                    <span className="material-symbols-outlined text-gray-500">person</span>
+                  </div>
+                  <span className="text-sm font-semibold text-[#191c1e] hidden sm:block max-w-[100px] truncate">{user.name}</span>
                 </button>
+                {/* User Dropdown */}
+                <div className="absolute top-[80%] right-0 w-64 bg-white shadow-2xl rounded-2xl border border-[#eceef0] overflow-hidden invisible opacity-0 -translate-y-2 group-hover/user:visible group-hover/user:opacity-100 group-hover/user:translate-y-0 transition-all duration-300 z-[100]">
+                  <div className="p-5 border-b border-[#f2f4f6]">
+                    <p className="text-xs text-gray-400 font-medium mb-0.5">Xin chào,</p>
+                    <p className="font-bold text-[#191c1e] truncate">{user.name}</p>
+                  </div>
+                  <div className="p-2">
+                    <Link className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f2f4f6] text-[#191c1e] text-sm transition-all duration-300" href="/user/profile">
+                      <span className="material-symbols-outlined text-lg text-gray-500">account_circle</span> Hồ sơ của tôi
+                    </Link>
+                    <Link className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f2f4f6] text-[#191c1e] text-sm transition-all duration-300" href="/user/my-orders">
+                      <span className="material-symbols-outlined text-lg text-gray-500">package_2</span> Đơn hàng của tôi
+                    </Link>
+                    <Link className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f2f4f6] text-[#191c1e] text-sm transition-all duration-300" href="/user/my-audiobooks">
+                      <span className="material-symbols-outlined text-lg text-gray-500">headphones</span> Sách nói của tôi
+                    </Link>
+                  </div>
+                  <div className="p-2 bg-white border-t border-[#f2f4f6]">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#ffdad6]/40 text-[#ba1a1a] text-sm font-bold transition-all duration-300">
+                      <span className="material-symbols-outlined text-lg">logout</span> Đăng xuất
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <Link href="/auth/login" className="flex flex-col items-center hover:text-red-600 transition text-gray-500">
-              <span className="material-symbols-outlined text-2xl">person</span>
-              <span className="text-[11px] font-bold">Đăng nhập</span>
-            </Link>
-          )}
+            ) : (
+              <Link href="/auth/login" className="flex items-center gap-2 p-2 px-4 rounded-full bg-[#b70011] text-white hover:bg-[#dc2626] transition-all duration-300 font-semibold text-sm">
+                <span className="material-symbols-outlined text-lg">login</span> Đăng nhập
+              </Link>
+            )}
+          </div>
         </div>
-      </header>
+      </nav>
+
+      {/* Modal Tìm kiếm bằng hình ảnh */}
+      {showImageSearchModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-gray-100 transition-all duration-300">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-[#191c1e] text-lg flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#b70011]">photo_camera</span>
+                Tìm kiếm bằng hình ảnh
+              </h3>
+              <button 
+                onClick={() => setShowImageSearchModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-black transition-all flex items-center justify-center"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {!imagePreview ? (
+                // Chưa chọn ảnh
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-10 cursor-pointer hover:bg-gray-50 hover:border-[#b70011] transition-all group">
+                  <span className="material-symbols-outlined text-5xl text-gray-400 group-hover:text-[#b70011] transition-all mb-4">cloud_upload</span>
+                  <span className="text-sm font-semibold text-gray-700 group-hover:text-black transition-all">Kéo thả hoặc click để tải ảnh bìa sách</span>
+                  <span className="text-xs text-gray-400 mt-2">Hỗ trợ JPG, PNG (tối đa 5MB)</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleImageFileChange} 
+                  />
+                </label>
+              ) : (
+                // Đã chọn ảnh
+                <div className="space-y-6">
+                  <div className="relative aspect-video max-h-56 bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center">
+                    <img src={imagePreview} alt="Preview" className="h-full w-auto object-contain" />
+                    
+                    {/* Đường quét quét chuyển động */}
+                    {isScanning && (
+                      <div className="scan-line"></div>
+                    )}
+                  </div>
+
+                  {isScanning ? (
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <div className="w-8 h-8 border-4 border-[#b70011]/20 border-t-[#b70011] rounded-full animate-spin mb-3"></div>
+                      <p className="text-sm font-medium text-gray-700">Đang quét và phân tích hình ảnh bìa sách...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Kết quả khớp nhất</h4>
+                      <div className="space-y-3">
+                        {imageSearchResults.length > 0 ? (
+                          imageSearchResults.map((book) => (
+                            <Link 
+                              key={book.id} 
+                              href={`/user/books/${book.id}`}
+                              onClick={() => setShowImageSearchModal(false)}
+                              className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-[#b70011]/30 hover:bg-gray-50 transition-all group"
+                            >
+                              <div className="w-12 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                                <img
+                                  src={book.image}
+                                  alt={book.title}
+                                  className="w-full h-full object-cover animate-pulse"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.onerror = null;
+                                    target.src = "/images/book-default.jpg";
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-[#191c1e] truncate group-hover:text-[#b70011] transition-all">{book.title}</p>
+                                <p className="text-xs text-gray-500">{book.author}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-sm text-[#b70011]">{book.price.toLocaleString('vi-VN')}đ</p>
+                                <p className="text-[10px] text-green-600 font-medium">98% Khớp</p>
+                              </div>
+                            </Link>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500 text-center py-4">Không tìm thấy sách phù hợp. Vui lòng thử lại với ảnh rõ hơn.</p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          onClick={() => setImagePreview(null)}
+                          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all"
+                        >
+                          Chọn ảnh khác
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setShowImageSearchModal(false);
+                            router.push(`/user/search?keyword=${encodeURIComponent("Nguyễn Nhật Ánh")}`);
+                          }}
+                          className="flex-1 py-2.5 rounded-xl bg-[#b70011] text-white text-sm font-semibold hover:bg-[#dc2626] transition-all"
+                        >
+                          Xem tất cả kết quả
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

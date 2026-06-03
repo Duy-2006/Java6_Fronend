@@ -1,13 +1,11 @@
 "use client";
 
-// ⚠️ Phải là client component vì cần localStorage để lấy token
-// Server component không thể đọc localStorage
-
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import PromotionForm from "@/app/admin/promotions/_components/PromotionForm";
 import { getPromotionById, getPromotionFormData } from "@/services/promotionServices";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 
 interface Book     { id: number; title: string }
 interface Category { id: number; name:  string }
@@ -29,7 +27,7 @@ export default function EditPromotionPage() {
       "";
 
     if (!token) {
-      setError("Chưa đăng nhập. Vui lòng đăng nhập lại.");
+      setError("Chưa đăng nhập hoặc phiên làm việc hết hạn. Vui lòng đăng nhập lại.");
       setLoading(false);
       return;
     }
@@ -43,34 +41,46 @@ export default function EditPromotionPage() {
         setBooks(formData.books);
         setCategories(formData.categories);
       })
-      .catch(err => setError(err.message || "Không thể tải dữ liệu."))
+      .catch(err => setError(err.message || "Không thể tải dữ liệu chương trình khuyến mãi."))
       .finally(() => setLoading(false));
   }, [params.id]);
 
-  if (loading) return (
-    <div style={{ textAlign: "center", padding: "60px", color: "#6b7280", fontSize: 15 }}>
-      Đang tải dữ liệu...
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="min-h-[400px] w-full flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 text-[#b70011] animate-spin" />
+        <p className="text-sm font-semibold text-[#5c403c] animate-pulse">
+          Đang tải dữ liệu chương trình khuyến mãi...
+        </p>
+      </div>
+    );
+  }
 
-  if (error) return (
-    <div style={{ maxWidth: 500, margin: "60px auto", background: "#fee2e2",
-      color: "#991b1b", padding: "20px 24px", borderRadius: 12, fontSize: 14 }}>
-      ⚠️ {error}
-      <br />
-      <button
-        onClick={() => router.push("/admin/promotions")}
-        style={{ marginTop: 12, padding: "8px 16px", borderRadius: 8,
-          border: "none", background: "#991b1b", color: "#fff", cursor: "pointer", fontSize: 13 }}
-      >
-        Quay lại danh sách
-      </button>
-    </div>
-  );
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto my-12 bg-red-50 border border-red-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-red-100 text-red-700 rounded-lg">
+            <AlertCircle className="w-5 h-5" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <h3 className="text-sm font-bold text-red-800">Đã xảy ra lỗi</h3>
+            <p className="text-xs text-red-700 leading-relaxed">{error}</p>
+            <button
+              onClick={() => router.push("/admin/promotions")}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-red-800 hover:bg-red-900 text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Quay lại danh sách
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!promo) return null;
 
-  // ✅ DTO trả về bookIds / categoryIds — KHÔNG phải promo.books / promo.categories
   const selectedBookIds:     number[] = promo.bookIds     ?? [];
   const selectedCategoryIds: number[] = promo.categoryIds ?? [];
 

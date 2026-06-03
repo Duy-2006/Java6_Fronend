@@ -10,11 +10,11 @@ import Navbar from "@/components/layout/Navbar";
 // ================================================================
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: "Chờ xác nhận", cls: "bg-amber-500/8 text-[#b45309] border border-amber-500/20" },
-  CONFIRMED: { label: "Đã xác nhận", cls: "bg-[#0066cc]/8 text-[#0066cc] border border-[#0066cc]/20" },
-  SHIPPING: { label: "Đang giao", cls: "bg-purple-500/8 text-purple-700 border border-purple-500/20" },
-  COMPLETED: { label: "Hoàn thành", cls: "bg-[#34c759]/8 text-[#008a00] border border-[#34c759]/20" },
-  CANCELLED: { label: "Đã hủy", cls: "bg-[#C92127]/8 text-[#C92127] border border-[#C92127]/20" },
+  PENDING: { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
+  CONFIRMED: { label: "Đã xác nhận", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
+  SHIPPING: { label: "Đang giao", cls: "bg-purple-50 text-purple-700 border border-purple-200" },
+  COMPLETED: { label: "Hoàn thành", cls: "bg-green-50 text-green-700 border border-green-200" },
+  CANCELLED: { label: "Đã hủy", cls: "bg-red-50 text-red-700 border border-red-200" },
 };
 
 const STATUS_OPTIONS = ["", "PENDING", "CONFIRMED", "SHIPPING", "COMPLETED", "CANCELLED"];
@@ -47,6 +47,22 @@ const getUserIdFromToken = (): number | null => {
     return null;
   }
 };
+
+function parseJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
 
 const getToken = () => localStorage.getItem("token");
 
@@ -119,12 +135,41 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Profile data for sidebar
+  const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("");
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const decoded = parseJwt(token);
+    if (decoded) {
+      setUserName(decoded.username || "");
+      setUserRole(decoded.role || "USER");
+    }
+
+    fetch(`${BASE_URL}/api/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data && data.name) {
+          setUserName(data.name);
+        }
+      })
+      .catch((err) => console.error("Error fetching profile name:", err));
+  }, []);
+
   const fetchOrders = async () => {
     const token = getToken();
     const userId = getUserIdFromToken();
 
     if (!token || !userId) {
-      router.push("/login");
+      router.push("/auth/login");
       return;
     }
 
@@ -141,7 +186,7 @@ export default function MyOrdersPage() {
 
       if (res.status === 401) {
         localStorage.removeItem("token");
-        router.push("/login");
+        router.push("/auth/login");
         return;
       }
 
@@ -245,214 +290,263 @@ export default function MyOrdersPage() {
     }
   };
 
+  const handleSignOut = () => {
+    localStorage.removeItem("token");
+    router.push("/auth/login");
+  };
+
   return (
-    <div className="bg-[#f5f5f7] min-h-screen pb-16">
+    <div className="bg-[#f7f9fb] min-h-screen text-[#191c1e] flex flex-col font-sans">
       <Navbar />
-      <div className="max-w-6xl mx-auto px-4 py-10 md:py-16">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-          <div>
-            <h1 className="text-3xl md:text-[38px] font-bold text-[#0a1317] tracking-tight leading-tight">
-              Đơn hàng của tôi
-            </h1>
-            <p className="text-[#86868b] text-sm mt-2 font-medium tracking-tight">
-              Theo dõi và quản lý tình trạng đơn hàng của bạn
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-transparent text-[#0a1317] border-2 border-[#0a1317] rounded-full font-bold text-sm tracking-tight transition-all duration-200 hover:bg-[#0a1317] hover:text-white active:scale-95 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
-            Tiếp tục mua sắm
-          </Link>
-        </div>
+      <div className="flex-1 max-w-[1280px] w-full mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
 
-        {/* Filter bar */}
-        <div className="bg-white rounded-[24px] border border-[#e5e5e7] p-5 md:p-6 mb-8 flex flex-col md:flex-row md:items-center gap-4 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="material-symbols-outlined text-[#86868b] text-lg">filter_alt</span>
-            <span className="font-bold text-[#1c1c1e] text-sm tracking-tight">Lọc trạng thái:</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_OPTIONS.map((s) => {
-              const isActive = status === s;
-              return (
-                <button
-                  key={s}
-                  onClick={() => setStatus(s)}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold tracking-tight transition-all duration-200 active:scale-95 shadow-sm
-                    ${isActive
-                      ? "bg-[#0a1317] text-white border border-transparent"
-                      : "bg-white text-[#1d1d1f] border border-[#e5e5e7] hover:border-[#86868b]"}`}
-                >
-                  {STATUS_LABELS[s]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Danh sách đơn hàng */}
-        <div className="space-y-6">
-
-          {loading && (
-            <div className="bg-white rounded-[32px] border border-[#e5e5e7] p-16 text-center shadow-sm">
-              <div className="w-8 h-8 border-4 border-[#C92127] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-[#86868b] text-sm font-semibold tracking-tight">Đang tải đơn hàng của bạn...</p>
+        {/* Sidebar */}
+        <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+          <div className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f2f4f6]">
+              <div className="w-12 h-12 rounded-full bg-[#b70011]/8 text-[#b70011] flex items-center justify-center text-xl font-bold border-2 border-white ring-4 ring-[#b70011]/5 select-none font-mono">
+                {userName ? userName.trim().charAt(0).toUpperCase() : "U"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-[#b70011] truncate">{userName || "Người dùng"}</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{userRole || "USER"}</p>
+              </div>
             </div>
-          )}
 
-          {error && (
-            <div className="bg-[#C92127]/5 border border-[#C92127]/20 rounded-[24px] p-8 text-center text-[#C92127]">
-              <span className="material-symbols-outlined text-4xl mb-2">error</span>
-              <p className="font-bold text-base tracking-tight">{error}</p>
-              <button
-                onClick={fetchOrders}
-                className="mt-4 px-6 py-2 bg-[#C92127] text-white rounded-full font-bold text-xs tracking-tight hover:bg-[#A8171C] transition active:scale-95"
+            <nav className="flex flex-col gap-1 mt-6">
+              <Link
+                href="/user/profile"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#b70011] hover:bg-[#f2f4f6] transition-all duration-200"
               >
-                Thử lại
+                <span className="material-symbols-outlined text-lg">person</span>
+                <span>Thông tin tài khoản</span>
+              </Link>
+              <Link
+                href="/user/my-orders"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-[#ffdad6]/40 text-[#b70011]"
+              >
+                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>history</span>
+                <span>Lịch sử mua hàng</span>
+              </Link>
+              <Link 
+                href="/user/my-audiobooks" 
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#b70011] hover:bg-[#f2f4f6] transition-all duration-200"
+              >
+                <span className="material-symbols-outlined text-lg">headphones</span>
+                <span>Sách nói của tôi</span>
+              </Link>
+              <Link
+                href="/user/cart"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#b70011] hover:bg-[#f2f4f6] transition-all duration-200"
+              >
+                <span className="material-symbols-outlined text-lg">shopping_cart</span>
+                <span>Giỏ hàng của tôi</span>
+              </Link>
+            </nav>
+
+            <div className="border-t border-[#e0e3e5] mt-5 pt-4">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold text-[#b70011] hover:bg-[#ffdad6]/20 transition-all duration-200"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                Đăng xuất
               </button>
             </div>
-          )}
+          </div>
+        </aside>
 
-          {!loading && !error && orders.length === 0 && (
-            <div className="bg-white rounded-[32px] border border-[#e5e5e7] p-16 text-center max-w-2xl mx-auto transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.02)]">
-              <span className="material-symbols-outlined text-6xl text-[#86868b] mb-4">shopping_bag</span>
-              <p className="text-xl font-bold text-[#0a1317] tracking-tight mb-2">Bạn chưa có đơn hàng nào</p>
-              <p className="text-[#86868b] text-sm font-medium tracking-tight mb-6">Hãy khám phá tủ sách của chúng tôi để chọn ngay cuốn sách yêu thích nhé.</p>
-              <Link
-                href="/books"
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#C92127] text-white rounded-full font-bold text-sm tracking-tight hover:bg-[#A8171C] transition active:scale-95 shadow-sm"
-              >
-                Bắt đầu mua sắm
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
-              </Link>
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col gap-6">
+
+          {/* Header row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-[#191c1e] tracking-tight">Đơn hàng của tôi</h1>
+              <p className="text-gray-500 text-xs mt-1">Theo dõi, kiểm tra chi tiết và tình trạng đơn hàng của bạn</p>
             </div>
-          )}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-[#e0e3e5] text-gray-700 hover:text-[#b70011] hover:border-[#b70011] rounded-full text-xs font-bold transition-all duration-200 self-start"
+            >
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
+              Tiếp tục mua sắm
+            </Link>
+          </div>
 
-          {orders.map((order) => {
-            const st = STATUS_MAP[order.status] ?? { label: order.status, cls: "bg-gray-100 text-gray-700" };
-            const date = order.orderDate
-              ? new Date(order.orderDate).toLocaleString("vi-VN", {
-                day: "2-digit", month: "2-digit", year: "numeric",
-                hour: "2-digit", minute: "2-digit",
-              })
-              : "—";
+          {/* Status filter bar */}
+          <div className="bg-white rounded-2xl border border-[#e0e3e5] p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-2 shrink-0 text-gray-500">
+              <span className="material-symbols-outlined text-base">filter_alt</span>
+              <span className="font-bold text-xs uppercase tracking-wider">Lọc:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_OPTIONS.map((s) => {
+                const isActive = status === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(s)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm
+                      ${isActive
+                        ? "bg-[#b70011] text-white border border-transparent"
+                        : "bg-white text-gray-700 border border-[#e0e3e5] hover:border-gray-400"}`}
+                  >
+                    {STATUS_LABELS[s]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            const coverImg = getOrderCoverImage(order);
-            const { total: totalWithShip, shipFee } = computeDisplayTotal(order);
+          {/* Orders list wrapper */}
+          <div className="space-y-4">
 
-            return (
-              <div
-                key={order.id}
-                className="bg-white rounded-[32px] border border-[#e5e5e7] hover:shadow-[0_15px_40px_rgba(0,0,0,0.03)] transition-all duration-300 overflow-hidden"
-              >
-                <div style={{ display: "flex", flexDirection: "row", gap: "24px", padding: "32px", alignItems: "flex-start" }}>
+            {loading && (
+              <div className="bg-white rounded-2xl border border-[#e0e3e5] p-16 text-center shadow-sm">
+                <div className="w-8 h-8 border-4 border-[#b70011] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-500 text-xs font-semibold">Đang tải danh sách đơn hàng của bạn...</p>
+              </div>
+            )}
 
-                  {/* ✅ Thumbnail — khung cố định, không co giãn */}
-                  <div style={{ flexShrink: 0, alignSelf: "flex-start", width: "120px", minWidth: "120px" }}>
-                    <div
-                      className="bg-[#f5f5f7] rounded-[16px] border border-[#e5e5e7] p-2 flex items-center justify-center overflow-hidden shadow-sm transition-transform duration-300 hover:scale-[1.03]"
-                      style={{ width: "120px", height: "158px", minWidth: "120px", minHeight: "158px", flexShrink: 0 }}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={coverImg}
-                        alt="Ảnh sách"
-                        style={{
-                          width: "104px",
-                          height: "142px",
-                          objectFit: "contain",
-                          display: "block",
-                          flexShrink: 0,
-                        }}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = "/images/book-default.jpg";
-                        }}
-                      />
-                    </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center text-[#b70011]">
+                <span className="material-symbols-outlined text-4xl mb-2">error</span>
+                <p className="font-bold text-sm tracking-tight">{error}</p>
+                <button
+                  onClick={fetchOrders}
+                  className="mt-4 px-6 py-2 bg-[#b70011] text-white rounded-full font-bold text-xs hover:bg-[#93000b] transition active:scale-95"
+                >
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && orders.length === 0 && (
+              <div className="bg-white rounded-2xl border border-[#e0e3e5] p-16 text-center max-w-xl mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">shopping_bag</span>
+                <p className="text-base font-bold text-[#191c1e] mb-1">Bạn chưa có đơn hàng nào</p>
+                <p className="text-gray-500 text-xs mb-5">Hãy khám phá tủ sách của chúng tôi để chọn ngay cuốn sách yêu thích nhé.</p>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#b70011] text-white rounded-full font-bold text-xs hover:bg-[#93000b] transition active:scale-95 shadow-sm"
+                >
+                  Bắt đầu mua sắm
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </Link>
+              </div>
+            )}
+
+            {orders.map((order) => {
+              const st = STATUS_MAP[order.status] ?? { label: order.status, cls: "bg-gray-100 text-gray-700" };
+              const date = order.orderDate
+                ? new Date(order.orderDate).toLocaleString("vi-VN", {
+                  day: "2-digit", month: "2-digit", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })
+                : "—";
+
+              const coverImg = getOrderCoverImage(order);
+              const { total: totalWithShip, shipFee } = computeDisplayTotal(order);
+
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-[#e0e3e5] shadow-sm p-6 hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 items-start"
+                >
+
+                  {/* Book cover thumbnail */}
+                  <div className="w-24 h-32 shrink-0 bg-[#f2f4f6] rounded-xl border border-[#e0e3e5] p-1.5 flex items-center justify-center overflow-hidden shadow-sm transition-transform duration-300 hover:scale-[1.02]">
+                    <img
+                      src={coverImg}
+                      alt="Book Cover"
+                      className="w-full h-full object-contain block"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "/images/book-default.jpg";
+                      }}
+                    />
                   </div>
 
-                  {/* Order info */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    {/* Top row: order code + date + status badge */}
+                  {/* Order info & details */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between w-full">
+                    {/* Top Row */}
                     <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
                       <div className="min-w-0">
-                        <p className="font-bold text-lg text-[#0a1317] tracking-tight truncate">
-                          Mã đơn: <span className="font-mono text-[#C92127]">{order.orderCode}</span>
+                        <p className="font-bold text-sm text-[#191c1e]">
+                          Mã đơn: <span className="font-mono text-[#b70011]">{order.orderCode}</span>
                         </p>
-                        <div className="flex items-center gap-1.5 text-[#86868b] text-xs font-semibold mt-1.5 tracking-tight uppercase">
-                          <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                        <div className="flex items-center gap-1.5 text-gray-500 text-[11px] font-semibold mt-1 tracking-wider uppercase">
+                          <span className="material-symbols-outlined text-[12px]">calendar_today</span>
                           {date}
                         </div>
                       </div>
-                      <span className={`inline-flex shrink-0 items-center gap-1 px-3 py-1 rounded-full text-xs font-bold tracking-tight border ${st.cls}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0"></span>
+                      <span className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${st.cls}`}>
+                        <span className="w-1 h-1 rounded-full bg-current shrink-0"></span>
                         {st.label}
                       </span>
                     </div>
 
-                    {/* Bottom row: pricing + action buttons */}
-                    <div className="border-t border-[#e5e5e7]/80 pt-4 mt-2 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                    {/* Bottom Row */}
+                    <div className="border-t border-[#e0e3e5]/80 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 w-full">
                       {/* Pricing block */}
-                      <div className="space-y-1">
-                        <div className="flex flex-col gap-0.5 text-xs text-[#86868b] font-medium tracking-tight">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-20 shrink-0">Tiền sách:</span>
-                            <span className="text-[#1c1c1e] font-bold">{fmt(order.totalAmount ?? 0)} đ</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-20 shrink-0">Phí ship:</span>
-                            <span className="text-[#1c1c1e] font-bold">{fmt(shipFee)} đ</span>
-                          </div>
+                      <div className="space-y-0.5 text-xs text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <span className="w-20 shrink-0">Tiền sách:</span>
+                          <span className="text-[#191c1e] font-bold">{fmt(order.totalAmount ?? 0)} đ</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-20 shrink-0">Phí ship:</span>
+                          <span className="text-[#191c1e] font-bold">{fmt(shipFee)} đ</span>
                         </div>
                         <div className="flex items-baseline gap-2 pt-1">
-                          <span className="text-[11px] font-bold text-[#86868b] uppercase tracking-wider whitespace-nowrap">Tổng:</span>
-                          <span className="text-xl font-extrabold text-[#C92127] tracking-tight whitespace-nowrap">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tổng cộng:</span>
+                          <span className="text-lg font-extrabold text-[#b70011] tracking-tight">
                             {fmt(totalWithShip)} đ
                           </span>
                         </div>
                       </div>
 
                       {/* Action buttons */}
-                      <div className="flex gap-2.5 items-center flex-wrap shrink-0">
+                      <div className="flex gap-2 items-center flex-wrap shrink-0">
                         {order.status === "PENDING" && (
                           <button
                             onClick={() => cancelOrder(order.id)}
-                            className="inline-flex items-center gap-1 px-4 py-2.5 border border-[#C92127] text-[#C92127] hover:bg-[#C92127]/5 rounded-full text-xs font-bold tracking-tight transition active:scale-95 duration-150"
+                            className="inline-flex items-center gap-1 px-3.5 py-2 border border-[#b70011] text-[#b70011] hover:bg-[#ffdad6]/20 rounded-full text-xs font-bold transition active:scale-95 duration-150"
                           >
-                            <span className="material-symbols-outlined text-sm">cancel</span>
+                            <span className="material-symbols-outlined text-xs">cancel</span>
                             Hủy đơn
                           </button>
                         )}
                         {order.status === "SHIPPING" && (
                           <button
                             onClick={() => confirmReceived(order.id)}
-                            className="inline-flex items-center gap-1 px-4 py-2.5 bg-[#34c759] text-white hover:bg-[#008a00] rounded-full text-xs font-bold tracking-tight transition active:scale-95 duration-150 shadow-sm"
+                            className="inline-flex items-center gap-1 px-3.5 py-2 bg-[#34c759] text-white hover:bg-green-600 rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
                           >
-                            <span className="material-symbols-outlined text-sm">local_shipping</span>
+                            <span className="material-symbols-outlined text-xs">local_shipping</span>
                             Đã nhận hàng
                           </button>
                         )}
                         <Link
                           href={`/user/orders/${order.id}`}
-                          className="inline-flex items-center gap-1 px-5 py-2.5 bg-[#0a1317] text-white hover:bg-[#232325] rounded-full text-xs font-bold tracking-tight transition active:scale-95 duration-150 shadow-sm"
+                          className="inline-flex items-center gap-1 px-4 py-2 bg-[#191c1e] text-white hover:bg-[#2d3133] rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
                         >
-                          Xem chi tiết
-                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          Chi tiết
+                          <span className="material-symbols-outlined text-xs">arrow_forward</span>
                         </Link>
                       </div>
+
                     </div>
                   </div>
 
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
 
-        </div>
+          </div>
+
+        </main>
+
       </div>
     </div>
   );

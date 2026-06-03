@@ -318,7 +318,7 @@ function BooksContent() {
             const priceFormatted = new Intl.NumberFormat("vi-VN").format(book.price);
             return (
               <div key={book.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
-                <div>
+                <Link href={`/admin/books/${book.id}`} className="block no-underline hover:no-underline text-inherit flex-grow">
                   <div className="h-56 relative overflow-hidden bg-slate-100 flex items-center justify-center p-3">
                     <img
                       className="max-h-full max-w-full object-contain rounded-md shadow-md group-hover:scale-105 transition-transform duration-500"
@@ -364,7 +364,7 @@ function BooksContent() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </Link>
 
                 <div className="px-4 pb-4 pt-2 border-t border-slate-100 flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -427,20 +427,22 @@ function BooksContent() {
                   return (
                     <tr key={book.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
                       <td className="px-6 py-3">
-                        <div className="w-12 h-16 rounded-md overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200/50 flex-shrink-0">
+                        <Link href={`/admin/books/${book.id}`} className="block w-12 h-16 rounded-md overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200/50 flex-shrink-0 hover:border-[#b70011] transition-all">
                           <img
-                            className="max-h-full max-w-full object-contain"
+                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
                             src={getCorrectImageUrl(book.imageUrl)}
                             alt={book.title}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&auto=format&fit=crop&q=60";
                             }}
                           />
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-6 py-3">
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-slate-800 line-clamp-1">{book.title}</p>
+                          <Link href={`/admin/books/${book.id}`} className="hover:text-[#b70011] transition-colors block no-underline hover:no-underline">
+                            <p className="text-sm font-bold text-slate-800 line-clamp-1 cursor-pointer">{book.title}</p>
+                          </Link>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span className="font-semibold text-slate-700">{book.authorName || book.author?.name || "Chưa rõ"}</span>
                             {book.isbn && (

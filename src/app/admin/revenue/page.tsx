@@ -23,6 +23,7 @@ import {
   ArrowDownRight,
   BarChart3,
   Download,
+  ChevronRight,
 } from "lucide-react";
 import {
   AreaChart,
@@ -129,18 +130,26 @@ export default function RevenueStatisticsPage() {
       // Lọc các đơn hàng đã giao thành công (COMPLETED) để tính tổng doanh thu
       const allOrders = await getAllOrders();
       const completedOrders = allOrders.filter(o => o.status === "COMPLETED");
-      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
       
       const updatedSummary = {
         ...data.summary,
         totalRevenue: calculatedRevenue
       };
       
+      const updatedRecentTransactions = data.recentTransactions.map((tx: RecentTransaction) => {
+        const orderInfo = allOrders.find(o => o.orderCode === tx.orderCode);
+        return {
+          ...tx,
+          amount: orderInfo ? ((orderInfo.totalAmount ?? 0) + (orderInfo.shippingFee ?? 0)) : tx.amount
+        };
+      });
+
       setSummary(updatedSummary);
       setMonthlyData(data.monthlyRevenue);
       setCategoryData(data.categoryStats);
       setTopBooks(data.topBooks);
-      setRecentTransactions(data.recentTransactions);
+      setRecentTransactions(updatedRecentTransactions);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Có lỗi xảy ra khi tải dữ liệu");
@@ -260,23 +269,28 @@ export default function RevenueStatisticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Header */}
+    <div className="min-h-screen bg-[#f8f9ff] font-sans">
+      <div className="max-w-[1600px] w-full mx-auto p-4 md:p-6 space-y-6 animate__animated animate__fadeIn">
+        {/* Breadcrumbs & Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="w-7 h-7 text-primary" />
-              Thống kê doanh thu
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {today}
+          <div className="space-y-2">
+            <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <span>Dashboard</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+              <span className="text-[#b70011]">Doanh thu</span>
+            </nav>
+            <h2 className="text-2xl font-bold text-[#191c1e] font-sans flex items-center gap-2">
+              <BarChart3 className="w-7 h-7 text-[#b70011]" />
+              Báo cáo Doanh thu
+            </h2>
+            <p className="text-sm text-[#5c403c] font-sans">
+              Phân tích hiệu suất tài chính và xu hướng tăng trưởng.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[160px] bg-white border-[#e6bdb8]/40 text-[#191c1e]">
                 <SelectValue placeholder="Chọn thời gian" />
               </SelectTrigger>
               <SelectContent>
@@ -286,7 +300,10 @@ export default function RevenueStatisticsPage() {
                 <SelectItem value="year">Năm nay</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2" onClick={handleExport}>
+            <Button 
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all border-none cursor-pointer"
+            >
               <Download className="w-4 h-4" />
               Xuất báo cáo
             </Button>
@@ -294,207 +311,212 @@ export default function RevenueStatisticsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Tổng doanh thu</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(summary.totalRevenue)}
-                  </p>
-                  {renderGrowth(summary.revenueGrowth)}
-                </div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-primary" />
-                </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Tổng doanh thu */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-[#ffdad6] rounded-lg text-[#b70011]">
+                <DollarSign className="w-6 h-6" />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
+                {summary.revenueGrowth >= 0 ? "+" : ""}{summary.revenueGrowth.toFixed(1)}%
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Tổng doanh thu</p>
+              <h3 className="text-2xl font-bold text-[#191c1e]">{formatCurrency(summary.totalRevenue)}</h3>
+              <p className="text-[#916f6b] text-[11px] mt-2">So với kỳ trước</p>
+            </div>
+          </div>
 
-          <Card className="border shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Tổng đơn hàng</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatNumber(summary.totalOrders)}
-                  </p>
-                  {renderGrowth(summary.orderGrowth)}
-                </div>
-                <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-accent" />
-                </div>
+          {/* Card 2: Tổng đơn hàng */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-[#d5e0f8] rounded-lg text-[#111c2d]">
+                <ShoppingCart className="w-6 h-6" />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
+                {summary.orderGrowth >= 0 ? "+" : ""}{summary.orderGrowth.toFixed(1)}%
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Tổng đơn hàng</p>
+              <h3 className="text-2xl font-bold text-[#191c1e]">{formatNumber(summary.totalOrders)}</h3>
+              <p className="text-[#916f6b] text-[11px] mt-2">So với kỳ trước</p>
+            </div>
+          </div>
 
-          <Card className="border shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Giá trị TB/đơn</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(summary.avgOrderValue)}
-                  </p>
-                  {renderGrowth(summary.avgGrowth)}
-                </div>
-                <div className="w-12 h-12 rounded-full bg-chart-3/10 flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-chart-3" />
-                </div>
+          {/* Card 3: Giá trị trung bình/đơn */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-[#e6e8ea] rounded-lg text-[#51596f]">
+                <TrendingUp className="w-6 h-6" />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
+                {summary.avgGrowth >= 0 ? "+" : ""}{summary.avgGrowth.toFixed(1)}%
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Giá trị TB/đơn</p>
+              <h3 className="text-2xl font-bold text-[#191c1e]">{formatCurrency(summary.avgOrderValue)}</h3>
+              <p className="text-[#916f6b] text-[11px] mt-2">So với kỳ trước</p>
+            </div>
+          </div>
 
-          <Card className="border shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Khách hàng</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatNumber(summary.totalCustomers)}
-                  </p>
-                  {renderGrowth(summary.customerGrowth)}
-                </div>
-                <div className="w-12 h-12 rounded-full bg-chart-4/10 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-chart-4" />
-                </div>
+          {/* Card 4: Khách hàng */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-3 bg-[#ffdad6] rounded-lg text-[#93000a]">
+                <Users className="w-6 h-6" />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
+                {summary.customerGrowth >= 0 ? "+" : ""}{summary.customerGrowth.toFixed(1)}%
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Khách hàng</p>
+              <h3 className="text-2xl font-bold text-[#191c1e]">{formatNumber(summary.totalCustomers)}</h3>
+              <p className="text-[#916f6b] text-[11px] mt-2">So với kỳ trước</p>
+            </div>
+          </div>
         </div>
 
         {/* Charts Row */}
         <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2 border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                Biểu đồ doanh thu
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v/1e6}M`} />
-                    <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), "Doanh thu"]} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 flex flex-col">
+            <div className="px-6 py-4 border-b border-[#e6bdb8]/20 flex justify-between items-center">
+              <h4 className="font-semibold text-[#191c1e] text-base flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-[#b70011]" />
+                Tăng trưởng Doanh thu
+              </h4>
+            </div>
+            <div className="p-6 flex-1 min-h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#b70011" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#b70011" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e6e8ea" />
+                  <XAxis dataKey="month" stroke="#916f6b" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#916f6b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v/1e6}M`} />
+                  <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), "Doanh thu"]} contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e6bdb8", borderRadius: "8px" }} />
+                  <Area type="monotone" dataKey="revenue" stroke="#b70011" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Book className="w-5 h-5 text-primary" />
+          <div className="bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 flex flex-col">
+            <div className="px-6 py-4 border-b border-[#e6bdb8]/20">
+              <h4 className="font-semibold text-[#191c1e] text-base flex items-center gap-2">
+                <Book className="w-5 h-5 text-[#b70011]" />
                 Doanh thu theo thể loại
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
+              </h4>
+            </div>
+            <div className="p-6 flex-1 min-h-[300px] flex items-center justify-center">
+              <div className="w-full h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="45%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value">
                       {pieData.map((entry, idx) => {
-                        const colors = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#ec4899","#06b6d4","#84cc16","#f97316","#6b7280"];
+                        const colors = ["#b70011", "#545f73", "#e0a0a0", "#a0b0c0", "#7c8c9c", "#e6bdb8", "#ffdad6", "#916f6b", "#5c403c", "#191c1e"];
                         return <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />;
                       })}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value}%`, "Tỷ lệ"]} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-sm text-foreground">{value}</span>} />
+                    <Tooltip formatter={(value) => [`${value}%`, "Tỷ lệ"]} contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e6bdb8", borderRadius: "8px" }} />
+                    <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-xs text-foreground font-medium">{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Bottom Row */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Book className="w-5 h-5 text-primary" />
+          <div className="bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#e6bdb8]/20">
+              <h4 className="font-semibold text-[#191c1e] text-base flex items-center gap-2">
+                <Book className="w-5 h-5 text-[#b70011]" />
                 Sách bán chạy nhất
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {displayTopBooks.map((book, idx) => (
-                  <div key={idx} className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">{idx+1}</div>
-                    <div className="flex-1 min-w-0"><p className="font-medium text-foreground truncate">{book.name}</p></div>
-                    <div className="text-right"><p className="font-semibold text-foreground">{formatNumber(book.sold)} bán</p></div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </h4>
+            </div>
+            <div className="p-6 space-y-4 flex-1">
+              {displayTopBooks.map((book, idx) => (
+                <div key={idx} className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full bg-[#ffdad6] flex items-center justify-center text-sm font-bold text-[#b70011]">{idx+1}</div>
+                  <div className="flex-1 min-w-0"><p className="font-semibold text-[#191c1e] truncate">{book.name}</p></div>
+                  <div className="text-right"><p className="font-bold text-[#191c1e]">{formatNumber(book.sold)} <span className="text-xs text-[#916f6b] font-normal">đã bán</span></p></div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
+          <div className="bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#e6bdb8]/20 flex justify-between items-center">
+              <h4 className="font-semibold text-[#191c1e] text-base flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-[#b70011]" />
                 Giao dịch gần đây
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{tx.id}</p>
-                        <Badge variant={tx.status === "completed" ? "default" : tx.status === "pending" ? "secondary" : "destructive"} className="text-xs">
-                          {tx.status === "completed" ? "Hoàn thành" : tx.status === "pending" ? "Đang xử lý" : "Đã hủy"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{tx.customer}</p>
+              </h4>
+            </div>
+            <div className="p-6 divide-y divide-[#e6bdb8]/10">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="py-3 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
+                        {tx.id}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        tx.status === "completed" 
+                          ? "bg-green-50 text-green-800 border-green-200" 
+                          : tx.status === "pending" 
+                            ? "bg-amber-50 text-amber-800 border-amber-200" 
+                            : "bg-red-50 text-red-800 border-red-200"
+                      }`}>
+                        {tx.status === "completed" ? "Hoàn thành" : tx.status === "pending" ? "Đang xử lý" : "Đã hủy"}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-foreground">{formatCurrency(tx.amount)}</p>
-                      <p className="text-sm text-muted-foreground">{tx.date}</p>
-                    </div>
+                    <p className="text-sm font-semibold text-slate-800 mt-1">{tx.customer}</p>
+                    <p className="text-xs text-[#916f6b]">{tx.customer.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '')}@email.com</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="text-right">
+                    <p className="font-bold text-[#b70011]">{formatCurrency(tx.amount)}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{tx.date}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Orders Bar Chart */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-primary" />
+        <div className="bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-[#e6bdb8]/20">
+            <h4 className="font-semibold text-[#191c1e] text-base flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-[#b70011]" />
               Số lượng đơn hàng
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip formatter={(value: any) => [formatNumber(Number(value)), "Đơn hàng"]} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                  <Bar dataKey="orders" fill="hsl(var(--accent))" radius={[4,4,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+            </h4>
+          </div>
+          <div className="p-6 h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e6e8ea" />
+                <XAxis dataKey="month" stroke="#916f6b" fontSize={11} tickLine={false} />
+                <YAxis stroke="#916f6b" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip formatter={(value: any) => [formatNumber(Number(value)), "Đơn hàng"]} contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e6bdb8", borderRadius: "8px" }} />
+                <Bar dataKey="orders" fill="#545f73" radius={[4,4,0,0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
-  Ticket, Plus, Search, MoreVertical, Edit, Trash2, 
-  Tag, AlertCircle, CheckCircle2, XCircle, Clock
+  Ticket, Plus, Search, Edit, Trash2, 
+  Tag, AlertCircle, CheckCircle2, XCircle, Clock,
+  TrendingUp, Download, RefreshCw, ChevronRight, FileSpreadsheet
 } from "lucide-react";
 
 interface Voucher {
@@ -28,17 +29,24 @@ export default function VoucherListPage() {
   const router = useRouter();
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const fetchVouchers = async () => {
+  const fetchVouchers = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+    setError("");
+
     const token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
     if (!token) {
       router.push("/admin/login");
       return;
     }
     try {
-      const res = await fetch("http://localhost:8080/api/vouchers/admin", {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${API_URL}/api/vouchers/admin`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Không thể tải danh sách voucher");
@@ -48,6 +56,7 @@ export default function VoucherListPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -59,181 +68,308 @@ export default function VoucherListPage() {
     if (!confirm(`Bạn có chắc muốn xóa voucher "${code}"?`)) return;
     const token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
     try {
-      const res = await fetch(`http://localhost:8080/api/vouchers/admin/${id}`, {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${API_URL}/api/vouchers/admin/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Xóa thất bại");
-      fetchVouchers();
+      fetchVouchers(true);
     } catch (err: any) {
       alert(err.message);
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const data = filteredVouchers.map((v) => ({
+        "Mã Voucher": v.code,
+        "Loại giảm giá": v.discountType === "PERCENT" ? "Phần trăm (%)" : "Số tiền cố định",
+        "Giá trị giảm": v.discountValue,
+        "Đơn tối thiểu (VND)": v.minOrderValue,
+        "Giảm tối đa (VND)": v.maxDiscount || "Không giới hạn",
+        "Tổng lượt dùng": v.usageLimit,
+        "Đã dùng": v.usedCount,
+        "Ngày bắt đầu": new Date(v.startDate).toLocaleDateString("vi-VN"),
+        "Ngày kết thúc": new Date(v.endDate).toLocaleDateString("vi-VN"),
+        "Trạng thái": v.status === "ACTIVE" ? "Hoạt động" : v.status === "EXPIRED" ? "Hết hạn" : v.status === "UPCOMING" ? "Sắp diễn ra" : v.status === "EXHAUSTED" ? "Hết lượt" : "Tạm dừng"
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Danh sách Voucher");
+      XLSX.writeFile(wb, `Danh_sach_Voucher_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (err: any) {
+      console.error("Error exporting excel:", err);
+      alert("Không thể xuất file Excel: " + err.message);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { text: string; bg: string; textCol: string; icon: any }> = {
-      ACTIVE: { text: "Hoạt động", bg: "bg-emerald-100", textCol: "text-emerald-700", icon: CheckCircle2 },
-      EXPIRED: { text: "Hết hạn", bg: "bg-gray-100", textCol: "text-gray-600", icon: AlertCircle },
-      UPCOMING: { text: "Sắp diễn ra", bg: "bg-blue-100", textCol: "text-blue-700", icon: Clock },
-      EXHAUSTED: { text: "Hết lượt", bg: "bg-amber-100", textCol: "text-amber-700", icon: XCircle },
-      INACTIVE: { text: "Tạm dừng", bg: "bg-rose-100", textCol: "text-rose-700", icon: XCircle },
+    const statusConfig: Record<string, { text: string; bg: string; textCol: string; dot: string; icon: any }> = {
+      ACTIVE: { text: "Hoạt động", bg: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", dot: "bg-emerald-700", icon: CheckCircle2 },
+      EXPIRED: { text: "Hết hạn", bg: "bg-slate-50 border-slate-200", textCol: "text-slate-600", dot: "bg-slate-600", icon: AlertCircle },
+      UPCOMING: { text: "Sắp diễn ra", bg: "bg-blue-50 border-blue-200", textCol: "text-blue-700", dot: "bg-blue-700", icon: Clock },
+      EXHAUSTED: { text: "Hết lượt", bg: "bg-amber-50 border-amber-200", textCol: "text-amber-700", dot: "bg-amber-700", icon: XCircle },
+      INACTIVE: { text: "Tạm dừng", bg: "bg-rose-50 border-rose-200", textCol: "text-rose-700", dot: "bg-rose-700", icon: XCircle },
     };
-    const s = statusConfig[status] || { text: status, bg: "bg-gray-100", textCol: "text-gray-700", icon: AlertCircle };
-    const Icon = s.icon;
+    const s = statusConfig[status] || { text: status, bg: "bg-gray-50 border-gray-200", textCol: "text-gray-700", dot: "bg-gray-700", icon: AlertCircle };
     
     return (
-      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${s.bg} ${s.textCol}`}>
-        <Icon className="w-3.5 h-3.5" />
+      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${s.bg} ${s.textCol}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>
         {s.text}
       </div>
     );
   };
 
-  const filteredVouchers = vouchers.filter(v => 
-    v.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVouchers = vouchers.filter(v => {
+    const matchesSearch = v.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "ALL" || v.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Calculate stats dynamically
+  const totalVouchers = vouchers.length;
+  const activeVouchers = vouchers.filter(v => v.status === "ACTIVE").length;
+  const totalUsed = vouchers.reduce((acc, v) => acc + v.usedCount, 0);
+  const expiringSoon = vouchers.filter(v => {
+    if (v.status !== "ACTIVE") return false;
+    const end = new Date(v.endDate).getTime();
+    const now = new Date().getTime();
+    const diff = end - now;
+    return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000; // less than 3 days
+  }).length;
 
   if (loading) {
     return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-medium">Đang tải danh sách voucher...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-md mx-auto">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-red-700 mb-1">Đã có lỗi xảy ra</h3>
-          <p className="text-red-600 text-sm">{error}</p>
-          <button 
-            onClick={fetchVouchers}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
-          >
-            Thử lại
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
+        <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải danh sách voucher...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-[1600px] mx-auto font-['Inter',sans-serif]">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
+      {/* Header section with breadcrumbs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl">
-              <Ticket className="w-6 h-6" />
-            </div>
-            Quản lý Voucher
-          </h1>
-          <p className="text-gray-500 mt-2 text-sm">
-            Tạo và quản lý các mã giảm giá cho khách hàng
-          </p>
+          <nav className="flex items-center gap-1 text-[#5c403c] text-xs mb-1.5">
+            <span className="font-semibold cursor-pointer hover:underline">Admin</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="font-semibold cursor-pointer hover:underline">Khuyến mãi</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="font-semibold text-[#b70011]">Voucher</span>
+          </nav>
+          <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Voucher</h2>
+          <p className="text-sm text-[#5c403c] font-sans">Tạo và quản lý các mã giảm giá cho khách hàng mua hàng trên hệ thống.</p>
         </div>
-        
-        <Link
-          href="/admin/voucher/new"
-          className="group flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm shadow-indigo-200 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
-          Thêm Voucher mới
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchVouchers(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[#e0e3e5] text-[#191c1e] rounded-lg font-semibold text-xs hover:bg-[#e6e8ea] transition-all border border-[#e6bdb8]/30 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Tải lại dữ liệu
+          </button>
+          <Link
+            href="/admin/voucher/new"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm voucher mới
+          </Link>
+        </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+      {error && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 shadow-sm text-sm font-sans">
+          {error}
+        </div>
+      )}
+
+      {/* Summary Stats (Bento Grid Style) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Vouchers */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2.5 bg-[#ffdad6] rounded-lg text-[#b70011]">
+              <Ticket className="w-5 h-5" />
+            </div>
+            <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
+              Tổng số
+              <TrendingUp className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-gray-50/50 hover:bg-white"
-            placeholder="Tìm kiếm mã voucher..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div>
+            <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Tổng Voucher</p>
+            <h3 className="text-2xl font-bold text-[#191c1e]">{totalVouchers.toLocaleString()}</h3>
+            <p className="text-[#916f6b] text-[11px] mt-2">Đã được tạo trong hệ thống</p>
+          </div>
+        </div>
+
+        {/* Active Vouchers */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2.5 bg-emerald-100 rounded-lg text-emerald-700">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Đang hoạt động</p>
+            <h3 className="text-2xl font-bold text-emerald-700">{activeVouchers.toLocaleString()}</h3>
+            <p className="text-[#916f6b] text-[11px] mt-2">Sẵn sàng áp dụng cho đơn hàng</p>
+          </div>
+        </div>
+
+        {/* Total Redeemed */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2.5 bg-amber-100 rounded-lg text-amber-700">
+              <Tag className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Đã sử dụng</p>
+            <h3 className="text-2xl font-bold text-amber-700">{totalUsed.toLocaleString()}</h3>
+            <p className="text-[#916f6b] text-[11px] mt-2">Lượt áp dụng thành công</p>
+          </div>
+        </div>
+
+        {/* Expiring Soon */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#e6bdb8]/30 hover:border-[#b70011]/50 transition-all group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2.5 bg-rose-100 rounded-lg text-rose-700">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Sắp hết hạn</p>
+            <h3 className="text-2xl font-bold text-rose-700">{expiringSoon.toLocaleString()}</h3>
+            <p className="text-[#916f6b] text-[11px] mt-2">Hết hạn trong vòng 3 ngày</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#e6bdb8]/30 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* Status Dropdown */}
+          <div className="flex items-center gap-2 bg-[#f2f4f6] px-3 py-1.5 rounded-lg border border-[#e6bdb8]/50">
+            <span className="text-xs font-semibold text-[#5c403c]">Trạng thái:</span>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-transparent border-none text-xs font-bold p-0 pr-6 focus:ring-0 text-[#191c1e] cursor-pointer"
+            >
+              <option value="ALL">Tất cả</option>
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="EXPIRED">Đã hết hạn</option>
+              <option value="UPCOMING">Sắp diễn ra</option>
+              <option value="EXHAUSTED">Hết lượt</option>
+              <option value="INACTIVE">Tạm dừng</option>
+            </select>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-[#916f6b]" />
+            </span>
+            <input
+              type="text"
+              className="block w-full pl-9 pr-3 py-2 border border-[#e6bdb8]/50 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all bg-[#f2f4f6]/50 hover:bg-white text-[#191c1e]"
+              placeholder="Tìm kiếm mã voucher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
         
-        <div className="text-sm text-gray-500 font-medium">
-          Hiển thị <span className="text-gray-900 font-bold">{filteredVouchers.length}</span> voucher
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#e6bdb8] rounded-lg font-semibold text-xs text-[#5c403c] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+            Xuất Excel
+          </button>
+          <div className="text-xs text-[#916f6b] font-medium hidden sm:block">
+            Hiển thị <span className="text-[#191c1e] font-bold">{filteredVouchers.length}</span> voucher
+          </div>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#e6bdb8]/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/80 border-b border-gray-100">
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Mã Voucher</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Mức Giảm</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Điều Kiện</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Lượt Dùng</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Thời Gian</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Trạng Thái</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Thao Tác</th>
+              <tr className="bg-[#f2f4f6]/50 border-b border-[#e6bdb8]/20">
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider">Mã Voucher</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider">Mức Giảm</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider">Điều Kiện</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider text-center">Lượt Dùng</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider">Thời Gian</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider">Trạng Thái</th>
+                <th className="px-6 py-4 text-xs font-bold text-[#916f6b] uppercase tracking-wider text-right">Thao Tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[#e6bdb8]/10">
               {filteredVouchers.map((v) => (
-                <tr key={v.id} className="hover:bg-indigo-50/30 transition-colors group">
+                <tr key={v.id} className="hover:bg-[#b70011]/5 transition-colors group">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <Tag className="w-5 h-5" />
+                      <div className="w-10 h-10 rounded-lg bg-[#ffdad6]/40 flex items-center justify-center text-[#b70011] font-bold">
+                        <Ticket className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="font-bold text-gray-900 uppercase tracking-wide">{v.code}</div>
-                        <div className="text-xs text-gray-500">ID: {v.id}</div>
+                        <div className="font-bold text-[#191c1e] uppercase tracking-wide">{v.code}</div>
+                        <div className="text-[11px] text-[#916f6b]">ID: {v.id}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-emerald-600">
+                    <div className="text-sm font-bold text-[#b70011]">
                       {v.discountType === "PERCENT" ? `${v.discountValue}%` : `${v.discountValue.toLocaleString()}đ`}
                     </div>
                     {v.maxDiscount && v.discountType === "PERCENT" && (
-                      <div className="text-xs text-gray-500 mt-0.5">Tối đa: {v.maxDiscount.toLocaleString()}đ</div>
+                      <div className="text-[11px] text-[#5c403c] mt-0.5">Tối đa: {v.maxDiscount.toLocaleString()}đ</div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[#191c1e]">
                       Đơn từ <span className="font-semibold">{v.minOrderValue.toLocaleString()}đ</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-700">
-                      <span className={v.usedCount >= v.usageLimit ? "text-red-600 font-bold" : ""}>
+                    <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-[#f2f4f6] text-xs font-bold text-[#5c403c]">
+                      <span className={v.usedCount >= v.usageLimit ? "text-[#b70011] font-bold" : ""}>
                         {v.usedCount}
                       </span>
-                      <span className="mx-1 text-gray-400">/</span>
+                      <span className="mx-1 text-slate-400">/</span>
                       <span>{v.usageLimit}</span>
                     </div>
                     {/* Progress bar */}
-                    <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-2 mx-auto overflow-hidden">
+                    <div className="w-20 h-1.5 bg-[#f2f4f6] rounded-full mt-2 mx-auto overflow-hidden">
                       <div 
-                        className={`h-full rounded-full ${v.usedCount >= v.usageLimit ? 'bg-red-500' : 'bg-indigo-500'}`}
+                        className={`h-full rounded-full ${v.usedCount >= v.usageLimit ? 'bg-[#b70011]' : 'bg-[#dc2626]'}`}
                         style={{ width: `${Math.min((v.usedCount / v.usageLimit) * 100, 100)}%` }}
                       />
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col text-xs text-gray-600">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                        {new Date(v.startDate).toLocaleDateString('vi-VN')}
+                    <div className="flex flex-col text-[11px] text-[#5c403c] gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>{new Date(v.startDate).toLocaleDateString('vi-VN')}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400"></div>
-                        {new Date(v.endDate).toLocaleDateString('vi-VN')}
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span>{new Date(v.endDate).toLocaleDateString('vi-VN')}</span>
                       </div>
                     </div>
                   </td>
@@ -241,17 +377,17 @@ export default function VoucherListPage() {
                     {getStatusBadge(v.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-2 transition-opacity">
+                    <div className="flex items-center justify-end gap-1.5">
                       <Link
                         href={`/admin/voucher/${v.id}/edit`}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Chỉnh sửa"
                       >
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button
                         onClick={() => handleDelete(v.id, v.code)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Xóa"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -265,20 +401,20 @@ export default function VoucherListPage() {
         </div>
 
         {filteredVouchers.length === 0 && (
-          <div className="p-12 text-center flex flex-col items-center justify-center border-t border-gray-100">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <Ticket className="w-10 h-10 text-gray-300" />
+          <div className="p-12 text-center flex flex-col items-center justify-center border-t border-[#e6bdb8]/20">
+            <div className="w-20 h-20 bg-[#ffdad6]/20 rounded-full flex items-center justify-center mb-4">
+              <Ticket className="w-10 h-10 text-[#b70011]/40" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Chưa có voucher nào</h3>
-            <p className="text-gray-500 text-sm max-w-sm mb-6">
+            <h3 className="text-base font-bold text-[#191c1e] mb-1">Chưa có voucher nào</h3>
+            <p className="text-[#5c403c] text-xs max-w-sm mb-6">
               {searchTerm 
-                ? `Không tìm thấy voucher nào phù hợp với "${searchTerm}"`
+                ? `Không tìm thấy voucher nào phù hợp với từ khóa "${searchTerm}"`
                 : "Bạn chưa tạo bất kỳ mã giảm giá nào. Hãy tạo mã đầu tiên để thu hút khách hàng!"}
             </p>
             {!searchTerm && (
               <Link
                 href="/admin/voucher/new"
-                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+                className="flex items-center gap-2 bg-white border border-[#e6bdb8] text-[#191c1e] px-4 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 Tạo voucher mới

@@ -2,54 +2,91 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import {
+  LayoutDashboard,
+  BarChart3,
+  BookOpen,
+  List,
+  PenTool,
+  ShoppingCart,
+  Users,
+  Image as ImageIcon,
+  Tag,
+  Tags,
+  Ticket,
+  LogOut
+} from "lucide-react";
 
-interface NavItem {
-  href: string;
-  icon: string;
-  label: string;
-  danger?: boolean;
-}
-
-const NAV_GROUPS: { heading?: string; items: NavItem[] }[] = [
+const NAV_GROUPS = [
   {
+    heading: "Hệ Thống",
     items: [
-      { href: "/admin/dashboard", icon: "fa-gauge", label: "Dashboard" },
+      { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+      { href: "/admin/revenue", icon: BarChart3, label: "Doanh thu" },
     ],
   },
   {
-    heading: "Danh mục sản phẩm",
+    heading: "Quản Lý",
     items: [
-      { href: "/admin/categories", icon: "fa-list", label: "Thể loại" },
-      { href: "/admin/authors", icon: "fa-pen-nib", label: "Tác giả" },
-      { href: "/admin/books", icon: "fa-book", label: "Sách" },
+      { href: "/admin/books", icon: BookOpen, label: "Sách" },
+      { href: "/admin/categories", icon: List, label: "Thể loại" },
+      { href: "/admin/authors", icon: PenTool, label: "Tác giả" },
+      { href: "/admin/orders", icon: ShoppingCart, label: "Đơn hàng" },
+      { href: "/admin/customers", icon: Users, label: "Khách hàng" },
+      { href: "/admin/banners", icon: ImageIcon, label: "Banner" },
     ],
   },
   {
-    heading: "Kinh doanh",
+    heading: "Marketing",
     items: [
-      { href: "/admin/orders", icon: "fa-cart-shopping", label: "Đơn hàng" },
-      { href: "/admin/customers", icon: "fa-users", label: "Khách hàng" },
-    ],
-  },
-  {
-    heading: "Quản lý Thanh toán",
-    items: [
-      { href: "/admin/revenue", icon: "fa-cart-shopping", label: "Thống Kê doanh thu" },
-    ],
-  },
-  {
-    heading: "Marketing & Khuyến mại",
-    items: [
-      { href: "/admin/promotions/new", icon: "fa-tag", label: "Tạo khuyến mãi" },
-      { href: "/admin/promotions", icon: "fa-tags", label: "Danh sách khuyến mãi" },
-      { href: "/admin/voucher/new", icon: "fa-tag", label: "Thêm Voucher" },
-      { href: "/admin/voucher", icon: "fa-tags", label: "Quản lý Voucher" },
+      { href: "/admin/promotions/new", icon: Tag, label: "Tạo khuyến mãi" },
+      { href: "/admin/promotions", icon: Tags, label: "Danh sách khuyến mãi" },
+      { href: "/admin/voucher/new", icon: Ticket, label: "Thêm Voucher" },
+      { href: "/admin/voucher", icon: Ticket, label: "Quản lý Voucher" },
     ],
   },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const [adminName, setAdminName] = useState("");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    fetch(`${API_URL}/api/auth/me`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.role === "ADMIN") {
+          setAdminName(data.name);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching admin in sidebar:", err);
+      });
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    sessionStorage.clear();
+    window.location.href = "/";
+    setTimeout(() => {
+      window.location.reload();
+    }, 50);
+  };
 
   const isActive = (href: string) => {
     if (href === "/admin/dashboard") return pathname === "/admin/dashboard";
@@ -60,35 +97,64 @@ export default function AdminSidebar() {
     <aside className="sidebar">
       {/* Brand */}
       <Link href="/admin/dashboard" className="sidebar-brand">
-        <i className="fa-solid fa-book-open me-2" />
-        BOOKSTORE
+        <div className="sidebar-brand-title">
+          <BookOpen className="w-5 h-5 text-[#b70011]" />
+          Bookstore
+        </div>
+        <div className="sidebar-brand-subtitle">Literary Commerce</div>
       </Link>
 
-      <div className="sidebar-content">
+      {/* Nav List */}
+      <div className="sidebar-content flex-grow-1 overflow-y-auto">
         {NAV_GROUPS.map((group, gi) => (
-          <div key={gi}>
+          <div key={gi} className="mb-4">
             {group.heading && (
-              <div
-                className={`sidebar-heading ${group.heading === "Hệ thống" ? "text-danger" : ""}`}
-              >
+              <div className="sidebar-heading">
                 {group.heading}
               </div>
             )}
             <ul className="nav flex-column" id="adminMenu">
-              {group.items.map((item) => (
-                <li key={item.href} className="nav-item">
-                  <Link
-                    href={item.href}
-                    className={`nav-link ${isActive(item.href) ? "active" : ""} ${item.danger ? "text-danger" : ""}`}
-                  >
-                    <i className={`fa-solid ${item.icon}`} />
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              {group.items.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <li key={item.href} className="nav-item">
+                    <Link
+                      href={item.href}
+                      className={`nav-link ${isActive(item.href) ? "active" : ""}`}
+                    >
+                      <IconComponent className="w-4.5 h-4.5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
+      </div>
+
+      {/* User Profile & Logout at Bottom */}
+      <div className="p-4 border-t border-[#e6bdb8]/10 bg-[#131517] flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <img
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Le Minh")}&background=b70011&color=fff`}
+            className="w-10 h-10 rounded-full border border-[#e6bdb8]/20"
+            alt="Avatar"
+            loading="lazy"
+            decoding="async"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{adminName || "Lê Minh"}</p>
+            <p className="text-xs text-[#916f6b]">Administrator</p>
+          </div>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-400 bg-red-950/20 border border-red-900/30 hover:bg-[#b70011] hover:text-white hover:border-[#b70011] transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Đăng xuất</span>
+        </button>
       </div>
     </aside>
   );

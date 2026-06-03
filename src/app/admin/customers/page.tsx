@@ -25,16 +25,53 @@ import {
   TrendingUp
 } from "lucide-react";
 
-function CustomerTypeBadge({ type }: { type: string }) {
-  const isVip = type?.toUpperCase() === "VIP";
-  return isVip ? (
-    <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
-      <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
-      VIP
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
-      MEMBER
+export function getCustomerClassification(totalSpending: number) {
+  if (totalSpending >= 2000000) {
+    return {
+      rank: "VIP Diamond",
+      color: "bg-purple-50 text-purple-700 border-purple-200",
+      icon: "💎",
+      isVip: true
+    };
+  }
+  if (totalSpending >= 1000000) {
+    return {
+      rank: "VIP Gold",
+      color: "bg-amber-50 text-amber-700 border-amber-200",
+      icon: "👑",
+      isVip: true
+    };
+  }
+  if (totalSpending >= 500000) {
+    return {
+      rank: "Silver Member",
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: "⭐",
+      isVip: false
+    };
+  }
+  if (totalSpending > 0) {
+    return {
+      rank: "Bronze Member",
+      color: "bg-slate-50 text-slate-700 border-slate-200",
+      icon: "🛡️",
+      isVip: false
+    };
+  }
+  return {
+    rank: "New Member",
+    color: "bg-gray-50 text-gray-500 border-gray-200",
+    icon: "🆕",
+    isVip: false
+  };
+}
+
+function CustomerTypeBadge({ totalSpending }: { totalSpending: number }) {
+  const classification = getCustomerClassification(totalSpending);
+  return (
+    <span className={`inline-flex items-center gap-1 border px-2.5 py-0.5 rounded-full text-[11px] font-bold ${classification.color}`}>
+      <span className="text-xs">{classification.icon}</span>
+      <span>{classification.rank}</span>
     </span>
   );
 }
@@ -118,21 +155,24 @@ function CustomersContent() {
   // Statistics calculation
   const totalCount = customers.length;
   const activeCount = customers.filter(u => u.active).length;
-  const vipCount = customers.filter(u => u.customerType?.toUpperCase() === "VIP").length;
+  const vipCount = customers.filter(u => u.totalSpending >= 1000000).length;
 
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
       
-      const dataToExport = customers.map(item => ({
-        'Username': item.username,
-        'Họ và Tên': item.fullName || '(Chưa cập nhật)',
-        'Email': item.email || '(Chưa cập nhật)',
-        'Số điện thoại': item.phone || '(Chưa cập nhật)',
-        'Loại khách hàng': item.customerType || 'MEMBER',
-        'Tổng chi tiêu': item.totalSpending ?? 0,
-        'Trạng thái': item.active ? 'Hoạt động' : 'Bị khóa'
-      }));
+      const dataToExport = customers.map(item => {
+        const classification = getCustomerClassification(item.totalSpending);
+        return {
+          'Username': item.username,
+          'Họ và Tên': item.fullName || '(Chưa cập nhật)',
+          'Email': item.email || '(Chưa cập nhật)',
+          'Số điện thoại': item.phone || '(Chưa cập nhật)',
+          'Hạng thành viên': classification.rank,
+          'Tổng chi tiêu': item.totalSpending ?? 0,
+          'Trạng thái': item.active ? 'Hoạt động' : 'Bị khóa'
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
@@ -259,7 +299,7 @@ function CustomersContent() {
             <p className="font-bold text-[10px] text-[#916f6b] uppercase tracking-widest mb-1">Thành viên VIP</p>
             <h3 className="text-2xl font-bold text-[#191c1e] leading-none">{vipCount}</h3>
             <p className="font-semibold text-xs text-amber-600 mt-1">
-              Khách hàng thân thiết VIP của Libris
+              Thành viên VIP Gold & VIP Diamond
             </p>
           </div>
         </div>
@@ -348,7 +388,7 @@ function CustomersContent() {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <CustomerTypeBadge type={item.customerType} />
+                <CustomerTypeBadge totalSpending={item.totalSpending} />
                 
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                   item.active 
@@ -428,7 +468,7 @@ function CustomersContent() {
                       {new Intl.NumberFormat("vi-VN").format(item.totalSpending)} đ
                     </td>
                     <td className="px-6 py-4">
-                      <CustomerTypeBadge type={item.customerType} />
+                      <CustomerTypeBadge totalSpending={item.totalSpending} />
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
