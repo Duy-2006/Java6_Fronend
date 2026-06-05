@@ -249,7 +249,7 @@ export default function HomePage() {
   const fetchBestSellers = async (page: number, isLoadMore = false) => {
     try {
       setLoadingBestSellers(true);
-      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10`);
+      const res = await fetch(`${API_URL}/api/books/new?page=${page}&size=10`);
       let books: any[] = [];
       let totalPages = 0;
       if (res.ok) {
@@ -258,7 +258,7 @@ export default function HomePage() {
         totalPages = data.totalPages ?? 1;
       } else {
         // fallback client-side
-        const allRes = await fetch(`${API_URL}/api/books/best-sellers`);
+        const allRes = await fetch(`${API_URL}/api/books/new`);
         if (!allRes.ok) throw new Error();
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
@@ -270,7 +270,7 @@ export default function HomePage() {
       // Gắn thông tin flash sale
       let flashMap = new Map();
       try {
-        const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
+        const flashRes = await fetch(`${API_URL}/api/books/new`);
         if (flashRes.ok) {
           const flashData = await flashRes.json();
           if (Array.isArray(flashData)) {
@@ -309,7 +309,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/books/flash-sale`);
+        const response = await fetch(`${API_URL}/api/books/new`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         setFlashSaleBooks(Array.isArray(data) ? data : []);
