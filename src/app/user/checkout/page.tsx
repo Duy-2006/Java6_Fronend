@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
@@ -27,13 +28,10 @@ interface FormState {
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " ₫";
 
-const getToken = () => {
-  if (typeof window !== "undefined") return localStorage.getItem("token");
-  return null;
-};
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 function validate(f: FormState): FormErrors {
   const e: FormErrors = {};
@@ -70,8 +68,14 @@ export default function CheckoutPage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [detailAddress, setDetailAddress] = useState("");
   const [calculatingFee, setCalculatingFee] = useState(false);
-  const [saveAddress, setSaveAddress] = useState(true);
   const [savedUser, setSavedUser] = useState<any>(null);
+
+  // Addresses States
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [useManualAddress, setUseManualAddress] = useState(true);
+  const [saveAddress, setSaveAddress] = useState(false);
 
   // Voucher States
   const [voucherCode, setVoucherCode] = useState("");
@@ -92,7 +96,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/books/flash-sale`);
+        const res = await authFetch(`${API_URL}/api/books/flash-sale`);
         if (!res.ok) return;
         const data: any[] = await res.json();
         const map = new Map<number, { price: number; limit: number | null }>();
@@ -137,14 +141,13 @@ export default function CheckoutPage() {
   // 2. Lấy preview từ backend
   useEffect(() => {
     const fetchPreview = async () => {
-      const token = getToken();
-      if (!token) {
+            if (!isLoggedIn()) {
         router.push("/login");
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/api/checkout/preview`, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        const res = await authFetch(`${API_URL}/api/checkout/preview`, {
+          headers: {  "Content-Type": "application/json" },
         });
         if (!res.ok) throw new Error((await res.json()).error || "Không thể lấy thông tin đơn hàng.");
         const data = await res.json();
@@ -159,8 +162,8 @@ export default function CheckoutPage() {
         setDiscount(data.discount || 0);
 
         // Fetch User Info to autofill
-        const meRes = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const meRes = await authFetch(`${API_URL}/api/auth/me`, {
+          headers: { },
         });
         if (meRes.ok) {
           const me = await meRes.json();
@@ -172,6 +175,22 @@ export default function CheckoutPage() {
           }));
           setSavedUser(me);
         }
+
+        // Fetch saved addresses
+        try {
+          const addrRes = await authFetch(`${API_URL}/api/profile/addresses`);
+          if (addrRes.ok) {
+            const addrData = await addrRes.json();
+            if (Array.isArray(addrData) && addrData.length > 0) {
+              setAddresses(addrData);
+              const defaultAddr = addrData.find(a => a.isDefault) || addrData[0];
+              setSelectedAddressId(defaultAddr.id);
+              setUseManualAddress(false);
+            }
+          }
+        } catch (e) {
+          console.error("Lỗi lấy địa chỉ", e);
+        }
       } catch (error: any) {
         showToast(error.message, "error");
         router.push("/user/cart");
@@ -182,16 +201,38 @@ export default function CheckoutPage() {
     fetchPreview();
   }, [router]);
 
-  // Autofill address when provinces are loaded
+  // Map selected address to form
   useEffect(() => {
-    if (provinces.length > 0 && savedUser?.address) {
+    if (provinces.length > 0 && selectedAddressId && !useManualAddress) {
+       const addr = addresses.find(a => a.id === selectedAddressId);
+       if (addr) {
+          setForm(f => ({
+            ...f,
+            customerName: addr.receiverName,
+            customerPhone: addr.receiverPhone,
+          }));
+          
+          setSelectedProvince(addr.provinceId.toString());
+          const provObj = provinces.find((p: any) => p.code === addr.provinceId);
+          if (provObj) {
+            setDistricts(provObj.districts || []);
+            setSelectedDistrict(addr.districtId.toString());
+          }
+          setDetailAddress(addr.street + (addr.wardName ? ", " + addr.wardName : ""));
+       }
+    }
+  }, [selectedAddressId, addresses, provinces, useManualAddress]);
+
+  // Autofill address from profile if no saved addresses
+  useEffect(() => {
+    if (provinces.length > 0 && savedUser?.address && useManualAddress && addresses.length === 0) {
       const parts = savedUser.address.split(", ").reverse();
       if (parts.length >= 2) {
         const pName = parts[0];
         const dName = parts[1];
         const detail = parts.slice(2).reverse().join(", ");
 
-        const prov = provinces.find((p) => p.name === pName);
+        const prov = provinces.find((p: any) => p.name === pName);
         if (prov) {
           setSelectedProvince(prov.code.toString());
           setDistricts(prov.districts || []);
@@ -205,17 +246,14 @@ export default function CheckoutPage() {
       }
       setSavedUser((curr: any) => ({ ...curr, address: null }));
     }
-  }, [provinces, savedUser]);
+  }, [provinces, savedUser, useManualAddress, addresses.length]);
 
   // Fetch Available Vouchers
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        const token = getToken();
-        const headers: any = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch(`${API_URL}/api/vouchers/active`, { headers });
+                const headers: any = {};
+        const res = await authFetch(`${API_URL}/api/vouchers/active`, { headers });
         if (res.ok) {
           const data = await res.json();
           setAvailableVouchers(data || []);
@@ -228,9 +266,9 @@ export default function CheckoutPage() {
   }, []);
 
   // 3. Tính toán giá khuyến mãi và tổng tiền
-  const { displayItems, totalAmount, finalAmount, onlyAudiobooks } = useMemo(() => {
+  const { displayItems, totalAmount, onlyAudiobooks } = useMemo(() => {
     if (rawCartDetails.length === 0) {
-      return { displayItems: [], totalAmount: 0, finalAmount: 0, onlyAudiobooks: false };
+      return { displayItems: [], totalAmount: 0, onlyAudiobooks: false };
     }
     let total = 0;
     const items: any[] = [];
@@ -274,14 +312,16 @@ export default function CheckoutPage() {
       }
     });
 
-    const final = total + shippingFee - discount - (appliedVoucher?.discountAmount || 0);
     return {
       displayItems: items,
       totalAmount: total,
-      finalAmount: final,
       onlyAudiobooks: isAllAudiobooks,
     };
-  }, [rawCartDetails, flashSaleMap, shippingFee, discount, appliedVoucher]);
+  }, [rawCartDetails, flashSaleMap]);
+
+  const finalAmount = useMemo(() => {
+    return totalAmount + shippingFee - discount - (appliedVoucher?.discountAmount || 0);
+  }, [totalAmount, shippingFee, discount, appliedVoucher]);
 
   // 2.5 Tính toán phí vận chuyển GHTK khi thay đổi địa chỉ hoặc tổng tiền
   useEffect(() => {
@@ -316,8 +356,8 @@ export default function CheckoutPage() {
 
       try {
         const params = new URLSearchParams({
-          pick_province: "Hà Nội",
-          pick_district: "Quận Cầu Giấy",
+          pick_province: "Cần Thơ",
+          pick_district: "Quận Ninh Kiều",
           province: provName,
           district: distName,
           weight: totalWeight.toString(),
@@ -325,7 +365,7 @@ export default function CheckoutPage() {
           deliver_option: "none",
         });
 
-        const res = await fetch(`/api/shipment/fee?${params.toString()}`);
+        const res = await authFetch(`/api/shipment/fee?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.fee) {
@@ -376,10 +416,9 @@ export default function CheckoutPage() {
     setApplyingVoucher(true);
     setVoucherError("");
     try {
-      const token = getToken();
-      const res = await fetch(`${API_URL}/api/checkout/apply-voucher`, {
+            const res = await authFetch(`${API_URL}/api/checkout/apply-voucher`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify({ code: codeToApply, orderValue: totalAmount }),
       });
       const data = await res.json();
@@ -433,8 +472,7 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      const token = getToken();
-      if (!token) throw new Error("Vui lòng đăng nhập lại");
+            if (!isLoggedIn()) throw new Error("Vui lòng đăng nhập lại");
       const itemsPayload = displayItems.map((item) => ({
         bookId: item.bookId,
         quantity: item.quantity,
@@ -447,23 +485,27 @@ export default function CheckoutPage() {
         email: form.email,
         customerAddress: form.customerAddress,
         paymentMethod: form.paymentMethod,
-        saveAddress: saveAddress,
         voucherCode: appliedVoucher?.code || null,
         shippingFee: shippingFee,
         items: itemsPayload,
+        saveAddress: useManualAddress && saveAddress,
+        provinceId: selectedProvince ? parseInt(selectedProvince) : null,
+        districtId: selectedDistrict ? parseInt(selectedDistrict) : null,
+        provinceName: provinces.find((p:any) => p.code === parseInt(selectedProvince))?.name || null,
+        street: detailAddress,
       };
 
-      const res = await fetch(`${API_URL}/api/checkout`, {
+      const res = await authFetch(`${API_URL}/api/checkout`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         if (form.paymentMethod === "VNPAY") {
-          const paymentRes = await fetch(`${API_URL}/api/payment/create`, {
+          const paymentRes = await authFetch(`${API_URL}/api/payment/create`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            headers: { "Content-Type": "application/json", },
             body: JSON.stringify({
               amount: finalAmount,
               orderId: data.orderId.toString(),
@@ -554,6 +596,39 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {/* Address Modal */}
+          {showAddressModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-[4px] w-[90%] max-w-[500px] shadow-2xl overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h3 className="font-bold text-[15px]">Chọn địa chỉ nhận hàng</h3>
+                  <button type="button" onClick={() => setShowAddressModal(false)} className="text-gray-500 hover:text-black">
+                    <span className="material-symbols-outlined text-[20px]">close</span>
+                  </button>
+                </div>
+                <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3">
+                  {addresses.map(a => (
+                    <div key={a.id} className={`border rounded-[4px] p-4 cursor-pointer transition-all ${selectedAddressId === a.id && !useManualAddress ? 'border-[#b70011] bg-[#b70011]/5' : 'border-[#e0e3e5] hover:border-gray-400'}`} onClick={() => { setSelectedAddressId(a.id); setUseManualAddress(false); setShowAddressModal(false); }}>
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-bold flex items-center gap-2 text-[13px]">
+                          {a.receiverName}
+                          {a.isDefault && <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">Mặc định</span>}
+                        </div>
+                        <div className="text-[#b70011] font-mono text-[13px]">{a.receiverPhone}</div>
+                      </div>
+                      <div className="text-[13px] text-[#545f73]">
+                        {a.street}, {a.wardName && a.wardName + ", "} {provinces.find((p:any) => p.code === a.provinceId)?.districts?.find((d:any) => d.code === a.districtId)?.name}, {a.provinceName}
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => { setUseManualAddress(true); setShowAddressModal(false); }} className={`w-full border border-dashed rounded-[4px] p-3 text-center transition-all text-[13px] font-semibold ${useManualAddress ? 'border-[#b70011] text-[#b70011] bg-[#b70011]/5' : 'border-[#e0e3e5] text-[#545f73] hover:border-gray-400'}`}>
+                    + Nhập địa chỉ nhận hàng mới
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} noValidate>
             <div className="flex flex-col lg:flex-row gap-8 items-start">
               
@@ -566,6 +641,25 @@ export default function CheckoutPage() {
                     1. Thông tin giao hàng
                   </h3>
                   
+                  {!useManualAddress && selectedAddressId ? (
+                    <div className="border border-[#b70011] bg-[#b70011]/5 rounded-[2px] p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-bold flex items-center gap-2 text-[13px] text-[#191c1e]">
+                          {addresses.find(a => a.id === selectedAddressId)?.receiverName}
+                          {addresses.find(a => a.id === selectedAddressId)?.isDefault && <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">Mặc định</span>}
+                        </div>
+                        <button type="button" onClick={() => setShowAddressModal(true)} className="text-[#b70011] text-[13px] font-semibold hover:underline">
+                          Thay đổi
+                        </button>
+                      </div>
+                      <div className="text-[#545f73] text-[13px] mb-1 font-mono">
+                        SĐT: {addresses.find(a => a.id === selectedAddressId)?.receiverPhone}
+                      </div>
+                      <div className="text-[#545f73] text-[13px]">
+                        {form.customerAddress}
+                      </div>
+                    </div>
+                  ) : (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -631,6 +725,7 @@ export default function CheckoutPage() {
                               Tỉnh/Thành phố *
                             </label>
                             <select
+                              aria-label="Tỉnh/Thành phố"
                               className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
                                 errors.customerAddress && !selectedProvince ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
                               }`}
@@ -659,6 +754,7 @@ export default function CheckoutPage() {
                               Quận/Huyện *
                             </label>
                             <select
+                              aria-label="Quận/Huyện"
                               className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
                                 errors.customerAddress && !selectedDistrict ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
                               }`}
@@ -711,6 +807,19 @@ export default function CheckoutPage() {
                             <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">* {errors.customerAddress}</p>
                           )}
                         </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                          <input 
+                            type="checkbox" 
+                            id="saveAddress" 
+                            className="w-4 h-4 rounded text-[#b70011] focus:ring-[#b70011] cursor-pointer" 
+                            checked={saveAddress}
+                            onChange={e => setSaveAddress(e.target.checked)}
+                          />
+                          <label htmlFor="saveAddress" className="text-[13px] text-[#545f73] font-semibold select-none cursor-pointer">
+                            Lưu thông tin này vào Sổ địa chỉ
+                          </label>
+                        </div>
                       </div>
                     ) : (
                       <div className="mt-3 p-4 bg-[#f2f4f6] border border-[#e0e3e5] rounded-[2px] text-[12px] text-[#545f73] font-mono">
@@ -722,24 +831,8 @@ export default function CheckoutPage() {
                       </div>
                     )}
 
-                    {!onlyAudiobooks && (
-                      <div className="flex items-center gap-2 pt-2">
-                        <input
-                          type="checkbox"
-                          id="saveAddress"
-                          checked={saveAddress}
-                          onChange={(e) => setSaveAddress(e.target.checked)}
-                          className="w-3.5 h-3.5 border-[#e0e3e5] rounded-[2px] text-[#b70011] focus:ring-0 cursor-pointer accent-[#b70011]"
-                        />
-                        <label
-                          htmlFor="saveAddress"
-                          className="text-[12px] text-[#545f73] cursor-pointer select-none font-mono"
-                        >
-                          Lưu làm địa chỉ nhận hàng mặc định
-                        </label>
-                      </div>
-                    )}
                   </div>
+                  )}
                 </div>
 
                 {/* 2. Shipping Methods */}

@@ -224,11 +224,11 @@ export default function CustomerHistoryPage() {
                   <table className="w-full text-left border-collapse font-sans">
                     <thead>
                       <tr className="bg-slate-50/50 border-b border-[#e6bdb8]/20 text-[10px] font-bold text-[#916f6b] uppercase tracking-wider">
-                        <th className="px-6 py-4 text-center" style={{ width: 130 }}>Mã đơn</th>
+                        <th className="px-6 py-4 text-center w-[130px]">Mã đơn</th>
                         <th className="px-6 py-4">Ngày đặt</th>
                         <th className="px-6 py-4 text-right">Tổng tiền</th>
                         <th className="px-6 py-4 text-center">Trạng thái</th>
-                        <th className="px-6 py-4 text-right" style={{ width: 100 }}>Chi tiết</th>
+                        <th className="px-6 py-4 text-right w-[100px]">Chi tiết</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">

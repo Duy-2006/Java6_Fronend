@@ -1,4 +1,5 @@
 "use client";
+import { isLoggedIn } from "@/lib/authFetch";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -21,20 +22,16 @@ export default function EditPromotionPage() {
   const [error,       setError]       = useState("");
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("token")      ||
-      "";
-
-    if (!token) {
+    
+    if (!isLoggedIn()) {
       setError("Chưa đăng nhập hoặc phiên làm việc hết hạn. Vui lòng đăng nhập lại.");
       setLoading(false);
       return;
     }
 
     Promise.all([
-      getPromotionById(Number(params.id), token),
-      getPromotionFormData(token),
+      getPromotionById(Number(params.id)),
+      getPromotionFormData(),
     ])
       .then(([promoData, formData]) => {
         setPromo(promoData);

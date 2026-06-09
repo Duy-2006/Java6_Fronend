@@ -117,32 +117,6 @@ function AuthorsContent() {
     }
   };
 
-  const getAuthorAvatar = (name: string) => {
-    const lowercaseName = name.toLowerCase();
-    if (lowercaseName.includes("nhut anh") || lowercaseName.includes("nhat anh") || lowercaseName.includes("nguyen nhat anh")) {
-      return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60";
-    }
-    if (lowercaseName.includes("rowling")) {
-      return "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=60";
-    }
-    if (lowercaseName.includes("brown")) {
-      return "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60";
-    }
-    if (lowercaseName.includes("murakami")) {
-      return "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=60";
-    }
-    // Avatars ngẫu nhiên theo tên
-    const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const index = hash % 5;
-    const fallbacks = [
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=60",
-      "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=60",
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=60",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60",
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=60"
-    ];
-    return fallbacks[index];
-  };
 
   const getAuthorBio = (name: string) => {
     const lowercaseName = name.toLowerCase();
@@ -239,13 +213,6 @@ function AuthorsContent() {
         {/* Card Tác giả nổi bật */}
         <div className="md:col-span-8 bg-white p-5 rounded-xl border border-[#e6bdb8]/30 shadow-sm flex items-center justify-between relative overflow-hidden group hover:border-[#b70011] transition-colors duration-300">
           <div className="flex items-center gap-5 relative z-10">
-            <div className="w-16 h-16 rounded-xl overflow-hidden ring-4 ring-[#ffdad6] shadow-md flex-shrink-0">
-              <img 
-                alt={popularAuthor.name} 
-                className="w-full h-full object-cover" 
-                src={getAuthorAvatar(popularAuthor.name)}
-              />
-            </div>
             <div>
               <p className="font-bold text-[10px] text-[#916f6b] uppercase tracking-widest mb-1">Tác giả nổi bật nhất</p>
               <h3 className="text-lg font-bold text-[#191c1e]">{popularAuthor.name}</h3>
@@ -325,13 +292,6 @@ function AuthorsContent() {
           {paginatedAuthors.map((item) => (
             <div key={item.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full overflow-hidden border border-slate-100 flex-shrink-0">
-                  <img 
-                    className="w-full h-full object-cover" 
-                    src={getAuthorAvatar(item.name)} 
-                    alt={item.name}
-                  />
-                </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 line-clamp-1">{item.name}</h3>
                   <p className="text-[11px] font-mono text-[#916f6b]">ID: AUTH-{item.id}</p>
@@ -361,7 +321,7 @@ function AuthorsContent() {
                   >
                     <Edit className="w-4.5 h-4.5" />
                   </Link>
-                  <DeleteAuthorButton authorId={item.id} />
+                  <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
                 </div>
               </div>
             </div>
@@ -400,13 +360,6 @@ function AuthorsContent() {
                   <tr key={item.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200/50 flex-shrink-0">
-                          <img 
-                            className="w-full h-full object-cover" 
-                            src={getAuthorAvatar(item.name)} 
-                            alt={item.name}
-                          />
-                        </div>
                         <div>
                           <p className="text-sm font-bold text-slate-800">{item.name}</p>
                           <p className="text-[11px] font-mono text-slate-400">ID: AUTH-{item.id}</p>
@@ -440,7 +393,7 @@ function AuthorsContent() {
                         >
                           <Edit className="w-4.5 h-4.5" />
                         </Link>
-                        <DeleteAuthorButton authorId={item.id} />
+                        <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
                       </div>
                     </td>
                   </tr>
@@ -469,6 +422,8 @@ function AuthorsContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
+              title="Trang trước"
+              aria-label="Trang trước"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -491,6 +446,8 @@ function AuthorsContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
+              title="Trang sau"
+              aria-label="Trang sau"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

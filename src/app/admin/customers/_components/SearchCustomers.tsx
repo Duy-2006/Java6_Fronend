@@ -26,11 +26,10 @@ export default function SearchCustomers() {
   };
 
   return (
-    <div className="input-group input-group-sm" style={{ width: 260 }}>
+    <div className="input-group input-group-sm w-[260px]">
       <input
         type="text"
-        className="form-control border-0 bg-white bg-opacity-25"
-        style={{ color: "white" }}
+        className="form-control border-0 bg-white bg-opacity-25 text-white"
         placeholder="Tìm khách hàng..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -42,6 +41,7 @@ export default function SearchCustomers() {
           type="button"
           onClick={handleReset}
           title="Xóa tìm kiếm"
+          aria-label="Xóa tìm kiếm"
         >
           <i className="fa-solid fa-times" />
         </button>
@@ -50,6 +50,7 @@ export default function SearchCustomers() {
         className="btn btn-outline-light border-0 bg-white bg-opacity-25"
         type="button"
         onClick={handleSearch}
+        aria-label="Tìm kiếm"
       >
         <i className="fa-solid fa-magnifying-glass" />
       </button>

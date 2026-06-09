@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { getAllOrders } from "@/services/ordersService";
@@ -112,18 +113,17 @@ export default function RevenueStatisticsPage() {
   const fetchStats = async (range: string) => {
     setLoading(true);
     setError(null);
-    const token = localStorage.getItem("token");
-    if (!token) {
+        if (!isLoggedIn()) {
       setError("Vui lòng đăng nhập");
       setLoading(false);
       return;
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    const headers = { Authorization: `Bearer ${token}` };
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+    const headers = { };
 
     try {
-      const res = await fetch(`${baseUrl}/api/admin/stats?range=${range}`, { headers });
+      const res = await authFetch(`${baseUrl}/api/admin/stats?range=${range}`, { headers });
       if (!res.ok) throw new Error("Lỗi khi tải dữ liệu thống kê");
       const data = await res.json();
       

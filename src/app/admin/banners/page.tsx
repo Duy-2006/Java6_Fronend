@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState, useEffect, Suspense } from "react";
 import {
@@ -42,7 +43,7 @@ function BannersContent() {
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   // 1. Lấy danh sách banner từ API
   const fetchBanners = async (silent = false) => {
@@ -50,7 +51,7 @@ function BannersContent() {
     else setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/banners`);
+      const res = await authFetch(`${API_URL}/api/banners`);
       if (res.ok) {
         const data = await res.json();
         setBanners(data);
@@ -84,7 +85,7 @@ function BannersContent() {
     const url = isEditing ? `${API_URL}/api/banners/${formData.id}` : `${API_URL}/api/banners`;
 
     try {
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -121,7 +122,7 @@ function BannersContent() {
   const handleDelete = async (id: number) => {
     if (confirm("Bạn có chắc chắn muốn xóa banner này?")) {
       try {
-        const res = await fetch(`${API_URL}/api/banners/${id}`, { method: "DELETE" });
+        const res = await authFetch(`${API_URL}/api/banners/${id}`, { method: "DELETE" });
         if (res.ok) {
           setAlert({ msg: "Xóa banner thành công!", type: "success" });
           fetchBanners(true);

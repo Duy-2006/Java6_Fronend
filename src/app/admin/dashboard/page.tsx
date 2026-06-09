@@ -75,7 +75,7 @@ export default function AdminDashboard() {
     if (cleanUrl.startsWith("books/")) {
       cleanUrl = cleanUrl.substring(6);
     }
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
     return `${apiBase}/uploads/books/${cleanUrl}`;
   };
 

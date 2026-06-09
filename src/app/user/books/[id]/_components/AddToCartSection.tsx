@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -9,12 +10,7 @@ interface Props {
   usageLimit?: number | null;
 }
 
-const getToken = () => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
-  }
-  return null;
-};
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
   const router = useRouter();
@@ -27,19 +23,19 @@ export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
   const [loading, setLoading] = useState(false);
 
   const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const isOutOfStock = stock === 0;
 
   // Lấy số lượng sách này đã có trong giỏ hàng
   useEffect(() => {
     const fetchCartQty = async () => {
-      const token = getToken();
-      if (!token) return;
+      // Cookie tự động gửi kèm request qua authFetch
+      if (!isLoggedIn()) return;
       try {
-        const res = await fetch(`${API_URL}/api/cart`, {
+        const res = await authFetch(`${API_URL}/api/cart`, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            
           },
         });
         if (res.ok) {
@@ -92,8 +88,8 @@ export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
       return;
     }
 
-    const token = getToken();
-    if (!token) {
+    // Cookie tự động gửi kèm request qua authFetch
+    if (!isLoggedIn()) {
       showToast("Vui lòng đăng nhập", "error");
       router.push("/auth/login");
       return;
@@ -102,11 +98,11 @@ export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/cart/add`, {
+      const res = await authFetch(`${API_URL}/api/cart/add`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify({
           bookId,
@@ -167,6 +163,7 @@ export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
             </button>
 
             <input
+              aria-label="Số lượng"
               value={qty}
               onChange={(e) => {
                 const v = parseInt(e.target.value);
@@ -215,13 +212,13 @@ export default function AddToCartSection({ bookId, stock, usageLimit }: Props) {
           disabled={
             loading ||
             isOutOfStock ||
-            (maxAddable === 0 && getToken() !== null)
+            (maxAddable === 0 && isLoggedIn())
           }
           className="w-full bg-[#C92127] text-white py-3 px-6 rounded-full font-bold hover:bg-[#A8171C] transition duration-200 disabled:opacity-50 disabled:bg-gray-400 text-sm tracking-wide uppercase"
         >
           {isOutOfStock
             ? "Hết hàng"
-            : maxAddable === 0 && getToken() !== null
+            : maxAddable === 0 && isLoggedIn()
             ? "Đã đạt giới hạn giỏ hàng"
             : loading
             ? "Đang thêm..."

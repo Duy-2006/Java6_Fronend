@@ -1,5 +1,6 @@
+import { authFetch } from "@/lib/authFetch";
 // src/services/customersService.ts
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 export interface CustomerSummary {
   username: string;
@@ -21,16 +22,11 @@ export interface ToggleStatusResponse {
   username: string;
 }
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
+
 
 function getAuthHeaders(): HeadersInit {
-  const token = getToken();
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
@@ -60,22 +56,24 @@ async function handleResponse(response: Response) {
 }
 
 export async function getAllCustomers(): Promise<CustomerSummary[]> {
-  const res = await fetch(`${BASE_URL}/api/admin/customers`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/customers`, {
     headers: getAuthHeaders(),
+    credentials: 'include',
   });
   const data = await handleResponse(res);
   return Array.isArray(data) ? data : [];
 }
 
 export async function getCustomerHistory(username: string): Promise<CustomerHistory> {
-  const res = await fetch(`${BASE_URL}/api/admin/customers/history/${username}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/customers/history/${username}`, {
     headers: getAuthHeaders(),
+    credentials: 'include',
   });
   return handleResponse(res);
 }
 
 export async function toggleCustomerStatus(username: string): Promise<ToggleStatusResponse> {
-  const res = await fetch(`${BASE_URL}/api/admin/customers/toggle/${username}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/customers/toggle/${username}`, {
     method: 'PUT',
     headers: {
       ...getAuthHeaders(),

@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 import { notFound } from "next/navigation";
 import AuthorForm from "@/app/admin/authors/_components/AuthorsForm";
 
@@ -7,11 +8,11 @@ interface EditAuthorPageProps {
 
 async function getAuthor(id: string) {
   // ✅ Fallback URL
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
   const url = `${API_BASE}/api/admin/authors/${id}`;
 
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await authFetch(url, { cache: "no-store" });
     if (!res.ok) return null;
     return res.json();
   } catch {

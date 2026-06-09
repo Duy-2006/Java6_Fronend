@@ -1,16 +1,17 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { EyeOff } from "lucide-react";
 
 export default function DeleteBookButton({ bookId, onSuccess }: { bookId: number; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/books/${bookId}`, { method: "DELETE" });
+      const res = await authFetch(`${API_BASE}/api/admin/books/${bookId}`, { method: "DELETE" });
       if (res.ok) {
         onSuccess(); // Gọi callback để refresh danh sách
       } else {

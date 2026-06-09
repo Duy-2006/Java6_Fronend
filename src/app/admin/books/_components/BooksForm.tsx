@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -29,7 +30,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const getFullImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return "https://placehold.co/200x300?text=Preview";
@@ -99,7 +100,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
       if (fileRef.current?.files?.[0]) fd.append("imageFile", fileRef.current.files[0]);
 
       const url = isEdit ? `${API_BASE}/api/admin/books/${form.id}` : `${API_BASE}/api/admin/books`;
-      const res = await fetch(url, { method: isEdit ? "PUT" : "POST", body: fd });
+      const res = await authFetch(url, { method: isEdit ? "PUT" : "POST", body: fd });
 
       if (res.ok) {
         const successMsg = isEdit ? "Cập nhật sách thành công." : "Thêm sách mới thành công.";
@@ -123,7 +124,7 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
       <div className="row justify-content-center">
         <div className="col-lg-10">
           <div className="card border-0 shadow-lg mt-3 mb-5">
-            <div className="card-header text-white py-3" style={{ background: "linear-gradient(135deg, var(--primary), var(--primary-dark))", borderRadius: "0.5rem 0.5rem 0 0" }}>
+            <div className="card-header text-white py-3 bg-gradient-to-br from-primary to-primary-dark rounded-t-lg">
               <h5 className="m-0 fw-bold text-uppercase d-flex align-items-center">
                 {isEdit ? <i className="fa-solid fa-pen-to-square me-2" /> : <i className="fa-solid fa-book-medical me-2" />}
                 {isEdit ? "Cập Nhật Thông Tin Sách" : "Nhập Sách Mới"}
@@ -139,10 +140,11 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                 </h6>
                 <div className="row">
                   <div className="col-md-8 mb-3">
-                    <label className="form-label">Tên sách <span className="text-danger">*</span></label>
+                    <label className="form-label" htmlFor="title">Tên sách <span className="text-danger">*</span></label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-book text-muted" /></span>
                       <input
+                        id="title"
                         type="text"
                         className={`form-control ${errors.title ? "border-danger" : ""}`}
                         value={form.title}
@@ -157,10 +159,11 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   </div>
 
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Mã ISBN</label>
+                    <label className="form-label" htmlFor="isbn">Mã ISBN</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-barcode text-muted" /></span>
                       <input
+                        id="isbn"
                         type="text"
                         className={`form-control ${errors.isbn ? "border-danger" : ""}`}
                         value={form.isbn}
@@ -184,20 +187,21 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
 
                 <div className="row">
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Tác giả</label>
+                    <label className="form-label" htmlFor="authorId">Tác giả</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-user-pen text-muted" /></span>
-                      <select className="form-select" value={form.authorId} onChange={e => setField("authorId", e.target.value)}>
+                      <select id="authorId" className="form-select" value={form.authorId} onChange={e => setField("authorId", e.target.value)}>
                         <option value="">-- Chọn tác giả --</option>
                         {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Nhà xuất bản</label>
+                    <label className="form-label" htmlFor="publisher">Nhà xuất bản</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-building text-muted" /></span>
                       <input
+                        id="publisher"
                         type="text"
                         className="form-control"
                         value={form.publisher}
@@ -207,10 +211,10 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                     </div>
                   </div>
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Thể loại</label>
+                    <label className="form-label" htmlFor="categoryId">Thể loại</label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-layer-group text-muted" /></span>
-                      <select className="form-select" value={form.categoryId} onChange={e => setField("categoryId", e.target.value)}>
+                      <select id="categoryId" className="form-select" value={form.categoryId} onChange={e => setField("categoryId", e.target.value)}>
                         <option value="">-- Chọn thể loại --</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
@@ -224,9 +228,10 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                 </h6>
                 <div className="row">
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Giá bán <span className="text-danger">*</span></label>
+                    <label className="form-label" htmlFor="price">Giá bán <span className="text-danger">*</span></label>
                     <div className="input-group">
                       <input
+                        id="price"
                         type="number"
                         className={`form-control fw-bold text-end text-danger ${errors.price ? "border-danger" : ""}`}
                         value={form.price}
@@ -241,9 +246,10 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   </div>
 
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Giá sách nói (Audio) <span className="text-muted text-sm">(Tùy chọn)</span></label>
+                    <label className="form-label" htmlFor="audioPrice">Giá sách nói (Audio) <span className="text-muted text-sm">(Tùy chọn)</span></label>
                     <div className="input-group">
                       <input
+                        id="audioPrice"
                         type="number"
                         className="form-control fw-bold text-end text-success"
                         value={form.audioPrice}
@@ -257,12 +263,13 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   </div>
 
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">
+                    <label className="form-label" htmlFor="quantity">
                       Số lượng tồn kho <span className="text-danger">*</span>
                     </label>
                     <div className="input-group">
                       <span className="input-group-text bg-light"><i className="fa-solid fa-boxes-stacked text-muted" /></span>
                       <input
+                        id="quantity"
                         type="number"
                         className={`form-control fw-bold ${errors.quantity ? "border-danger" : ""}`}
                         value={form.quantity}
@@ -276,13 +283,12 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   <div className="col-md-4 mb-3">
                     <div className="form-check form-switch mt-4 ps-5">
                       <input
-                        className="form-check-input"
+                        className="form-check-input scale-[1.3]"
                         type="checkbox"
                         role="switch"
                         id="activeSwitch"
                         checked={form.active}
                         onChange={e => setField("active", e.target.checked)}
-                        style={{ transform: "scale(1.3)" }}
                       />
                       <label className="form-check-label fw-bold ms-2 text-success" htmlFor="activeSwitch">Đang kinh doanh</label>
                     </div>
@@ -295,21 +301,21 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                 </h6>
                 <div className="row">
                   <div className="col-md-4 mb-3">
-                    <label className="form-label">Ảnh bìa <small className="text-muted">(JPG/PNG, tối đa 5MB)</small></label>
-                    <input type="file" ref={fileRef} className="form-control" accept="image/*" onChange={handleFileChange} />
-                    <div className="mt-3 text-center border rounded p-2 bg-light d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}>
+                    <label className="form-label" htmlFor="imageFile">Ảnh bìa <small className="text-muted">(JPG/PNG, tối đa 5MB)</small></label>
+                    <input id="imageFile" type="file" ref={fileRef} className="form-control" accept="image/*" onChange={handleFileChange} />
+                    <div className="mt-3 text-center border rounded p-2 bg-light d-flex align-items-center justify-content-center min-h-[200px]">
                       <img
                         src={preview}
                         alt="Preview"
-                        className="img-fluid rounded shadow-sm"
-                        style={{ maxHeight: 250, objectFit: "contain" }}
+                        className="img-fluid rounded shadow-sm max-h-[250px] object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/200x300?text=Preview"; }}
                       />
                     </div>
                   </div>
                   <div className="col-md-8 mb-3">
-                    <label className="form-label">Mô tả chi tiết</label>
+                    <label className="form-label" htmlFor="description">Mô tả chi tiết</label>
                     <textarea
+                      id="description"
                       className="form-control"
                       rows={10}
                       value={form.description}

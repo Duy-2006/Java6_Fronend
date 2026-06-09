@@ -29,7 +29,7 @@ import {
   BookMarked
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 function BooksContent() {
   const searchParams = useSearchParams();
@@ -412,7 +412,7 @@ function BooksContent() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
-                  <th className="px-6 py-4" style={{ width: 100 }}>Bìa</th>
+                  <th className="px-6 py-4 w-[100px]">Bìa</th>
                   <th className="px-6 py-4">Thông tin sách</th>
                   <th className="px-6 py-4">Thể loại</th>
                   <th className="px-6 py-4">Giá bán</th>
@@ -534,6 +534,7 @@ function BooksContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
+              aria-label="Trang trước"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -556,6 +557,7 @@ function BooksContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
+              aria-label="Trang sau"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

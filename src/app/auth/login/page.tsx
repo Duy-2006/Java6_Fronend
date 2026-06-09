@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,7 +21,9 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== "") 
+    ? process.env.NEXT_PUBLIC_API_URL 
+    : "http://localhost:8080";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +53,10 @@ function LoginContent() {
     setFieldErrors({});
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await authFetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ usernameOrEmail, password }),
       });
 
@@ -67,18 +71,22 @@ function LoginContent() {
         return;
       }
 
-      // Lưu token và user
-      localStorage.setItem("token", data.token);
-      if (data.user) {
+      // Cấu trúc response: { user: {...}, token: ... }
+      // Token đã được backend gắn vào HTTP-Only Cookie (Set-Cookie header).
+      // localStorage chỉ lưu metadata hiển thị (tên, role, id) — KHÔNG lưu token.
+      const userPayload = data.user || data;
+      if (userPayload && (userPayload.id || userPayload.userId || userPayload.username)) {
         const userData = {
-          id: data.user.id,
-          name: data.user.name || data.user.fullName,
-          role: data.user.role,
-          username: data.user.username,
-          email: data.user.email,
+          id: userPayload.id || userPayload.userId,
+          name: userPayload.name || userPayload.fullName || userPayload.username,
+          role: userPayload.role || (userPayload.roles && userPayload.roles[0]) || "USER",
+          username: userPayload.username,
+          email: userPayload.email || "",
         };
         localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("userId", data.user.id.toString());
+        if (userData.id) {
+          localStorage.setItem("userId", userData.id.toString());
+        }
       }
 
       // Chuyển hướng sau khi đăng nhập

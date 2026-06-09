@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { authFetch } from "@/lib/authFetch";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 // ==================== INTERFACES ====================
 export interface PromotionDTO {
@@ -23,22 +24,20 @@ export interface FormData {
 
 // ==================== HELPER ====================
 /**
- * Trả về header Authorization chỉ khi token hợp lệ.
- * Tránh gửi "Bearer null" / "Bearer undefined" → 401.
+ * Cookie-Only: Xác thực tự động qua HTTP-Only cookie (authFetch).
+ * Không cần header Authorization.
  */
-function authHeader(token: string): Record<string, string> {
-  return token && token !== "null" && token !== "undefined"
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+function authHeader(): Record<string, string> {
+  return {};
 }
 
 // ==================== GET ALL PROMOTIONS ====================
-export async function getAllPromotions(token: string): Promise<PromotionDTO[]> {
-  const res = await fetch(`${API_URL}/api/admin/promotions`, {
+export async function getAllPromotions(): Promise<PromotionDTO[]> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
     method: "GET",
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -52,14 +51,11 @@ export async function getAllPromotions(token: string): Promise<PromotionDTO[]> {
 }
 
 // ==================== GET PROMOTION BY ID ====================
-export async function getPromotionById(
-  id: number,
-  token: string
-): Promise<PromotionDTO> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+export async function getPromotionById(id: number): Promise<PromotionDTO> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -72,11 +68,11 @@ export async function getPromotionById(
 }
 
 // ==================== GET FORM DATA (books + categories) ====================
-export async function getPromotionFormData(token: string): Promise<FormData> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/form-data`, {
+export async function getPromotionFormData(): Promise<FormData> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/form-data`, {
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -86,14 +82,12 @@ export async function getPromotionFormData(token: string): Promise<FormData> {
 
 // ==================== CREATE PROMOTION ====================
 export async function createPromotion(
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
-  token: string
-): Promise<string> {
-  const res = await fetch(`${API_URL}/api/admin/promotions`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...authHeader(token),
+      
     },
     body: JSON.stringify(payload),
   });
@@ -109,14 +103,12 @@ export async function createPromotion(
 // ==================== UPDATE PROMOTION ====================
 export async function updatePromotion(
   id: number,
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
-  token: string
-): Promise<string> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      ...authHeader(token),
+      
     },
     body: JSON.stringify(payload),
   });
@@ -130,11 +122,11 @@ export async function updatePromotion(
 }
 
 // ==================== DELETE PROMOTION ====================
-export async function deletePromotion(id: number, token: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+export async function deletePromotion(id: number): Promise<void> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "DELETE",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 

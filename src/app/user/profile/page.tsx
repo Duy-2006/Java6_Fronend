@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -19,21 +20,7 @@ interface ProfileUpdateRequest {
   phone: string;
 }
 
-function parseJwt(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
+
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -46,22 +33,24 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+        if (!isLoggedIn()) {
       router.push("/auth/login");
       return;
     }
 
-    const decoded = parseJwt(token);
-    if (decoded) {
-      setUsername(decoded.username || "");
-      setRole(decoded.role || "");
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setUsername(u.username || "");
+        setRole(u.role || "");
+      } catch (e) {}
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
-    fetch(`${apiUrl}/api/profile`, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(`${apiUrl}/api/profile`, {
+      headers: { },
     })
       .then(async (res) => {
         if (res.status === 401) {
@@ -112,20 +101,19 @@ export default function ProfilePage() {
     setErrors({});
     setSaving(true);
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+        if (!isLoggedIn()) {
       router.push("/auth/login");
       return;
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
     try {
-      const res = await fetch(`${apiUrl}/api/profile/update`, {
+      const res = await authFetch(`${apiUrl}/api/profile/update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify(form),
       });
@@ -208,7 +196,7 @@ export default function ProfilePage() {
                 href="/user/profile" 
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-[#ffdad6]/40 text-[#b70011]"
               >
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+                <span className="material-symbols-outlined text-lg [font-variation-settings:'FILL'_1]">person</span>
                 <span>Thông tin tài khoản</span>
               </Link>
               <Link 
@@ -277,8 +265,9 @@ export default function ProfilePage() {
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Username (Không thể thay đổi)</label>
+                  <label htmlFor="username" className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Username (Không thể thay đổi)</label>
                   <input 
+                    id="username"
                     className="w-full bg-[#f2f4f6] border border-transparent rounded-xl px-4 py-3 text-sm text-gray-500 cursor-not-allowed outline-none h-[46px] font-semibold"
                     value={username} 
                     readOnly 
@@ -286,8 +275,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Họ tên</label>
+                  <label htmlFor="name" className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Họ tên</label>
                   <input 
+                    id="name"
                     className={inputCls("name")}
                     value={form.name} 
                     onChange={(e) => setField("name", e.target.value)}
@@ -302,8 +292,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Email</label>
+                  <label htmlFor="email" className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Email</label>
                   <input 
+                    id="email"
                     className={inputCls("email")}
                     value={form.email} 
                     onChange={(e) => setField("email", e.target.value)}
@@ -319,8 +310,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Số điện thoại</label>
+                  <label htmlFor="phone" className="block text-[10px] font-bold text-[#b70011] uppercase tracking-widest mb-1.5">Số điện thoại</label>
                   <input 
+                    id="phone"
                     className={inputCls("phone")}
                     value={form.phone} 
                     onChange={(e) => setField("phone", e.target.value)}
@@ -369,7 +361,7 @@ export default function ProfilePage() {
                 </div>
                 {/* Background Decor */}
                 <div className="absolute -right-4 -bottom-4 opacity-10">
-                  <span className="material-symbols-outlined text-[100px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_stories</span>
+                  <span className="material-symbols-outlined text-[100px] [font-variation-settings:'FILL'_1]">auto_stories</span>
                 </div>
               </div>
 

@@ -1,5 +1,6 @@
 // app/user/search/page.tsx
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -52,7 +53,7 @@ function SearchContent() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   useEffect(() => {
     async function searchBooks() {
@@ -63,7 +64,7 @@ function SearchContent() {
       }
       try {
         const url = `${baseUrl}/api/search?keyword=${encodeURIComponent(keyword.trim())}`;
-        const res = await fetch(url, { cache: "no-store" });
+        const res = await authFetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error("Fetch failed");
         const data = await res.json();
         const booksArray = Array.isArray(data) ? data : (data?.data || data?.content || []);

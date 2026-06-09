@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -6,14 +7,11 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida/ADBb0ugHjrY8tAvrREQdtUimgd1bjF-cWPdDhU6ZyTv3D1p43vZNu-ciJQNSTseUx-PR03kkb36UL9GYHUlTb1Z1YyKyEJxFzyA0TwwRknkvypkhMKD6R6pjuYVaaDG9D3hov90KJNoWwT5Y6x-paL72oVm37XXAsHS8eKE5tDVSSEt6z2XrH3rtteInGdkIKUFqh3SLpprDqNbOxXd3C6pF3IkXckXIDSbNM-fO6IcC5SwosqArKUsBU90SoJ0";
 
-const getToken = () => {
-  if (typeof window !== 'undefined') return localStorage.getItem('token');
-  return null;
-};
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 // Custom Premium BookCard Component
 interface BookCardProps {
@@ -30,7 +28,7 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${API_URL}/api/books/${b.id}/reviews`)
+    authFetch(`${API_URL}/api/books/${b.id}/reviews`)
       .then((r) => (r.ok ? r.json() : []))
       .then((reviews) => {
         if (!isMounted) return;
@@ -202,6 +200,9 @@ export default function HomePage() {
   const [bestSellersTotalPages, setBestSellersTotalPages] = useState(0);
   const [loadingBestSellers, setLoadingBestSellers] = useState(false);
 
+  const [audioBooksList, setAudioBooksList] = useState<any[]>([]);
+  const [loadingAudioBooks, setLoadingAudioBooks] = useState(false);
+
   const [flashSaleBooks, setFlashSaleBooks] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [topCategories, setTopCategories] = useState<any[]>([]);
@@ -218,16 +219,16 @@ export default function HomePage() {
   };
 
   const addToCart = async (book: any, redirectToCheckout: boolean = false) => {
-    const token = getToken();
-    if (!token) {
+    // Cookie tự động gửi kèm request qua authFetch
+    if (!isLoggedIn()) {
       showToast("Vui lòng đăng nhập để thêm vào giỏ hàng", true);
       router.push("/auth/login");
       return;
     }
     try {
-      const response = await fetch(`${API_URL}/api/cart/add`, {
+      const response = await authFetch(`${API_URL}/api/cart/add`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify({ bookId: book.id, quantity: 1 }),
       });
       const data = await response.json();
@@ -245,7 +246,7 @@ export default function HomePage() {
   const fetchNewBooks = async (page: number, isLoadMore = false) => {
     try {
       setLoadingNewBooks(true);
-      const res = await fetch(`${API_URL}/api/books/new?page=${page}&size=10&t=${Date.now()}`);
+      const res = await authFetch(`${API_URL}/api/books/new?page=${page}&size=10&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         let content = data.content || (Array.isArray(data) ? data : []);
@@ -258,7 +259,7 @@ export default function HomePage() {
         }
         setNewBooksTotalPages(totalPages);
       } else {
-        const allRes = await fetch(`${API_URL}/api/books/new?t=${Date.now()}`);
+        const allRes = await authFetch(`${API_URL}/api/books/new?t=${Date.now()}`);
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
         allBooks = allBooks.filter((b: any) => b.active !== false);
@@ -286,7 +287,7 @@ export default function HomePage() {
   const fetchBestSellers = async (page: number, isLoadMore = false) => {
     try {
       setLoadingBestSellers(true);
-      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10&t=${Date.now()}`);
+      const res = await authFetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10&t=${Date.now()}`);
       let books: any[] = [];
       let totalPages = 0;
       if (res.ok) {
@@ -295,7 +296,7 @@ export default function HomePage() {
         books = books.filter((b: any) => b.active !== false);
         totalPages = data.totalPages ?? 1;
       } else {
-        const allRes = await fetch(`${API_URL}/api/books/best-sellers?t=${Date.now()}`);
+        const allRes = await authFetch(`${API_URL}/api/books/best-sellers?t=${Date.now()}`);
         if (!allRes.ok) throw new Error();
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
@@ -309,7 +310,7 @@ export default function HomePage() {
       // Merge with flash sale
       let flashMap = new Map();
       try {
-        const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
+        const flashRes = await authFetch(`${API_URL}/api/books/flash-sale`);
         if (flashRes.ok) {
           const flashData = await flashRes.json();
           if (Array.isArray(flashData)) {
@@ -346,11 +347,38 @@ export default function HomePage() {
     }
   };
 
+  // Fetch audiobooks list from backend (with fallback to bestSellers having audioPrice > 0 if not implemented)
+  const fetchAudioBooks = async () => {
+    try {
+      setLoadingAudioBooks(true);
+      const res = await authFetch(`${API_URL}/api/books/audiobooks?page=0&size=10&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        let content = data.content || (Array.isArray(data) ? data : []);
+        content = content.filter((b: any) => b.active !== false);
+        setAudioBooksList(content);
+      } else {
+        // Fallback: filter best sellers that have audioPrice configured
+        const resBest = await authFetch(`${API_URL}/api/books/best-sellers?t=${Date.now()}`);
+        if (resBest.ok) {
+          const data = await resBest.json();
+          let content = data.content || (Array.isArray(data) ? data : []);
+          content = content.filter((b: any) => b.active !== false && b.audioPrice > 0);
+          setAudioBooksList(content.slice(0, 10));
+        }
+      }
+    } catch (err) {
+      console.error("Fetch audiobooks error:", err);
+    } finally {
+      setLoadingAudioBooks(false);
+    }
+  };
+
   // Fetch flash sale
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/books/flash-sale?t=${Date.now()}`);
+        const response = await authFetch(`${API_URL}/api/books/flash-sale?t=${Date.now()}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         let fBooks = Array.isArray(data) ? data : [];
@@ -383,7 +411,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/categories`);
+        const response = await authFetch(`${API_URL}/api/categories`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         setCategories(Array.isArray(data) ? data : []);
@@ -426,6 +454,7 @@ export default function HomePage() {
       await Promise.all([
         fetchNewBooks(0, false),
         fetchBestSellers(0, false),
+        fetchAudioBooks(),
       ]);
       setLoading(false);
     };
@@ -508,8 +537,7 @@ export default function HomePage() {
     );
   }
 
-  // Create Audiobook mock list from real books to showcase "Sách Nói Mới"
-  const audioBooksList = bestSellers.slice(0, 6);
+
 
   return (
     <div className="bg-[#f7f9fb] font-sans text-[#191c1e] antialiased min-h-screen">
@@ -684,7 +712,7 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-                {bestSellers.slice(0, 10).map(book => (
+                {bestSellers.map(book => (
                   <BookCard key={book.id} b={book} onAddToCart={addToCart} />
                 ))}
               </div>
@@ -809,7 +837,7 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-                {newBooksNotInFlashSale.slice(0, 10).map(book => (
+                {newBooksNotInFlashSale.map(book => (
                   <BookCard key={book.id} b={book} onAddToCart={addToCart} />
                 ))}
               </div>

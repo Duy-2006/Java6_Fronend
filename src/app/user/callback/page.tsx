@@ -1,4 +1,5 @@
 "use client";
+import { isLoggedIn } from "@/lib/authFetch";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -19,10 +20,15 @@ export default function AuthCallback() {
       return;
     }
 
-    if (token && userParam) {
+    if (userParam) {
       try {
         const userData = JSON.parse(decodeURIComponent(userParam));
-        localStorage.setItem("token", token);
+        // Token đã được backend gắn vào HTTP-Only cookie trong OAuth handler
+        // Chỉ lưu metadata hiển thị (tên, role, id) vào localStorage
+        localStorage.setItem("user", JSON.stringify(userData));
+        if (userData.id) {
+          localStorage.setItem("userId", userData.id.toString());
+        }
         
         // Reload trang để cập nhật Navbar
         window.location.href = "/";

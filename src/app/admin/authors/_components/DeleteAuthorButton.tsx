@@ -1,13 +1,14 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
-export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
+export default function DeleteAuthorButton({ authorId, onSuccess }: { authorId: number, onSuccess?: () => void }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const handleDelete = async () => {
     if (!authorId) {
@@ -22,11 +23,12 @@ export default function DeleteAuthorButton({ authorId }: { authorId: number }) {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/authors/${authorId}`, {
+      const res = await authFetch(`${API_BASE}/api/admin/authors/${authorId}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
+        if (onSuccess) onSuccess();
         router.push("/admin/authors?success=" + encodeURIComponent("Đã xóa tác giả thành công."));
         router.refresh();
       } else {

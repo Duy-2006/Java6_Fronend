@@ -1,4 +1,5 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { authFetch } from "@/lib/authFetch";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 export interface Author {
   id?: number;
@@ -7,7 +8,7 @@ export interface Author {
 }
 
 export async function getAllAuthors(): Promise<Author[]> {
-  const res = await fetch(`${BASE_URL}/api/admin/authors`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/authors`, {
     cache: "no-store",
   });
   if (!res.ok) throw new Error("Không thể tải danh sách tác giả.");
@@ -15,7 +16,7 @@ export async function getAllAuthors(): Promise<Author[]> {
 }
 
 export async function getAuthorById(id: number): Promise<Author> {
-  const res = await fetch(`${BASE_URL}/api/admin/authors/${id}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/authors/${id}`, {
     cache: "no-store",
   });
   if (!res.ok) throw new Error("Không tìm thấy tác giả.");
@@ -23,7 +24,7 @@ export async function getAuthorById(id: number): Promise<Author> {
 }
 
 export async function createAuthor(data: Omit<Author, "id">): Promise<Author> {
-  const res = await fetch(`${BASE_URL}/api/admin/authors`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/authors`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -33,7 +34,7 @@ export async function createAuthor(data: Omit<Author, "id">): Promise<Author> {
 }
 
 export async function updateAuthor(id: number, data: Omit<Author, "id">): Promise<Author> {
-  const res = await fetch(`${BASE_URL}/api/admin/authors/${id}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/authors/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -43,7 +44,7 @@ export async function updateAuthor(id: number, data: Omit<Author, "id">): Promis
 }
 
 export async function deleteAuthor(id: number): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/admin/authors/${id}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/authors/${id}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Xóa tác giả thất bại.");

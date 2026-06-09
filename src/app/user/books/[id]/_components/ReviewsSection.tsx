@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -16,12 +17,7 @@ interface Props {
   bookId: number;
 }
 
-const getToken = () => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
-  }
-  return null;
-};
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 const getUser = () => {
   if (typeof window !== "undefined") {
@@ -47,14 +43,14 @@ export default function ReviewsSection({ bookId }: Props) {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch reviews
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`);
+      const res = await authFetch(`${API_URL}/api/books/${bookId}/reviews`);
       if (res.ok) {
         const data = await res.json();
         setReviews(Array.isArray(data) ? data : []);
@@ -77,8 +73,8 @@ export default function ReviewsSection({ bookId }: Props) {
   // Submit review
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = getToken();
-    if (!token) {
+    // Cookie tự động gửi kèm request qua authFetch
+    if (!isLoggedIn()) {
       setErrorMessage("Vui lòng đăng nhập để gửi đánh giá.");
       router.push("/auth/login");
       return;
@@ -94,11 +90,11 @@ export default function ReviewsSection({ bookId }: Props) {
     setSuccessMessage("");
 
     try {
-      const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`, {
+      const res = await authFetch(`${API_URL}/api/books/${bookId}/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify({
           rating,

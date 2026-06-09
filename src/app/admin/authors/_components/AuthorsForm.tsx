@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ export default function AuthorForm({ author }: { author?: Author }) {
   const router = useRouter();
 
   // ✅ FALLBACK URL
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const [form, setForm] = useState({
     id: author?.id ?? null,
@@ -65,7 +66,7 @@ export default function AuthorForm({ author }: { author?: Author }) {
         ? `${API_BASE}/api/admin/authors/${form.id}`
         : `${API_BASE}/api/admin/authors`;
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: form.name, email: form.email }),

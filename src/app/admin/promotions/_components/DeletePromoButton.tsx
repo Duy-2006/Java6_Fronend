@@ -1,4 +1,5 @@
 "use client";
+import { isLoggedIn } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { deletePromotion } from "@/services/promotionServices";
@@ -15,19 +16,15 @@ export default function DeletePromoButton({ promoId, onDeleted }: Props) {
   const handleDelete = async () => {
     if (!window.confirm("Bạn có chắc muốn xóa khuyến mãi này?")) return;
 
-    const token =
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("token")      ||
-      "";
-
-    if (!token) {
+    
+    if (!isLoggedIn()) {
       alert("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
     }
 
     setLoading(true);
     try {
-      await deletePromotion(promoId, token);
+      await deletePromotion(promoId);
       onDeleted(); // ✅ gọi callback → parent tự gọi lại getData()
     } catch (err: any) {
       alert(err.message || "Xóa thất bại.");

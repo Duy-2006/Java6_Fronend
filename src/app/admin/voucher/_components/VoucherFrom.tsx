@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -108,8 +109,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
       return;
     }
 
-    let token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
-    if (!token) {
+        if (!isLoggedIn()) {
       setServerError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
     }
@@ -128,17 +128,17 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
         active: form.active,
       };
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
       const url = isEdit
         ? `${API_URL}/api/vouchers/admin/${form.id}`
         : `${API_URL}/api/vouchers/admin`;
       const method = isEdit ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify(payload),
       });
@@ -247,11 +247,12 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Voucher Code */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="code" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Mã Voucher <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <input
+                  id="code"
                   type="text"
                   value={form.code}
                   onChange={(e) => setField("code", e.target.value.toUpperCase())}
@@ -278,12 +279,14 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
                 <span className="text-xs font-bold text-[#191c1e]">Kích hoạt Voucher</span>
                 <span className="text-[10px] text-[#916f6b]">Cho phép khách hàng sử dụng ngay sau khi tạo</span>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label htmlFor="active" className="relative inline-flex items-center cursor-pointer">
                 <input
+                  id="active"
                   type="checkbox"
                   checked={form.active}
                   onChange={(e) => setField("active", e.target.checked)}
                   className="sr-only peer"
+                  aria-label="Kích hoạt Voucher"
                 />
                 <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#b70011]"></div>
               </label>
@@ -301,10 +304,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Discount Type */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="discountType" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Loại giảm giá
               </label>
               <select
+                id="discountType"
                 value={form.discountType}
                 onChange={(e) => setField("discountType", e.target.value as any)}
                 className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20 cursor-pointer"
@@ -316,11 +320,12 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Discount Value */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="discountValue" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Giá trị giảm <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
+                  id="discountValue"
                   type="number"
                   step="any"
                   value={form.discountValue}
@@ -338,11 +343,12 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
             {/* Max Discount (Only for PERCENT type) */}
             {form.discountType === "PERCENT" && (
               <div>
-                <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                <label htmlFor="maxDiscount" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                   Mức giảm tối đa (VNĐ)
                 </label>
                 <div className="relative">
                   <input
+                    id="maxDiscount"
                     type="number"
                     step="any"
                     value={form.maxDiscount ?? ""}
@@ -370,10 +376,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Min Order Value */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="minOrderValue" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Đơn hàng tối thiểu (VNĐ)
               </label>
               <input
+                id="minOrderValue"
                 type="number"
                 step="any"
                 value={form.minOrderValue}
@@ -386,10 +393,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Total Usage Limit */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="usageLimit" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Số lượt sử dụng tối đa
               </label>
               <input
+                id="usageLimit"
                 type="number"
                 value={form.usageLimit}
                 onChange={(e) => setField("usageLimit", e.target.value)}
@@ -411,10 +419,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* Start Date */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="startDate" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Ngày bắt đầu <span className="text-red-500">*</span>
               </label>
               <input
+                id="startDate"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setField("startDate", e.target.value)}
@@ -425,10 +434,11 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
 
             {/* End Date */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="endDate" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Ngày kết thúc <span className="text-red-500">*</span>
               </label>
               <input
+                id="endDate"
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setField("endDate", e.target.value)}

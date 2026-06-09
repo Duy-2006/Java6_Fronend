@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -21,43 +22,52 @@ export default function Navbar() {
   const [isScanning, setIsScanning] = useState(false);
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   // Lấy user, categories, cart count
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        if (parsed.role === "ADMIN") {
+          router.push("/admin/dashboard");
+        }
       } catch (e) { console.error(e); }
     }
 
     const isAuthRoute = pathname === '/auth/login' || pathname === '/auth/register' || pathname === '/auth/forgot-password';
-    if (token && !isAuthRoute) {
-      fetch(`${API_URL}/api/auth/me`, {
-        headers: { "Authorization": `Bearer ${token}` },
+    if (isLoggedIn() && !isAuthRoute) {
+      authFetch(`${API_URL}/api/auth/me`, {
+        headers: {},
       })
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(data => {
           setUser(data);
           localStorage.setItem("user", JSON.stringify(data));
+          if (data.role === "ADMIN") {
+            router.push("/admin/dashboard");
+          }
         })
-        .catch(() => { });
+        .catch(() => {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+        });
     }
 
     // Lấy danh mục
-    fetch(`${API_URL}/api/categories`)
+    authFetch(`${API_URL}/api/categories`)
       .then(r => r.ok ? r.json() : [])
       .then(setCategories)
       .catch(() => { });
 
     // Lấy số lượng giỏ hàng nếu có token
     const fetchCartCount = () => {
-      const currentToken = localStorage.getItem("token");
-      if (currentToken && !isAuthRoute) {
-        fetch(`${API_URL}/api/cart/count`, {
-          headers: { "Authorization": `Bearer ${currentToken}` }
+      if (isLoggedIn() && !isAuthRoute) {
+        authFetch(`${API_URL}/api/cart/count`, {
+          headers: {}
         })
           .then(r => r.ok ? r.json() : { count: 0 })
           .then(d => setCartCount(d.count ?? 0))
@@ -89,11 +99,17 @@ export default function Navbar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    router.push("/");
-    router.refresh();
+    authFetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+    })
+      .catch((err) => console.error("Logout error:", err))
+      .finally(() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUser(null);
+        router.push("/");
+        router.refresh();
+      });
   };
 
   const handleImageSearchClick = () => {
@@ -111,7 +127,7 @@ export default function Navbar() {
         setImagePreview(reader.result as string);
         setIsScanning(true);
         setImageSearchResults([]);
-        
+
         // Giả lập quét ảnh tìm sách trong 2.5 giây
         setTimeout(() => {
           setIsScanning(false);
@@ -157,8 +173,7 @@ export default function Navbar() {
           {/* Logo & Catalog */}
           <div className="flex items-center gap-8 flex-shrink-0">
             <Link href="/" className="font-extrabold tracking-tight group text-2xl flex items-center">
-              <span className="text-[#b70011] group-hover:text-[#dc2626] transition-all duration-300">BOOKS</span>
-              <span className="text-[#191c1e] font-light">STORE</span>
+              <span className="text-[#b70011] group-hover:text-[#dc2626] transition-all duration-500">Bibliora</span>
             </Link>
 
             <div className="hidden lg:flex items-center">
@@ -182,7 +197,7 @@ export default function Navbar() {
                       ))}
                     </ul>
                   </div>
-                  
+
                   {/* Gợi ý hôm nay */}
                   <div className="w-1/2 bg-[#f2f4f6] rounded-xl p-6 flex flex-col justify-between">
                     <h4 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-4">Gợi ý hôm nay</h4>
@@ -218,14 +233,13 @@ export default function Navbar() {
               <input
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
-                className="py-2.5 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400"
-                style={{ paddingLeft: "44px", paddingRight: "44px" }}
+                className="!py-2.5 !pl-12 !pr-12 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400"
                 placeholder="Tìm kiếm sách, tác giả..."
                 type="text"
               />
               {/* Image Search Button inside the search bar */}
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleImageSearchClick}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#b70011] transition-all duration-300 flex items-center justify-center"
                 title="Tìm kiếm bằng hình ảnh"
@@ -263,6 +277,11 @@ export default function Navbar() {
                     <p className="font-bold text-[#191c1e] truncate">{user.name}</p>
                   </div>
                   <div className="p-2">
+                    {user.role === "ADMIN" && (
+                      <Link className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#b70011]/10 text-[#b70011] text-sm font-bold transition-all duration-300 mb-1" href="/admin/dashboard">
+                        <span className="material-symbols-outlined text-lg text-[#b70011]">dashboard</span> Trang quản trị
+                      </Link>
+                    )}
                     <Link className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f2f4f6] text-[#191c1e] text-sm transition-all duration-300" href="/user/profile">
                       <span className="material-symbols-outlined text-lg text-gray-500">account_circle</span> Hồ sơ của tôi
                     </Link>
@@ -299,7 +318,7 @@ export default function Navbar() {
                 <span className="material-symbols-outlined text-[#b70011]">photo_camera</span>
                 Tìm kiếm bằng hình ảnh
               </h3>
-              <button 
+              <button
                 onClick={() => setShowImageSearchModal(false)}
                 className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-black transition-all flex items-center justify-center"
               >
@@ -315,11 +334,11 @@ export default function Navbar() {
                   <span className="material-symbols-outlined text-5xl text-gray-400 group-hover:text-[#b70011] transition-all mb-4">cloud_upload</span>
                   <span className="text-sm font-semibold text-gray-700 group-hover:text-black transition-all">Kéo thả hoặc click để tải ảnh bìa sách</span>
                   <span className="text-xs text-gray-400 mt-2">Hỗ trợ JPG, PNG (tối đa 5MB)</span>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={handleImageFileChange} 
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageFileChange}
                   />
                 </label>
               ) : (
@@ -327,7 +346,7 @@ export default function Navbar() {
                 <div className="space-y-6">
                   <div className="relative aspect-video max-h-56 bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center">
                     <img src={imagePreview} alt="Preview" className="h-full w-auto object-contain" />
-                    
+
                     {/* Đường quét quét chuyển động */}
                     {isScanning && (
                       <div className="scan-line"></div>
@@ -345,8 +364,8 @@ export default function Navbar() {
                       <div className="space-y-3">
                         {imageSearchResults.length > 0 ? (
                           imageSearchResults.map((book) => (
-                            <Link 
-                              key={book.id} 
+                            <Link
+                              key={book.id}
                               href={`/user/books/${book.id}`}
                               onClick={() => setShowImageSearchModal(false)}
                               className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-[#b70011]/30 hover:bg-gray-50 transition-all group"
@@ -379,13 +398,13 @@ export default function Navbar() {
                       </div>
 
                       <div className="flex gap-3 pt-2">
-                        <button 
+                        <button
                           onClick={() => setImagePreview(null)}
                           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all"
                         >
                           Chọn ảnh khác
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             setShowImageSearchModal(false);
                             router.push(`/user/search?keyword=${encodeURIComponent("Nguyễn Nhật Ánh")}`);

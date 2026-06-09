@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -14,15 +15,11 @@ export default function EditVoucherPage() {
 
   useEffect(() => {
     const fetchVoucher = async () => {
-      const token = localStorage.getItem("Token") || localStorage.getItem("token") || "";
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      // Auth verification handled implicitly by the backend
+      const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
       try {
-        const res = await fetch(`${API_URL}/api/vouchers/admin/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await authFetch(`${API_URL}/api/vouchers/admin/${id}`, {
+          headers: { },
         });
         if (!res.ok) throw new Error("Không tìm thấy thông tin Voucher yêu cầu.");
         const data = await res.json();

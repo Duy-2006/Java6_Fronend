@@ -37,7 +37,7 @@ import {
     Music4,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -958,10 +958,11 @@ export default function BookDetailPage() {
 
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                        <label htmlFor="voiceModel" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                             Giọng đọc (AI Voice Model)
                                         </label>
                                         <select
+                                            id="voiceModel"
                                             value={selectedVoice}
                                             onChange={(e) => setSelectedVoice(e.target.value)}
                                             className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] transition-all font-medium text-slate-700"
@@ -978,10 +979,11 @@ export default function BookDetailPage() {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                        <label htmlFor="rateSpeed" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                             Tốc độ đọc (Rate speed)
                                         </label>
                                         <select
+                                            id="rateSpeed"
                                             value={selectedSpeed}
                                             onChange={(e) => setSelectedSpeed(e.target.value)}
                                             className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] transition-all font-medium text-slate-700"
@@ -1061,7 +1063,7 @@ export default function BookDetailPage() {
                                                                 colSpan={5}
                                                                 className="py-10 text-center text-slate-400 text-xs"
                                                             >
-                                                                Chưa có chương sách nào. Hãy bấm "Nhập Văn bản Chương" để tải
+                                                                Chưa có chương sách nào. Hãy bấm &quot;Nhập Văn bản Chương&quot; để tải
                                                                 lên.
                                                             </td>
                                                         </tr>
@@ -1261,10 +1263,10 @@ export default function BookDetailPage() {
                             <div className="flex-grow h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                 <div
                                     className="bg-[#b70011] h-full rounded-full transition-all duration-100"
-                                    style={{
-                                        width: `${segmentDuration
-                                            ? (currentTime / segmentDuration) * 100
-                                            : 0}%`,
+                                    ref={(node) => {
+                                        if (node) {
+                                            node.style.width = `${segmentDuration ? (currentTime / segmentDuration) * 100 : 0}%`;
+                                        }
                                     }}
                                 />
                             </div>
@@ -1298,6 +1300,7 @@ export default function BookDetailPage() {
 
             {/* ── Floating Help Button ── */}
             <button
+                aria-label="Trợ giúp"
                 onClick={() =>
                     showToast("Hệ thống trợ lý AI luôn sẵn sàng hỗ trợ bạn chuyển đổi văn bản.", "info")
                 }
@@ -1355,11 +1358,12 @@ export default function BookDetailPage() {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                <label htmlFor="fileInput" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                     File văn bản nguồn (.txt, .docx, .pdf)
                                 </label>
                                 <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-100/50 transition-colors relative">
                                     <input
+                                        id="fileInput"
                                         type="file"
                                         accept=".txt,.docx,.pdf"
                                         onChange={(e) => {

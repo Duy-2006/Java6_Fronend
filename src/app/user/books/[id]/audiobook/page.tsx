@@ -1,10 +1,53 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getUserChapters, Chapter } from "@/services/audiobooksService";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+
+// Sửa lỗi text extractor tách rời dấu ở các nguyên âm kép (ê, ô, ă, â, ơ, ư)
+const fixVietnameseText = (text: string) => {
+  if (!text) return "";
+  let n = text.normalize("NFC");
+
+  // 1. Xóa khoảng trắng vô lý giữa chữ cái và các dấu rời rạc (nếu có)
+  n = n.replace(/([a-zA-ZÀ-ỹĐđ])\s+([´`~'’\u00B4\u0060\u02CA\u02CB\u02DC])/g, '$1$2');
+
+  // 2. Dùng regex để ghép nguyên âm với dấu tách rời (acute, grave, tilde)
+  n = n.replace(/([aAăĂâÂeEêÊiIoOôÔơƠuUưƯyY])[´\u00B4\u02CA\u2019']/g, '$1\u0301')
+    .replace(/([aAăĂâÂeEêÊiIoOôÔơƠuUưƯyY])[`\u0060\u02CB]/g, '$1\u0300')
+    .replace(/([aAăĂâÂeEêÊiIoOôÔơƠuUưƯyY])[~\u007E\u02DC]/g, '$1\u0303');
+
+  // 3. Fallback: Thay thế cứng (hardcode) siêu chi tiết
+  const map: Record<string, string> = {
+    "ê´": "ế", "ê`": "ề", "ê~": "ễ", "ê'": "ế", "ê’": "ế",
+    "ô´": "ố", "ô`": "ồ", "ô~": "ỗ", "ô'": "ố", "ô’": "ố",
+    "ă´": "ắ", "ă`": "ằ", "ă~": "ẵ", "ă'": "ắ", "ă’": "ắ",
+    "â´": "ấ", "â`": "ầ", "â~": "ẫ", "â'": "ấ", "â’": "ấ",
+    "ơ´": "ớ", "ơ`": "ờ", "ơ~": "ỡ", "ơ'": "ớ", "ơ’": "ớ",
+    "ư´": "ứ", "ư`": "ừ", "ư~": "ữ", "ư'": "ứ", "ư’": "ứ",
+    "Ê´": "Ế", "Ê`": "Ề", "Ê~": "Ễ", "Ê'": "Ế", "Ê’": "Ế",
+    "Ô´": "Ố", "Ô`": "Ồ", "Ô~": "Ỗ", "Ô'": "Ố", "Ô’": "Ố",
+    "Ă´": "Ắ", "Ă`": "Ằ", "Ă~": "Ẵ", "Ă'": "Ắ", "Ă’": "Ắ",
+    "Â´": "Ấ", "Â`": "Ầ", "Â~": "Ẫ", "Â'": "Ấ", "Â’": "Ấ",
+    "Ơ´": "Ớ", "Ơ`": "Ờ", "Ơ~": "Ỡ", "Ơ'": "Ớ", "Ơ’": "Ớ",
+    "Ư´": "Ứ", "Ư`": "Ừ", "Ư~": "Ữ", "Ư'": "Ứ", "Ư’": "Ứ",
+    "a´": "á", "a`": "à", "a~": "ã", "a'": "á", "a’": "á",
+    "e´": "é", "e`": "è", "e~": "ẽ", "e'": "é", "e’": "é",
+    "i´": "í", "i`": "ì", "i~": "ĩ", "i'": "í", "i’": "í",
+    "o´": "ó", "o`": "ò", "o~": "õ", "o'": "ó", "o’": "ó",
+    "u´": "ú", "u`": "ù", "u~": "ũ", "u'": "ú", "u’": "ú",
+    "y´": "ý", "y`": "ỳ", "y~": "ỹ", "y'": "ý", "y’": "ý"
+  };
+  for (const k in map) {
+    n = n.replace(new RegExp(k, 'g'), map[k]);
+  }
+
+  // 4. Chuẩn hóa lại lần cuối
+  return n.normalize("NFC");
+};
 
 export default function UserAudiobookPlayer() {
   const params = useParams();
@@ -44,17 +87,17 @@ export default function UserAudiobookPlayer() {
 
   // Detect login state once on mount
   useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem("token"));
+    setIsLoggedIn(!!localStorage.getItem("user"));
   }, []);
 
   useEffect(() => {
     if (!bookId || isNaN(bookId)) return;
 
     // Lấy thông tin sách
-    fetch(`${API_URL}/api/admin/books/${bookId}`)
+    authFetch(`${API_URL}/api/admin/books/${bookId}`)
       .then((res) => {
         if (!res.ok) {
-           return fetch(`${API_URL}/api/books/${bookId}`).then(r => r.json());
+          return authFetch(`${API_URL}/api/books/${bookId}`).then(r => r.json());
         }
         return res.json();
       })
@@ -63,7 +106,7 @@ export default function UserAudiobookPlayer() {
         // Extract exact AUDIO format price if available, otherwise 0
         setBookPrice(data.audioPrice ?? 0);
         setPhysicalPrice(data.price ?? 0);
-        
+
         // Fix for "lỗi lấy ảnh sách"
         let cleanUrl = data.imageUrl;
         if (cleanUrl?.startsWith("books/")) {
@@ -78,7 +121,7 @@ export default function UserAudiobookPlayer() {
       .catch(console.error);
 
     // Lấy danh sách gợi ý "Tiếp theo"
-    fetch(`${API_URL}/api/books`)
+    authFetch(`${API_URL}/api/books`)
       .then((res) => res.json())
       .then((data) => {
         const allBooks = Array.isArray(data) ? data : (data.content || []);
@@ -99,13 +142,12 @@ export default function UserAudiobookPlayer() {
 
         // --- Restore progress ---
         let restored = false;
-        const token = localStorage.getItem("token");
 
         // 1) Try backend progress (logged-in users, cross-device)
-        if (token) {
+        if (isLoggedIn) {
           try {
-            const pRes = await fetch(`${API_URL}/api/user/books/${bookId}/progress`, {
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            const pRes = await authFetch(`${API_URL}/api/user/books/${bookId}/progress`, {
+              headers: { "Content-Type": "application/json" },
               cache: "no-store",
             });
             if (pRes.ok) {
@@ -195,14 +237,13 @@ export default function UserAudiobookPlayer() {
     } catch { /* quota exceeded — ignore */ }
 
     // Also save to backend if logged in (cross-device)
-    const token = localStorage.getItem("token");
-    if (token) {
-      fetch(`${API_URL}/api/user/books/${bookId}/progress`, {
+    if (isLoggedIn) {
+      authFetch(`${API_URL}/api/user/books/${bookId}/progress`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(progressData),
         keepalive: true, // ensures the request completes even during page unload
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [currentChapter, currentSegmentIndex, playbackRate, bookId]);
 
@@ -215,18 +256,15 @@ export default function UserAudiobookPlayer() {
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
     };
   }, [isPlaying, saveProgressNow]);
-
+  // lưu tiến trình khi người dùng đóng tab hoặc đóng trình duyệt
   useEffect(() => {
-    // Save on page close/navigate away
     const onUnload = () => saveProgressNow();
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [saveProgressNow]);
-
-  // === MEDIA SESSION API (lock-screen & background playback) ===
+  // khai báo thông tin hiển thị như bản tên sách , tên tác giả và ảnh bìa sách
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentChapter) return;
-
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentChapter.title || `Chương ${currentChapter.number}`,
       artist: bookTitle || "Libris Audiobook",
@@ -235,11 +273,12 @@ export default function UserAudiobookPlayer() {
         { src: bookImage, sizes: "512x512", type: "image/jpeg" },
       ] : [],
     });
-
+    // xử lý khi người dùng bấm play trên lock screen
     navigator.mediaSession.setActionHandler("play", () => {
       audioRef.current?.play();
       setIsPlaying(true);
     });
+    // xử lý khi người dùng bấm pause trên lock screen
     navigator.mediaSession.setActionHandler("pause", () => {
       audioRef.current?.pause();
       setIsPlaying(false);
@@ -387,15 +426,12 @@ export default function UserAudiobookPlayer() {
     setIsPlaying(!isPlaying);
   };
 
-  const getToken = () => {
-    if (typeof window !== "undefined") return localStorage.getItem("token");
-    return null;
-  };
+  // Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
   const buyAudiobookDirectly = async () => {
     setProcessingPayment(true);
-    const token = getToken();
-    if (!token) {
+    // Cookie tự động gửi kèm request qua authFetch
+    if (!isLoggedIn) {
       alert("Vui lòng đăng nhập để tiếp tục.");
       router.push("/auth/login");
       return;
@@ -403,8 +439,8 @@ export default function UserAudiobookPlayer() {
 
     try {
       // 1. Fetch user info to create a fake order profile
-      const meRes = await fetch(`${API_URL}/api/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const meRes = await authFetch(`${API_URL}/api/profile`, {
+        headers: {},
       });
       const me = meRes.ok ? await meRes.json() : {};
 
@@ -418,9 +454,9 @@ export default function UserAudiobookPlayer() {
       };
 
       // 2. Checkout (Direct, without cart validation)
-      const checkoutRes = await fetch(`${API_URL}/api/checkout/direct`, {
+      const checkoutRes = await authFetch(`${API_URL}/api/checkout/direct`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify(payload),
       });
 
@@ -428,9 +464,9 @@ export default function UserAudiobookPlayer() {
       if (!checkoutRes.ok) throw new Error(checkoutData.message || "Tạo đơn hàng thất bại");
 
       // 3. Create VNPAY Payment
-      const paymentRes = await fetch(`${API_URL}/api/payment/create`, {
+      const paymentRes = await authFetch(`${API_URL}/api/payment/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify({
           amount: checkoutData.finalAmount,
           orderId: checkoutData.orderId.toString(),
@@ -453,15 +489,15 @@ export default function UserAudiobookPlayer() {
 
   const buyPhysicalBook = async () => {
     setProcessingPayment(true);
-    const token = getToken();
-    if (!token) {
+    // Cookie tự động gửi kèm request qua authFetch
+    if (!isLoggedIn) {
       router.push("/auth/login");
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/api/cart/add`, {
+      const res = await authFetch(`${API_URL}/api/cart/add`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify({ bookId, quantity: 1 }),
       });
       if (res.ok) {
@@ -488,7 +524,8 @@ export default function UserAudiobookPlayer() {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .glass-panel {
           background: rgba(255, 255, 255, 0.03) !important;
           backdrop-filter: blur(12px) !important;
@@ -507,16 +544,16 @@ export default function UserAudiobookPlayer() {
       ` }} />
 
       <div className="h-screen bg-[#0f0f12] text-gray-200 flex overflow-hidden font-sans relative">
-        
+
         {/* Immersive Background Blur */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center filter blur-[80px] brightness-[0.3] -z-10 transition-all duration-1000"
-          style={{ backgroundImage: `url(${bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"})` }}
+          ref={(node) => { if (node) node.style.backgroundImage = `url(${bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"})`; }}
         />
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col relative min-h-screen">
-          
+
           {/* Topbar */}
           <header className="h-16 flex items-center justify-between px-8 z-10 flex-shrink-0">
             <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -530,13 +567,13 @@ export default function UserAudiobookPlayer() {
             <div className="flex items-center gap-6">
               {/* View Mode Toggle */}
               <div className="flex items-center gap-2 bg-white/5 rounded-full p-1 border border-white/5">
-                <button 
+                <button
                   onClick={() => setViewMode("player")}
                   className={`px-4 py-1 rounded-full text-xs font-semibold transition-all ${viewMode === "player" ? "bg-white text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
                 >
                   Trình phát
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode("text")}
                   className={`px-4 py-1 rounded-full text-xs font-semibold transition-all ${viewMode === "text" ? "bg-white text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
                 >
@@ -545,20 +582,20 @@ export default function UserAudiobookPlayer() {
               </div>
 
               <div className="relative hidden md:block">
-                <input 
-                  className="bg-white/10 border-transparent rounded-full px-5 py-1.5 text-sm w-64 focus:ring-red-600 focus:border-red-600 transition-all placeholder-gray-500 text-white" 
-                  placeholder="Tìm kiếm hệ thống..." 
+                <input
+                  className="bg-white/10 border-transparent rounded-full px-5 py-1.5 text-sm w-64 focus:ring-red-600 focus:border-red-600 transition-all placeholder-gray-500 text-white"
+                  placeholder="Tìm kiếm hệ thống..."
                   type="text"
                 />
               </div>
 
               <div className="flex items-center gap-4 text-gray-400">
-                <button className="hover:text-white">
+                <button className="hover:text-white" aria-label="Thông báo">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                   </svg>
                 </button>
-                <button className="hover:text-white">
+                <button className="hover:text-white" aria-label="Tùy chọn">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                     <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -570,7 +607,7 @@ export default function UserAudiobookPlayer() {
 
           {/* Immersive Player Body */}
           <div className="flex-1 flex px-12 py-6 overflow-hidden z-10 max-w-7xl mx-auto w-full">
-            
+
             {/* LEFT: Hero Content & Main Controls / Text Content */}
             <div className="flex-[3] flex flex-col items-center justify-center space-y-12 pr-8 h-full overflow-y-auto custom-scrollbar" data-purpose="audio-main-stage">
               {viewMode === "player" ? (
@@ -578,9 +615,9 @@ export default function UserAudiobookPlayer() {
                 <div className="relative group my-auto flex flex-col items-center">
                   <div className="relative">
                     <div className="absolute inset-0 bg-red-600/20 blur-3xl rounded-full opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                    <img 
-                      alt={bookTitle} 
-                      className="w-[280px] md:w-[350px] aspect-[3/4] object-cover rounded-xl shadow-2xl relative transition-transform duration-500 group-hover:scale-105 border border-white/10" 
+                    <img
+                      alt={bookTitle}
+                      className="w-[280px] md:w-[350px] aspect-[3/4] object-cover rounded-xl shadow-2xl relative transition-transform duration-500 group-hover:scale-105 border border-white/10"
                       src={bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
                     />
                   </div>
@@ -595,9 +632,10 @@ export default function UserAudiobookPlayer() {
                     {/* Playback Actions */}
                     <div className="flex items-center justify-center gap-10">
                       {/* Prev Chapter */}
-                      <button 
+                      <button
                         onClick={playPreviousChapter}
                         className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        aria-label="Chương trước"
                       >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -605,10 +643,11 @@ export default function UserAudiobookPlayer() {
                       </button>
 
                       {/* Skip Back 10s */}
-                      <button 
+                      <button
                         onClick={() => skipTime(-10)}
                         disabled={!currentSegment}
                         className="text-gray-300 hover:text-white transition-colors flex flex-col items-center cursor-pointer disabled:opacity-30"
+                        aria-label="Lùi 10 giây"
                       >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
@@ -617,10 +656,11 @@ export default function UserAudiobookPlayer() {
                       </button>
 
                       {/* Play/Pause Button */}
-                      <button 
+                      <button
                         onClick={togglePlay}
                         disabled={!currentSegment}
                         className="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl shadow-white/10 cursor-pointer disabled:opacity-50"
+                        aria-label={isPlaying ? "Tạm dừng" : "Phát"}
                       >
                         {isPlaying ? (
                           <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
@@ -634,10 +674,11 @@ export default function UserAudiobookPlayer() {
                       </button>
 
                       {/* Skip Forward 10s */}
-                      <button 
+                      <button
                         onClick={() => skipTime(10)}
                         disabled={!currentSegment}
                         className="text-gray-300 hover:text-white transition-colors flex flex-col items-center cursor-pointer disabled:opacity-30"
+                        aria-label="Tiến 10 giây"
                       >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
@@ -646,9 +687,10 @@ export default function UserAudiobookPlayer() {
                       </button>
 
                       {/* Next Chapter */}
-                      <button 
+                      <button
                         onClick={playNextChapter}
                         className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        aria-label="Chương tiếp"
                       >
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d="M11.933 12.8a1 1 0 000-1.6L6.599 7.2A1 1 0 005 8v8a1 1 0 001.599.8l5.334-4zM19.933 12.8a1 1 0 000-1.6L14.599 7.2A1 1 0 0013 8v8a1 1 0 001.599.8l5.334-4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -661,11 +703,11 @@ export default function UserAudiobookPlayer() {
                 // Scrollable text content Mode
                 <div className="w-full max-w-2xl bg-black/40 border border-white/5 rounded-3xl p-6 md:p-8 backdrop-blur-xl h-full overflow-hidden flex flex-col my-auto">
                   <h2 className="text-xl md:text-2xl font-bold text-white mb-6 border-b border-white/10 pb-4">
-                    {currentChapter?.title || (currentChapter ? `Chương ${currentChapter.number}` : "Không có nội dung")}
+                    {fixVietnameseText(currentChapter?.title || (currentChapter ? `Chương ${currentChapter.number}` : "Không có nội dung"))}
                   </h2>
                   {currentChapter?.textContent ? (
-                    <div className="prose prose-invert prose-lg max-w-none text-gray-300 leading-relaxed font-serif flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                      {currentChapter.textContent.split("\n").map((para, i) => (
+                    <div className="prose prose-invert prose-lg max-w-none text-gray-300 leading-relaxed font-sans flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                      {fixVietnameseText(currentChapter.textContent).split("\n").map((para, i) => (
                         <p key={i} className="mb-4 text-justify text-base md:text-lg">{para}</p>
                       ))}
                     </div>
@@ -719,7 +761,7 @@ export default function UserAudiobookPlayer() {
                 {/* Guest mode banner */}
                 {!isLoggedIn && !chapterError && chapters.length > 0 && (
                   <div className="mb-4 p-3 bg-green-900/30 border border-green-600/30 rounded-xl flex items-start gap-2.5 text-xs text-green-300">
-                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                     <span>
                       <span className="font-semibold text-green-200">Chương 1 miễn phí</span> — Không cần đăng nhập.
                       {" "}Đăng nhập để mua và nghe toàn bộ.
@@ -734,7 +776,7 @@ export default function UserAudiobookPlayer() {
 
                     if (isActive && !isLocked) {
                       return (
-                        <div 
+                        <div
                           key={chapter.id}
                           onClick={() => handleChapterClick(chapter)}
                           className="glass-panel p-4 rounded-2xl flex items-center justify-between border-red-500/50 bg-white/10 cursor-pointer"
@@ -748,7 +790,7 @@ export default function UserAudiobookPlayer() {
                             </div>
                             <span className="text-sm text-gray-500 mt-1">{chapter.duration || "Đang cập nhật"}</span>
                           </div>
-                          <button className="w-10 h-10 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center shrink-0">
+                          <button className="w-10 h-10 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center shrink-0" aria-label={isPlaying ? "Tạm dừng" : "Phát"}>
                             <span className="material-symbols-outlined text-[18px]">
                               {isPlaying ? "pause" : "play_arrow"}
                             </span>
@@ -757,7 +799,7 @@ export default function UserAudiobookPlayer() {
                       );
                     } else {
                       return (
-                        <div 
+                        <div
                           key={chapter.id}
                           onClick={() => handleChapterClick(chapter)}
                           className="p-4 rounded-2xl flex items-center justify-between hover:bg-white/5 transition-colors group cursor-pointer border border-transparent"
@@ -774,9 +816,10 @@ export default function UserAudiobookPlayer() {
                             <span className="text-sm text-gray-500 mt-1">{chapter.duration || "Đang cập nhật"}</span>
                           </div>
                           <button className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border transition-all
-                            ${isLocked 
-                              ? "border-red-500/20 text-red-400/80 bg-red-950/10" 
+                            ${isLocked
+                              ? "border-red-500/20 text-red-400/80 bg-red-950/10"
                               : "border-white/20 text-white group-hover:bg-white group-hover:text-black"}`}
+                            aria-label={isLocked ? "Đã khóa" : "Phát"}
                           >
                             {isLocked ? (
                               <span className="material-symbols-outlined text-[16px]">lock</span>
@@ -797,20 +840,20 @@ export default function UserAudiobookPlayer() {
               {nextBook && (
                 <section>
                   <h3 className="text-xl font-bold mb-4 text-white">Tiếp theo</h3>
-                  <div 
+                  <div
                     onClick={() => router.push(`/user/books/${nextBook.id}`)}
                     className="glass-panel p-4 rounded-2xl flex items-center gap-4 group cursor-pointer hover:bg-white/5 transition-all"
                   >
-                    <img 
-                      alt={nextBook.title} 
-                      className="w-16 rounded shadow-lg aspect-[3/4] object-cover" 
+                    <img
+                      alt={nextBook.title}
+                      className="w-16 rounded shadow-lg aspect-[3/4] object-cover"
                       src={nextBook.imageUrl || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white group-hover:text-red-500 transition-colors truncate">{nextBook.title}</p>
                       <p className="text-xs text-gray-400 mt-1">{nextBook.authorName || "Tác giả"}</p>
                     </div>
-                    <button className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-all shrink-0">
+                    <button className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-all shrink-0" aria-label="Phát sách tiếp theo">
                       <svg className="w-5 h-5 fill-currentColor" viewBox="0 0 20 20">
                         <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"></path>
                       </svg>
@@ -826,9 +869,9 @@ export default function UserAudiobookPlayer() {
           <footer className="h-24 bg-black/80 backdrop-blur-xl border-t border-white/5 px-6 flex items-center justify-between z-30 flex-shrink-0">
             {/* Mini Preview */}
             <div className="flex items-center gap-4 w-1/4 min-w-[200px]">
-              <img 
-                alt={bookTitle} 
-                className="w-12 h-12 rounded shadow-md border border-white/10 aspect-square object-cover" 
+              <img
+                alt={bookTitle}
+                className="w-12 h-12 rounded shadow-md border border-white/10 aspect-square object-cover"
                 src={bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
               />
               <div className="min-w-0">
@@ -837,7 +880,7 @@ export default function UserAudiobookPlayer() {
                   {currentChapter ? `${currentChapter.title || `Chương ${currentChapter.number}`}` : "Chưa chọn chương"}
                 </p>
               </div>
-              <button className="ml-2 text-gray-400 hover:text-red-500 transition-colors shrink-0">
+              <button className="ml-2 text-gray-400 hover:text-red-500 transition-colors shrink-0" aria-label="Đóng">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                 </svg>
@@ -848,9 +891,10 @@ export default function UserAudiobookPlayer() {
             <div className="flex-1 max-w-2xl px-8 flex flex-col items-center gap-2">
               <div className="flex items-center gap-6">
                 {/* Skip Prev */}
-                <button 
+                <button
                   onClick={playPreviousChapter}
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  aria-label="Chương trước"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -858,10 +902,11 @@ export default function UserAudiobookPlayer() {
                 </button>
 
                 {/* Skip back 10s */}
-                <button 
+                <button
                   onClick={() => skipTime(-10)}
                   disabled={!currentSegment}
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30"
+                  aria-label="Lùi 10 giây"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -869,10 +914,11 @@ export default function UserAudiobookPlayer() {
                 </button>
 
                 {/* Play/Pause */}
-                <button 
+                <button
                   onClick={togglePlay}
                   disabled={!currentSegment}
                   className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-30"
+                  aria-label={isPlaying ? "Tạm dừng" : "Phát"}
                 >
                   {isPlaying ? (
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -886,10 +932,11 @@ export default function UserAudiobookPlayer() {
                 </button>
 
                 {/* Skip forward 10s */}
-                <button 
+                <button
                   onClick={() => skipTime(10)}
                   disabled={!currentSegment}
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30"
+                  aria-label="Tiến 10 giây"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -897,9 +944,10 @@ export default function UserAudiobookPlayer() {
                 </button>
 
                 {/* Skip Next */}
-                <button 
+                <button
                   onClick={playNextChapter}
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  aria-label="Chương tiếp"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M11.933 12.8a1 1 0 000-1.6L6.599 7.2A1 1 0 005 8v8a1 1 0 001.599.8l5.334-4zM19.933 12.8a1 1 0 000-1.6L14.599 7.2A1 1 0 0013 8v8a1 1 0 001.599.8l5.334-4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -910,20 +958,17 @@ export default function UserAudiobookPlayer() {
               {/* Progress Slider */}
               <div className="flex items-center gap-4 w-full">
                 <span className="text-[10px] text-gray-500 font-mono w-10 text-right">{formatTime(currentTime)}</span>
-                <div 
+                <div
                   onClick={handleProgressChange}
                   className="flex-1 h-1 bg-white/20 rounded-full relative group cursor-pointer"
                 >
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-white rounded-full" 
-                    style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-white rounded-full"
+                    ref={(node) => { if (node) node.style.width = `${duration > 0 ? (currentTime / duration) * 100 : 0}%`; }}
                   />
-                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ 
-                      left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`, 
-                      transform: 'translate(-50%, -50%)' 
-                    }}
+                  <div
+                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    ref={(node) => { if (node) node.style.left = `${duration > 0 ? (currentTime / duration) * 100 : 0}%`; }}
                   />
                 </div>
                 <span className="text-[10px] text-gray-500 font-mono w-10">
@@ -934,18 +979,18 @@ export default function UserAudiobookPlayer() {
 
             {/* Additional Settings */}
             <div className="flex items-center justify-end gap-6 w-1/4 min-w-[200px] text-gray-400">
-              <button 
-                onClick={toggleSpeed} 
+              <button
+                onClick={toggleSpeed}
                 className="text-xs font-bold hover:text-white px-2 py-1 rounded hover:bg-white/5 transition-colors"
               >
                 {playbackRate}x
               </button>
-              <button className="hover:text-white">
+              <button className="hover:text-white" aria-label="Hẹn giờ">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                 </svg>
               </button>
-              <button className="hover:text-white">
+              <button className="hover:text-white" aria-label="Mở rộng">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                 </svg>
@@ -954,19 +999,20 @@ export default function UserAudiobookPlayer() {
                 <span className="material-symbols-outlined text-[18px]">
                   {volume === 0 ? "volume_off" : volume < 0.5 ? "volume_down" : "volume_up"}
                 </span>
-                <div 
+                <div
                   onClick={handleVolumeChange}
                   className="w-20 h-1 bg-white/20 rounded-full relative cursor-pointer"
                 >
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-white rounded-full" 
-                    style={{ width: `${volume * 100}%` }}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-white rounded-full"
+                    ref={(node) => { if (node) node.style.width = `${volume * 100}%`; }}
                   />
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => router.push(`/user/books/${bookId}`)}
                 className="hover:text-white transition-colors"
+                aria-label="Quay lại"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -997,7 +1043,7 @@ export default function UserAudiobookPlayer() {
 
             {/* Modal Header */}
             <div className="h-32 bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center relative">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }} />
+              <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" />
               <div className="w-16 h-16 bg-[#1c1c1e] border border-white/10 rounded-full flex items-center justify-center shadow-lg absolute -bottom-8 z-10">
                 <span className="material-symbols-outlined text-[30px] text-red-500">
                   {isLoggedIn ? "lock" : "person"}
@@ -1019,7 +1065,7 @@ export default function UserAudiobookPlayer() {
 
                   {/* Free preview badge */}
                   <div className="mb-6 inline-flex items-center gap-2 bg-green-900/40 border border-green-600/40 text-green-400 text-xs px-4 py-2 rounded-full">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                     Chương 1 miễn phí — không cần tài khoản
                   </div>
 
@@ -1090,6 +1136,7 @@ export default function UserAudiobookPlayer() {
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition cursor-pointer"
+              aria-label="Đóng"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
             </button>

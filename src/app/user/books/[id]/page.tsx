@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -7,7 +8,7 @@ import BookImage from "./_components/BookImage";
 import SuggestedBooks from "./_components/SuggestedBooks";
 import ReviewsSection from "./_components/ReviewsSection";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 // Helper chuyển đổi an toàn sang số
 const toNumber = (val: any): number => {
@@ -18,7 +19,7 @@ const toNumber = (val: any): number => {
 // Lấy thông tin sách + flash sale
 async function getBook(id: string) {
   try {
-    const res = await fetch(`${API_URL}/api/admin/books/${id}`, { next: { revalidate: 60 } });
+    const res = await authFetch(`${API_URL}/api/admin/books/${id}`, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const book = await res.json();
 
@@ -28,7 +29,7 @@ async function getBook(id: string) {
     let usageLimit: number | null = null;
 
     try {
-      const flashRes = await fetch(`${API_URL}/api/books/flash-sale`, { next: { revalidate: 30 } });
+      const flashRes = await authFetch(`${API_URL}/api/books/flash-sale`, { next: { revalidate: 30 } });
       if (flashRes.ok) {
         const flashData = await flashRes.json();
         const found = Array.isArray(flashData) ? flashData.find((item: any) => item.id === book.id) : null;
@@ -59,7 +60,7 @@ async function getBook(id: string) {
 // Lấy sách gợi ý
 async function getSuggestedBooks(bookId: number, categoryName?: string, authorName?: string) {
   try {
-    const res = await fetch(`${API_URL}/api/books`, { next: { revalidate: 120 } });
+    const res = await authFetch(`${API_URL}/api/books`, { next: { revalidate: 120 } });
     if (!res.ok) return [];
     const data = await res.json();
     const allBooks = Array.isArray(data) ? data : (data.content || []);
@@ -81,7 +82,7 @@ async function getSuggestedBooks(bookId: number, categoryName?: string, authorNa
 // Lấy danh sách đánh giá của sách
 async function getBookReviews(bookId: number) {
   try {
-    const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`, { next: { revalidate: 30 } });
+    const res = await authFetch(`${API_URL}/api/books/${bookId}/reviews`, { next: { revalidate: 30 } });
     if (!res.ok) return [];
     return await res.json();
   } catch (e) {

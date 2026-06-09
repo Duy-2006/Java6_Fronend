@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import { Edit, Save, AlertCircle, Check, X } from "lucide-react";
@@ -64,8 +65,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+        if (!isLoggedIn()) {
       setMessage({ type: 'error', text: "Bạn chưa đăng nhập." });
       return;
     }
@@ -73,17 +73,17 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
     setLoading(true);
     setMessage(null);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
       const payload: any = { status };
       if (status === "CANCELLED") {
         payload.cancelReason = cancelReason.trim();
       }
 
-      const res = await fetch(`${baseUrl}/api/admin/orders/${orderId}/status`, {
+      const res = await authFetch(`${baseUrl}/api/admin/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify(payload),
       });

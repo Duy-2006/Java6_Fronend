@@ -5,7 +5,7 @@ import { useState } from "react";
 import DeleteBookButton from "./DeleteBookButton";
 import RestoreBookButton from "./RestoreBookButton";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 const getCorrectImageUrl = (imageUrl?: string) => {
   if (!imageUrl) return "https://placehold.co/50x75?text=No+Img";
@@ -24,7 +24,7 @@ export default function BookRow({ book, onRefresh }: { book: any; onRefresh: () 
   return (
     <tr>
       <td className="text-center">
-        <img src={imageUrl} alt={book.title} className="rounded shadow-sm border" style={{ width: 50, height: 75, objectFit: "cover" }} onError={() => setImgError(true)} />
+        <img src={imageUrl} alt={book.title} className="rounded shadow-sm border w-[50px] h-[75px] object-cover" onError={() => setImgError(true)} />
       </td>
       <td className="text-start">
         <div className="d-flex flex-column">

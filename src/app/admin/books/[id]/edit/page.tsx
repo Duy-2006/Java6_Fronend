@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 import { notFound } from "next/navigation";
 import BookForm from "@/app/admin/books/_components/BooksForm";
 import { getAllAuthors } from "@/services/authorsService";
@@ -8,12 +9,12 @@ interface EditBookPageProps {
 }
 
 async function getBook(id: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
   const url = `${baseUrl}/api/admin/books/${id}`;
   console.log("[DEBUG] Fetching book from:", url);
 
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await authFetch(url, { cache: "no-store" });
     console.log("[DEBUG] Response status:", res.status);
     if (!res.ok) {
       console.error("[DEBUG] Failed to fetch book:", res.status, res.statusText);

@@ -1,5 +1,6 @@
 // app/admin/voucher/page.tsx
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -39,15 +40,14 @@ export default function VoucherListPage() {
     else setRefreshing(true);
     setError("");
 
-    const token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
-    if (!token) {
+        if (!isLoggedIn()) {
       router.push("/admin/login");
       return;
     }
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${API_URL}/api/vouchers/admin`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+      const res = await authFetch(`${API_URL}/api/vouchers/admin`, {
+        headers: { },
       });
       if (!res.ok) throw new Error("Không thể tải danh sách voucher");
       const data = await res.json();
@@ -66,12 +66,11 @@ export default function VoucherListPage() {
 
   const handleDelete = async (id: number, code: string) => {
     if (!confirm(`Bạn có chắc muốn xóa voucher "${code}"?`)) return;
-    const token = localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${API_URL}/api/vouchers/admin/${id}`, {
+        try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+      const res = await authFetch(`${API_URL}/api/vouchers/admin/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { },
       });
       if (!res.ok) throw new Error("Xóa thất bại");
       fetchVouchers(true);
@@ -259,8 +258,9 @@ export default function VoucherListPage() {
         <div className="flex flex-wrap items-center gap-3 flex-1">
           {/* Status Dropdown */}
           <div className="flex items-center gap-2 bg-[#f2f4f6] px-3 py-1.5 rounded-lg border border-[#e6bdb8]/50">
-            <span className="text-xs font-semibold text-[#5c403c]">Trạng thái:</span>
+            <label htmlFor="statusFilter" className="text-xs font-semibold text-[#5c403c]">Trạng thái:</label>
             <select 
+              id="statusFilter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-transparent border-none text-xs font-bold p-0 pr-6 focus:ring-0 text-[#191c1e] cursor-pointer"
@@ -357,7 +357,11 @@ export default function VoucherListPage() {
                     <div className="w-20 h-1.5 bg-[#f2f4f6] rounded-full mt-2 mx-auto overflow-hidden">
                       <div 
                         className={`h-full rounded-full ${v.usedCount >= v.usageLimit ? 'bg-[#b70011]' : 'bg-[#dc2626]'}`}
-                        style={{ width: `${Math.min((v.usedCount / v.usageLimit) * 100, 100)}%` }}
+                        ref={node => {
+                          if (node) {
+                            node.style.width = `${Math.min((v.usedCount / v.usageLimit) * 100, 100)}%`;
+                          }
+                        }}
                       />
                     </div>
                   </td>

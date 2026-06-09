@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
   const [apiError, setApiError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   useEffect(() => {
     if (isEdit && !category?.id) {
@@ -62,13 +63,6 @@ export default function CategoryForm({ category }: { category?: Category }) {
 
     setLoading(true);
 
-    // Lấy token từ localStorage
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setApiError("Bạn chưa đăng nhập. Vui lòng đăng nhập để thực hiện chức năng này.");
-      setLoading(false);
-      return;
-    }
 
     try {
       const formData = new FormData();
@@ -82,11 +76,10 @@ export default function CategoryForm({ category }: { category?: Category }) {
         : `${API_BASE_URL}/api/categories`;
       const method = isEdit ? "PUT" : "POST";
 
-      const response = await fetch(endpoint, {
+      const response = await authFetch(endpoint, {
         method,
         headers: {
-          "Authorization": `Bearer ${token}`
-        },
+          },
         body: formData, // Không set Content-Type, browser tự thêm boundary
       });
 
@@ -127,12 +120,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
         <div className="col-lg-8">
           <div className="card border-0 shadow-lg mt-4">
             <div
-              className="card-header text-white py-3"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                borderRadius: "0.5rem 0.5rem 0 0",
-              }}
+              className="card-header text-white py-3 bg-gradient-to-br from-[#b70011] to-[#8a000d] rounded-t-lg"
             >
               <h5 className="m-0 fw-bold text-uppercase d-flex align-items-center">
                 {isEdit ? (
@@ -160,7 +148,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                 )}
 
                 <div className="mb-4">
-                  <label className="form-label fw-bold text-secondary">
+                  <label htmlFor="categoryName" className="form-label fw-bold text-secondary">
                     Tên Thể Loại <span className="text-danger">*</span>
                   </label>
                   <div className="input-group">
@@ -168,6 +156,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                       <i className="fa-solid fa-tag text-muted" />
                     </span>
                     <input
+                      id="categoryName"
                       type="text"
                       className={`form-control form-control-lg ${errors.name ? "border-danger" : ""}`}
                       value={name}
@@ -193,12 +182,13 @@ export default function CategoryForm({ category }: { category?: Category }) {
 
                 {/* Upload ảnh */}
                 <div className="mb-4">
-                  <label className="form-label fw-bold text-secondary">Hình ảnh danh mục</label>
+                  <label htmlFor="categoryImage" className="form-label fw-bold text-secondary">Hình ảnh danh mục</label>
                   <div className="input-group">
                     <span className="input-group-text bg-light">
                       <i className="fa-solid fa-image text-muted" />
                     </span>
                     <input
+                      id="categoryImage"
                       ref={fileInputRef}
                       type="file"
                       className="form-control"
@@ -215,8 +205,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                       <img
                         src={previewUrl}
                         alt="Preview"
-                        className="img-thumbnail"
-                        style={{ maxHeight: "120px", maxWidth: "120px", objectFit: "cover" }}
+                        className="img-thumbnail max-h-[120px] max-w-[120px] object-cover"
                       />
                       <button
                         type="button"

@@ -1,4 +1,5 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -28,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Đã hủy",
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 // ================================================================
 // HELPERS
@@ -38,33 +39,11 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("vi-VN").format(Math.round(n));
 
 const getUserIdFromToken = (): number | null => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.userId || payload.id || payload.user_id || null;
-  } catch {
-    return null;
-  }
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : null;
 };
 
-function parseJwt(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
 
-const getToken = () => localStorage.getItem("token");
 
 const getImageUrl = (imagePath: string | undefined): string => {
   if (!imagePath) return "/images/book-default.jpg";
@@ -140,17 +119,19 @@ export default function MyOrdersPage() {
   const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
 
-    const decoded = parseJwt(token);
-    if (decoded) {
-      setUserName(decoded.username || "");
-      setUserRole(decoded.role || "USER");
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setUserName(u.name || u.username || "");
+        setUserRole(u.role || "USER");
+      } catch {}
     }
 
-    fetch(`${BASE_URL}/api/profile`, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(`${BASE_URL}/api/profile`, {
+      headers: { },
     })
       .then((res) => {
         if (res.ok) return res.json();
@@ -165,10 +146,9 @@ export default function MyOrdersPage() {
   }, []);
 
   const fetchOrders = async () => {
-    const token = getToken();
-    const userId = getUserIdFromToken();
+        const userId = getUserIdFromToken();
 
-    if (!token || !userId) {
+    if (!isLoggedIn() || !userId) {
       router.push("/auth/login");
       return;
     }
@@ -180,8 +160,8 @@ export default function MyOrdersPage() {
       const params = new URLSearchParams({ userId: userId.toString() });
       if (status) params.append("status", status);
 
-      const res = await fetch(`${BASE_URL}/api/orders?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch(`${BASE_URL}/api/orders?${params}`, {
+        headers: { },
       });
 
       if (res.status === 401) {
@@ -204,9 +184,9 @@ export default function MyOrdersPage() {
           if (hasDetails) return order;
 
           try {
-            const detailRes = await fetch(
+            const detailRes = await authFetch(
               `${BASE_URL}/api/orders/${order.id}?userId=${userId}`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: { } }
             );
             if (!detailRes.ok) return order;
             const detailData = await detailRes.json();
@@ -234,9 +214,8 @@ export default function MyOrdersPage() {
   useEffect(() => { fetchOrders(); }, [status]);
 
   const cancelOrder = async (id: number) => {
-    const token = getToken();
-    const userId = getUserIdFromToken();
-    if (!token || !userId) return;
+        const userId = getUserIdFromToken();
+    if (!isLoggedIn() || !userId) return;
 
     const reason = window.prompt("Vui lòng nhập lý do hủy đơn hàng:");
     if (!reason?.trim()) {
@@ -246,11 +225,11 @@ export default function MyOrdersPage() {
     if (!confirm(`Bạn có chắc muốn hủy đơn hàng này với lý do: "${reason}"?`)) return;
 
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${BASE_URL}/api/orders/cancel/${id}?userId=${userId}&cancelReason=${encodeURIComponent(reason)}`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: {  "Content-Type": "application/json" },
         }
       );
       if (res.ok) {
@@ -267,15 +246,14 @@ export default function MyOrdersPage() {
   };
 
   const confirmReceived = async (id: number) => {
-    const token = getToken();
-    const userId = getUserIdFromToken();
-    if (!token || !userId) return;
+        const userId = getUserIdFromToken();
+    if (!isLoggedIn() || !userId) return;
     if (!confirm("Xác nhận bạn đã nhận được hàng?")) return;
 
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${BASE_URL}/api/orders/${id}/confirm-received?userId=${userId}`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+        { method: "POST", headers: { } }
       );
       if (res.ok) {
         setOrders((prev) =>
@@ -326,7 +304,7 @@ export default function MyOrdersPage() {
                 href="/user/my-orders"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-[#ffdad6]/40 text-[#b70011]"
               >
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>history</span>
+                <span className="material-symbols-outlined text-lg [font-variation-settings:'FILL'_1]">history</span>
                 <span>Lịch sử mua hàng</span>
               </Link>
               <Link 

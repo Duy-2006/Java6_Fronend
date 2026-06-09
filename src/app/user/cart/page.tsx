@@ -1,4 +1,6 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -26,25 +28,51 @@ interface FlashSaleBook {
   usageLimit?: number | null;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+interface BookRecommendation {
+  id: number;
+  title: string;
+  price: number;
+  imageUrl?: string;
+  authorName?: string;
+  active?: boolean;
+}
+
+interface BackendCartItem {
+  id: number;
+  cartDetailId?: number;
+  bookId?: number;
+  title?: string;
+  imageUrl?: string;
+  price?: number;
+  quantity?: number;
+  selected?: boolean;
+  book?: {
+    id?: number;
+    title?: string;
+    imageUrl?: string;
+    price?: number;
+    audioPrice?: number;
+    author?: {
+      name?: string;
+    };
+  };
+  authorName?: string;
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " ₫";
 
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number, limit: number | null }>>(new Map());
-  const [recommendedBooks, setRecommendedBooks] = useState<any[]>([]);
+  const [recommendedBooks, setRecommendedBooks] = useState<BookRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingItems, setUpdatingItems] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   
   const sliderRef = useRef<HTMLDivElement>(null);
-
-  const getToken = () => {
-    if (typeof window !== 'undefined') return localStorage.getItem('token');
-    return null;
-  };
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -54,7 +82,7 @@ export default function CartPage() {
   // Lấy danh sách flash sale
   const fetchFlashSale = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/books/flash-sale`);
+      const res = await authFetch(`${API_BASE_URL}/api/books/flash-sale`);
       if (!res.ok) return;
       const data: FlashSaleBook[] = await res.json();
       const map = new Map<number, { price: number, limit: number | null }>();
@@ -82,12 +110,12 @@ export default function CartPage() {
   // Lấy gợi ý sách
   const fetchRecommendations = useCallback(async (cartItems: CartItem[]) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/books?size=30`);
+      const res = await authFetch(`${API_BASE_URL}/api/books?size=30`);
       if (res.ok) {
         const data = await res.json();
-        const allBooks = Array.isArray(data) ? data : (data.content || []);
+        const allBooks: BookRecommendation[] = Array.isArray(data) ? data : (data.content || []);
         const cartBookIds = new Set(cartItems.map(item => item.bookId));
-        const filtered = allBooks.filter((b: any) => !cartBookIds.has(b.id) && b.active !== false);
+        const filtered = allBooks.filter((b) => !cartBookIds.has(b.id) && b.active !== false);
         setRecommendedBooks(filtered.slice(0, 10));
       }
     } catch (err) {
@@ -96,21 +124,18 @@ export default function CartPage() {
   }, []);
 
   const fetchCart = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
+    if (!isLoggedIn()) {
       setError("Vui lòng đăng nhập để xem giỏ hàng");
       setLoading(false);
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart`, {
+      const res = await authFetch(`${API_BASE_URL}/api/cart`, {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
       });
       if (res.status === 401) {
-        localStorage.removeItem('token');
         setError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
         setLoading(false);
         return;
@@ -119,7 +144,7 @@ export default function CartPage() {
       const data = await res.json();
       let cartItems = Array.isArray(data.cartItems) ? data.cartItems : data;
       
-      cartItems = cartItems.map((item: any) => ({
+      cartItems = cartItems.map((item: BackendCartItem) => ({
         ...item,
         cartDetailId: item.cartDetailId ?? item.id,
         bookId: item.bookId ?? item.book?.id ?? item.bookId,
@@ -129,15 +154,15 @@ export default function CartPage() {
         quantity: item.quantity ?? 1,
         selected: item.selected ?? false,
         authorName: item.book?.author?.name || item.authorName || "Nguyễn Nhật Ánh",
-        isAudiobook: item.book?.audioPrice > 0 && Number(item.price) === Number(item.book?.audioPrice),
+        isAudiobook: item.book?.audioPrice !== undefined && item.book.audioPrice > 0 && Number(item.price) === Number(item.book.audioPrice),
       }));
       
       setItems(cartItems);
       fetchRecommendations(cartItems);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error("❌ CartPage - Error:", err);
-      setError(err.message || "Lỗi khi tải giỏ hàng");
+      setError(err instanceof Error ? err.message : "Lỗi khi tải giỏ hàng");
     } finally {
       setLoading(false);
     }
@@ -166,13 +191,12 @@ export default function CartPage() {
   }, [fetchFlashSale, fetchCart]);
 
   const updateQuantity = async (cartDetailId: number, newQuantity: number) => {
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
     setUpdatingItems(prev => new Set(prev).add(cartDetailId));
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart/update`, {
+      const res = await authFetch(`${API_BASE_URL}/api/cart/update`, {
         method: "POST",
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({ cartDetailId, quantity: newQuantity }),
       });
       if (res.ok) {
@@ -186,7 +210,7 @@ export default function CartPage() {
         showToast(data.message || "Cập nhật thất bại", "error");
         fetchCart();
       }
-    } catch (error) {
+    } catch {
       showToast("Lỗi kết nối máy chủ", "error");
       fetchCart();
     } finally {
@@ -199,14 +223,12 @@ export default function CartPage() {
   };
 
   const removeItem = async (cartDetailId: number) => {
-    if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
     setUpdatingItems(prev => new Set(prev).add(cartDetailId));
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart/remove`, {
+      const res = await authFetch(`${API_BASE_URL}/api/cart/remove`, {
         method: "POST",
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({ cartDetailId }),
       });
       if (res.ok) {
@@ -216,7 +238,7 @@ export default function CartPage() {
       } else {
         fetchCart();
       }
-    } catch (error) {
+    } catch {
       showToast("Lỗi kết nối máy chủ", "error");
       fetchCart();
     } finally {
@@ -228,40 +250,62 @@ export default function CartPage() {
     }
   };
 
-  // Tiến hành thanh toán: tự động chọn tất cả sản phẩm
-  const handleCheckout = async () => {
-    const token = getToken();
-    if (!token) return;
+  const toggleSelection = async (cartDetailId: number, currentSelected: boolean) => {
+    if (!isLoggedIn()) return;
+    const newSelected = !currentSelected;
+    setItems(prev => prev.map(item => item.cartDetailId === cartDetailId ? { ...item, selected: newSelected } : item));
+    try {
+      await authFetch(`${API_BASE_URL}/api/cart/select`, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cartDetailId, selected: newSelected }),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-    const unselectedItems = items.filter(item => !item.selected);
-    if (unselectedItems.length > 0) {
-      try {
-        await Promise.all(unselectedItems.map(item =>
-          fetch(`${API_BASE_URL}/api/cart/select`, {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ cartDetailId: item.cartDetailId, selected: true }),
-          })
-        ));
-      } catch (e) {
-        console.error("Error selecting items", e);
-      }
+  const toggleSelectAll = async () => {
+    if (!isLoggedIn()) return;
+    const isAllSelected = items.length > 0 && items.every(item => item.selected);
+    const newSelected = !isAllSelected;
+    setItems(prev => prev.map(item => ({ ...item, selected: newSelected })));
+    try {
+      await Promise.all(items.map(item =>
+        authFetch(`${API_BASE_URL}/api/cart/select`, {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cartDetailId: item.cartDetailId, selected: newSelected }),
+        })
+      ));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Tiến hành thanh toán
+  const handleCheckout = async () => {
+    if (!isLoggedIn()) return;
+
+    const selectedItems = items.filter(item => item.selected);
+    if (selectedItems.length === 0) {
+      showToast("Vui lòng chọn ít nhất một sản phẩm để thanh toán", "error");
+      return;
     }
     router.push("/user/checkout");
   };
 
   // Thêm sách từ danh sách gợi ý vào giỏ hàng
-  const handleAddRecommendedToCart = async (book: any) => {
-    const token = getToken();
-    if (!token) {
+  const handleAddRecommendedToCart = async (book: BookRecommendation) => {
+    if (!isLoggedIn()) {
       showToast("Vui lòng đăng nhập để thêm vào giỏ hàng", "error");
       router.push("/auth/login");
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cart/add`, {
+      const res = await authFetch(`${API_BASE_URL}/api/cart/add`, {
         method: "POST",
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({ bookId: book.id, quantity: 1 }),
       });
       const data = await res.json();
@@ -272,7 +316,7 @@ export default function CartPage() {
       } else {
         showToast(data.message || "Không thể thêm vào giỏ hàng", "error");
       }
-    } catch (err) {
+    } catch {
       showToast("Lỗi kết nối máy chủ", "error");
     }
   };
@@ -295,8 +339,9 @@ export default function CartPage() {
     return `${API_BASE_URL}/uploads/books/${cleanUrl}`;
   };
 
-  // Tính tổng tiền dựa trên toàn bộ item trong giỏ (Tối giản: không dùng check chọn lọc)
+  // Tính tổng tiền chỉ dựa trên item đã được chọn (item.selected)
   const subTotal = items.reduce((sum, item) => {
+    if (!item.selected) return sum;
     const promoInfo = flashSaleMap.get(item.bookId);
     let itemTotal = item.price * item.quantity;
     if (promoInfo && promoInfo.price < item.price) {
@@ -350,12 +395,6 @@ export default function CartPage() {
   return (
     <>
       <Navbar />
-      
-      {/* Dynamic Font Loader */}
-      <link 
-        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" 
-        rel="stylesheet"
-      />
 
       <main className="bg-[#f7f9fb] min-h-screen py-10 font-sans text-[#191c1e]">
         <div className="max-w-[1230px] mx-auto px-4">
@@ -374,6 +413,17 @@ export default function CartPage() {
               {/* Danh sách items */}
               <div className="w-full lg:w-2/3">
                 <div className="bg-white border border-[#e0e3e5] rounded-[4px] divide-y divide-[#e0e3e5] overflow-hidden">
+                  <div className="p-4 bg-gray-50 flex items-center gap-3 border-b border-[#e0e3e5]">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 cursor-pointer accent-[#b70011]" 
+                      checked={items.length > 0 && items.every(i => i.selected)}
+                      onChange={toggleSelectAll}
+                      title="Chọn tất cả sản phẩm"
+                      aria-label="Chọn tất cả sản phẩm"
+                    />
+                    <span className="font-semibold text-sm">Chọn tất cả ({items.length} sản phẩm)</span>
+                  </div>
                   {items.map((item) => {
                     const promoInfo = flashSaleMap.get(item.bookId);
                     let hasDiscount = false;
@@ -391,13 +441,23 @@ export default function CartPage() {
                     }
 
                     return (
-                      <div key={item.cartDetailId} className="p-6 flex gap-6 group items-start sm:items-stretch">
+                      <div key={item.cartDetailId} className="p-6 flex gap-4 group items-start sm:items-stretch">
+                        <div className="pt-2 sm:pt-[70px] pr-2 flex-shrink-0">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 cursor-pointer accent-[#b70011]" 
+                            checked={item.selected}
+                            onChange={() => toggleSelection(item.cartDetailId, item.selected)}
+                            title={`Chọn sản phẩm ${item.title}`}
+                            aria-label={`Chọn sản phẩm ${item.title}`}
+                          />
+                        </div>
                         <div className="w-[112px] h-[168px] bg-[#eceef0] flex-shrink-0 overflow-hidden rounded-[2px] border border-[#e0e3e5] relative shadow-sm group-hover:shadow-md transition-shadow">
                           <img
                             src={getBookImageSrc(item)}
                             alt={item.title}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            onError={(e) => (e.target as HTMLImageElement).src = "/images/book-default.jpg"}
+                            onError={(e) => { (e.target as HTMLImageElement).src = "/images/book-default.jpg"; }}
                           />
                         </div>
                         
@@ -554,7 +614,7 @@ export default function CartPage() {
                         src={getBookImageSrc(b)}
                         alt={b.title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        onError={(e) => (e.target as HTMLImageElement).src = "/images/book-default.jpg"}
+                        onError={(e) => { (e.target as HTMLImageElement).src = "/images/book-default.jpg"; }}
                       />
                       <button
                         onClick={(e) => {

@@ -1,4 +1,5 @@
 'use client';
+import { isLoggedIn } from "@/lib/authFetch";
 
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
@@ -43,8 +44,7 @@ function OrderDetailContent() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+        if (!isLoggedIn()) {
       router.push("/auth/login");
       return;
     }
@@ -261,11 +261,11 @@ function OrderDetailContent() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="px-6 py-4 text-center" style={{ width: 60 }}>#</th>
+                      <th className="px-6 py-4 text-center w-[60px]">#</th>
                       <th className="px-6 py-4">Tên sách</th>
-                      <th className="px-6 py-4 text-center" style={{ width: 120 }}>Số lượng</th>
-                      <th className="px-6 py-4 text-right" style={{ width: 150 }}>Đơn giá</th>
-                      <th className="px-6 py-4 text-right" style={{ width: 150 }}>Thành tiền</th>
+                      <th className="px-6 py-4 text-center w-[120px]">Số lượng</th>
+                      <th className="px-6 py-4 text-right w-[150px]">Đơn giá</th>
+                      <th className="px-6 py-4 text-right w-[150px]">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-sm">

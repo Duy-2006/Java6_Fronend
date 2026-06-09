@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
@@ -8,20 +9,15 @@ export default function AdminTopbar() {
   const [adminName, setAdminName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    
-    if (!token) {
-      window.location.replace("/");
-      return;
-    }
+    // Status checking delegated to implicit authFetch
 
-    fetch(`${API_URL}/api/auth/me`, {
+    authFetch(`${API_URL}/api/auth/me`, {
       method: "GET",
       headers: { 
-        "Authorization": `Bearer ${token}`,
+        
         "Content-Type": "application/json"
       },
     })
@@ -83,6 +79,7 @@ export default function AdminTopbar() {
         <button 
           onClick={toggleSidebar}
           className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 d-md-none border border-slate-200/50"
+          aria-label="Toggle Sidebar"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -100,18 +97,18 @@ export default function AdminTopbar() {
         {/* Quick Action Icons */}
         <div className="flex items-center gap-1.5 text-slate-500 mr-1">
           {/* Bell Icon with Red Notification Dot */}
-          <button className="relative p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+          <button className="relative p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Notifications">
             <Bell className="w-4.5 h-4.5 text-slate-600" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-550 rounded-full border border-white" style={{ backgroundColor: "#ef4444" }}></span>
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
           </button>
           
           {/* Settings Icon */}
-          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Settings">
             <Settings className="w-4.5 h-4.5 text-slate-600" />
           </button>
           
           {/* Help Icon */}
-          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors">
+          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Help">
             <HelpCircle className="w-4.5 h-4.5 text-slate-600" />
           </button>
         </div>

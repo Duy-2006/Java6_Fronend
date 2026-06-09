@@ -1,4 +1,5 @@
 'use client';
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,15 +16,9 @@ interface BookReviewsProps {
   bookId: number;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
-// Hàm lấy token giống như trong AddToCartSection
-const getToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
-  }
-  return null;
-};
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 export default function BookReviews({ bookId }: BookReviewsProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -32,18 +27,15 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
 
-  // Lấy token khi component mount (giống AddToCartSection)
-  useEffect(() => {
-    setToken(getToken());
-  }, []);
+
+
 
   // Fetch reviews (không cần token)
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`);
+        const res = await authFetch(`${API_URL}/api/books/${bookId}/reviews`);
         if (!res.ok) throw new Error('Không thể tải đánh giá');
         const data = await res.json();
         setReviews(Array.isArray(data) ? data : []);
@@ -60,7 +52,7 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
   // Gửi đánh giá mới (cần token)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) {
+    if (!isLoggedIn()) {
       alert('Vui lòng đăng nhập để đánh giá sách.');
       return;
     }
@@ -70,11 +62,11 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/books/${bookId}/reviews`, {
+      const res = await authFetch(`${API_URL}/api/books/${bookId}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          
         },
         body: JSON.stringify({ rating: newRating, comment: newComment }),
       });
@@ -138,7 +130,7 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
       </div>
 
       {/* Form gửi đánh giá - hiển thị nếu có token */}
-      {token ? (
+      {isLoggedIn() ? (
         <form onSubmit={handleSubmit} className="space-y-4 border p-4 rounded-lg">
           <div>
             <label className="block text-sm font-medium mb-1">Đánh giá của bạn</label>
@@ -149,6 +141,8 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
                   type="button"
                   onClick={() => setNewRating(star)}
                   className="focus:outline-none"
+                  aria-label={`Đánh giá ${star} sao`}
+                  title={`Đánh giá ${star} sao`}
                 >
                   <svg
                     className={`h-6 w-6 ${

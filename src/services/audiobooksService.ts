@@ -1,4 +1,5 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 /** Một đoạn audio (segment) trong một chương — tương ứng với AudioSegmentDTO từ backend */
 export interface AudioSegment {
@@ -28,33 +29,26 @@ export interface Chapter {
   locked?: boolean;
 }
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
+
 
 function getAuthHeaders(isMultipart = false): HeadersInit {
-  const token = getToken();
   const headers: HeadersInit = {};
   if (!isMultipart) {
     headers['Content-Type'] = 'application/json';
-  }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
 
 // Get all chapters for a book from backend with authentication
 export async function getChapters(bookId: number): Promise<Chapter[]> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Người dùng chưa đăng nhập hoặc token đã hết hạn");
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters?t=${Date.now()}`, {
+    const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters?t=${Date.now()}`, {
       headers: getAuthHeaders(),
+      credentials: 'include',
       cache: 'no-store',
     });
     
@@ -86,8 +80,7 @@ export async function createChapter(
   textContent: string,
   textFile: File | null
 ): Promise<Chapter> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
@@ -101,9 +94,10 @@ export async function createChapter(
     formData.append('textFile', textFile);
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters`, {
     method: 'POST',
     headers: getAuthHeaders(true),
+    credentials: 'include',
     body: formData,
   });
 
@@ -125,14 +119,14 @@ export async function updateChapter(
   title: string,
   textContent: string
 ): Promise<Chapter> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ number, title, textContent }),
   });
 
@@ -149,14 +143,14 @@ export async function updateChapter(
 
 // Delete a chapter from the backend with authentication
 export async function deleteChapter(bookId: number, chapterId: number): Promise<void> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
+    credentials: 'include',
   });
   
   if (res.status === 401) {
@@ -175,14 +169,14 @@ export async function generateTTS(
   voice: string,
   speed: string
 ): Promise<Chapter> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/tts`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/tts`, {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ voice, speed })
   });
 
@@ -202,14 +196,14 @@ export async function generateTTSBulk(
   voice: string,
   speed: string
 ): Promise<Chapter[]> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/tts-bulk`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/tts-bulk`, {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ voice, speed })
   });
 
@@ -228,14 +222,14 @@ export async function stopTTS(
   bookId: number,
   chapterId: number
 ): Promise<Chapter> {
-  const token = getToken();
-  if (!token) {
+    if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
   }
 
-  const res = await fetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/tts/stop`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/tts/stop`, {
     method: 'POST',
-    headers: getAuthHeaders()
+    headers: getAuthHeaders(),
+    credentials: 'include',
   });
 
   if (res.status === 401) {
@@ -251,15 +245,14 @@ export async function stopTTS(
 // Get chapters for user storefront (includes lock status)
 // Guests (no token) are allowed: Chapter 1 is always free, others will be locked
 export async function getUserChapters(bookId: number): Promise<Chapter[]> {
-  const token = getToken();
-  const headers: HeadersInit = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  if (isLoggedIn()) {
+      }
 
   try {
-    const res = await fetch(`${BASE_URL}/api/user/books/${bookId}/chapters`, {
+    const res = await authFetch(`${BASE_URL}/api/user/books/${bookId}/chapters`, {
       headers,
+      credentials: 'include',
       cache: 'no-store',
     });
 
@@ -274,6 +267,24 @@ export async function getUserChapters(bookId: number): Promise<Chapter[]> {
       throw new Error('NETWORK_ERROR: Không thể kết nối tới backend. Vui lòng kiểm tra server.');
     }
     throw err;
+  }
+}
+
+// Get audiobooks for user storefront (where audioPrice > 0)
+export async function getStorefrontAudiobooks(page = 0, size = 10): Promise<{ content: Chapter[]; totalPages: number }> {
+  try {
+    const res = await authFetch(`${BASE_URL}/api/books/audiobooks?page=${page}&size=${size}&t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    return {
+      content: data.content || (Array.isArray(data) ? data : []),
+      totalPages: data.totalPages || 1,
+    };
+  } catch (err) {
+    console.error("Fetch storefront audiobooks error:", err);
+    return { content: [], totalPages: 1 };
   }
 }
 

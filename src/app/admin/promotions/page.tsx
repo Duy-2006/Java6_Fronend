@@ -1,4 +1,5 @@
 "use client";
+import { isLoggedIn } from "@/lib/authFetch";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -25,18 +26,14 @@ export default function PromotionsPage() {
     else setRefreshing(true);
     setError("");
 
-    const token =
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("token") ||
-      "";
-
-    if (!token) {
+    
+    if (!isLoggedIn()) {
       router.push("/admin/login");
       return;
     }
 
     try {
-      const data = await getAllPromotions(token);
+      const data = await getAllPromotions();
       setPromotions(data);
     } catch (err: any) {
       setError(err.message || "Không thể tải danh sách khuyến mãi.");

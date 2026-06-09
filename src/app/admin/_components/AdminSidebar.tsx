@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -51,16 +52,26 @@ const NAV_GROUPS = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [adminName, setAdminName] = useState("");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+
+  const handleLogout = () => {
+    authFetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+    })
+      .catch((err) => console.error("Logout error:", err))
+      .finally(() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        sessionStorage.clear();
+        window.location.href = "/";
+      });
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    fetch(`${API_URL}/api/auth/me`, {
+    // Admin status check (cookie implicitly sent by authFetch)
+    authFetch(`${API_URL}/api/auth/me`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     })
@@ -71,22 +82,15 @@ export default function AdminSidebar() {
       .then((data) => {
         if (data.role === "ADMIN") {
           setAdminName(data.name);
+        } else {
+          handleLogout();
         }
       })
       .catch((err) => {
         console.error("Error fetching admin in sidebar:", err);
+        handleLogout();
       });
   }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    sessionStorage.clear();
-    window.location.href = "/";
-    setTimeout(() => {
-      window.location.reload();
-    }, 50);
-  };
 
   const isActive = (href: string) => {
     if (href === "/admin/dashboard") return pathname === "/admin/dashboard";
@@ -99,7 +103,7 @@ export default function AdminSidebar() {
       <Link href="/admin/dashboard" className="sidebar-brand">
         <div className="sidebar-brand-title">
           <BookOpen className="w-5 h-5 text-[#b70011]" />
-          Bookstore
+          Bibliora
         </div>
         <div className="sidebar-brand-subtitle">Literary Commerce</div>
       </Link>
@@ -137,14 +141,14 @@ export default function AdminSidebar() {
       <div className="p-4 border-t border-[#e6bdb8]/10 bg-[#131517] flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <img
-            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Le Minh")}&background=b70011&color=fff`}
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Admin")}&background=b70011&color=fff`}
             className="w-10 h-10 rounded-full border border-[#e6bdb8]/20"
             alt="Avatar"
             loading="lazy"
             decoding="async"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{adminName || "Lê Minh"}</p>
+            <p className="text-sm font-semibold text-white truncate">{adminName || "..."}</p>
             <p className="text-xs text-[#916f6b]">Administrator</p>
           </div>
         </div>

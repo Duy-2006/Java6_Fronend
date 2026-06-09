@@ -1,10 +1,11 @@
+import { authFetch } from "@/lib/authFetch";
 import Link from "next/link";
 import Image from "next/image";
 
 export const metadata = { title: "Danh sách Sách" };
 
 async function getBooks(): Promise<any[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/books`, {
+  const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/books`, {
     cache: "no-store",
   });
   if (!res.ok) return [];

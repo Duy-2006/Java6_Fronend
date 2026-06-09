@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/authFetch";
 // app/user/category/[id]/page.tsx
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -5,11 +6,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BookImage from "../BookImage"; // import từ file category/BookImage.tsx
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 async function getCategoryDetail(id: string) {
   try {
-    const res = await fetch(`${API_URL}/api/categories/${id}`, { cache: "no-store" });
+    const res = await authFetch(`${API_URL}/api/categories/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     return res.json();
   } catch {

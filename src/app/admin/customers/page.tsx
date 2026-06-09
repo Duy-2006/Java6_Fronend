@@ -524,6 +524,7 @@ function CustomersContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
+              aria-label="Trang trước"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -546,6 +547,7 @@ function CustomersContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
+              aria-label="Trang sau"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

@@ -1,4 +1,5 @@
 "use client";
+import { isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -88,12 +89,8 @@ export default function PromotionForm({
       return; 
     }
 
-    const token =
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("token")      ||
-      "";
-
-    if (!token) {
+    
+    if (!isLoggedIn()) {
       setServerError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
     }
@@ -117,9 +114,9 @@ export default function PromotionForm({
       };
 
       if (isEdit) {
-        await updatePromotion(promotion!.id!, payload, token);
+        await updatePromotion(promotion!.id!, payload);
       } else {
-        await createPromotion(payload, token);
+        await createPromotion(payload);
       }
 
       router.push("/admin/promotions");

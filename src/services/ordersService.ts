@@ -1,38 +1,6 @@
+import { authFetch } from "@/lib/authFetch";
 // src/services/ordersService.ts
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-const getToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
-  }
-  return null;
-};
-
-const logoutAndRedirect = () => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('token');
-    window.location.href = '/auth/login';
-  }
-};
-
-const authFetch = async (url: string, options: RequestInit = {}) => {
-  const token = getToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
-  const res = await fetch(url, { ...options, headers });
-  if (res.status === 401) {
-    logoutAndRedirect();
-    throw new Error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
-  }
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Lỗi ${res.status}: ${errorText || res.statusText}`);
-  }
-  return res.json();
-};
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 export interface Order {
   id: number;
@@ -47,47 +15,34 @@ export interface Order {
 }
 
 export async function getAllOrders(): Promise<Order[]> {
-  return authFetch(`${BASE_URL}/api/admin/orders`, { cache: 'no-store' });
+  const res = await authFetch(`${BASE_URL}/api/admin/orders`, { cache: "no-store" }); return res.json();
 }
 
 export async function getOrderById(id: number | string): Promise<Order> {
-  return authFetch(`${BASE_URL}/api/admin/orders/${id}`, { cache: 'no-store' });
+  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, { cache: "no-store" }); return res.json();
 }
 
 export async function createOrder(data: Partial<Order>): Promise<Order> {
-  return authFetch(`${BASE_URL}/api/admin/orders`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const res = await authFetch(`${BASE_URL}/api/admin/orders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); return res.json();
 }
 
 export async function updateOrder(id: number | string, data: Partial<Order>): Promise<Order> {
-  return authFetch(`${BASE_URL}/api/admin/orders/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); return res.json();
 }
 
 export async function updateOrderStatus(id: number | string, status: string): Promise<Order> {
-  return authFetch(`${BASE_URL}/api/admin/orders/${id}/status`, {
-    method: 'PUT',
-    body: JSON.stringify({ status }),
-  });
+  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); return res.json();
 }
 
 export async function deleteOrder(id: number | string): Promise<void> {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/api/admin/orders/${id}`, {
+  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
     },
+    credentials: 'include',
   });
-  if (res.status === 401) {
-    logoutAndRedirect();
-    throw new Error('Token hết hạn');
-  }
+  
   if (!res.ok) throw new Error('Xóa đơn hàng thất bại');
 }
 

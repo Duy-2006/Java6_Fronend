@@ -287,6 +287,7 @@ function OrdersContent() {
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('grid')}
               title="Dạng lưới"
+              aria-label="Dạng lưới"
             >
               <Grid className="w-4 h-4" />
             </button>
@@ -294,6 +295,7 @@ function OrdersContent() {
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('table')}
               title="Dạng bảng"
+              aria-label="Dạng bảng"
             >
               <List className="w-4 h-4" />
             </button>
@@ -380,12 +382,12 @@ function OrdersContent() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
-                  <th className="px-6 py-4 text-center" style={{ width: 120 }}>Mã Đơn</th>
+                  <th className="px-6 py-4 text-center w-[120px]">Mã Đơn</th>
                   <th className="px-6 py-4">Khách hàng</th>
                   <th className="px-6 py-4">Ngày đặt</th>
                   <th className="px-6 py-4 text-right">Tổng tiền</th>
                   <th className="px-6 py-4 text-center">Trạng thái</th>
-                  <th className="px-6 py-4 text-right" style={{ width: 140 }}>Thao tác</th>
+                  <th className="px-6 py-4 text-right w-[140px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
@@ -473,6 +475,7 @@ function OrdersContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
+              aria-label="Trang trước"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -495,6 +498,7 @@ function OrdersContent() {
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
+              aria-label="Trang sau"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

@@ -1,43 +1,18 @@
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 const getUserIdFromToken = (): number | null => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.userId || payload.id || payload.user_id || null;
-  } catch {
-    return null;
-  }
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : null;
 };
 
-function parseJwt(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
-const getToken = () => {
-  if (typeof window !== "undefined") return localStorage.getItem("token");
-  return null;
-};
 
 const getImageUrl = (imagePath: string | undefined): string => {
   if (!imagePath) return "/images/book-default.jpg";
@@ -58,20 +33,22 @@ export default function MyAudiobooksPage() {
   const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
+    if (!isLoggedIn()) {
       router.push("/auth/login");
       return;
     }
 
-    const decoded = parseJwt(token);
-    if (decoded) {
-      setUserName(decoded.username || "");
-      setUserRole(decoded.role || "USER");
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setUserName(u.name || u.username || "");
+        setUserRole(u.role || "USER");
+      } catch {}
     }
 
-    fetch(`${BASE_URL}/api/profile`, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(`${BASE_URL}/api/profile`, {
+      headers: { },
     })
       .then((res) => {
         if (res.ok) return res.json();
@@ -86,15 +63,14 @@ export default function MyAudiobooksPage() {
   }, []);
 
   const fetchAudiobooks = async () => {
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/user/books/my-audiobooks`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch(`${BASE_URL}/api/user/books/my-audiobooks`, {
+        headers: { },
       });
 
       if (res.status === 401) {
@@ -153,14 +129,14 @@ export default function MyAudiobooksPage() {
                 href="/user/my-orders"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#b70011] hover:bg-[#f2f4f6] transition-all duration-200"
               >
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>history</span>
+                <span className="material-symbols-outlined text-lg [font-variation-settings:'FILL'_1]">history</span>
                 <span>Lịch sử mua hàng</span>
               </Link>
               <Link
                 href="/user/my-audiobooks"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-[#ffdad6]/40 text-[#b70011]"
               >
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>headphones</span>
+                <span className="material-symbols-outlined text-lg [font-variation-settings:'FILL'_1]">headphones</span>
                 <span>Sách nói của tôi</span>
               </Link>
               <Link

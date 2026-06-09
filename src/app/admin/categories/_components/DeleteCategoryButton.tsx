@@ -1,4 +1,5 @@
 "use client";
+import { authFetch } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,8 +15,8 @@ export default function DeleteCategoryButton({ categoryId }: { categoryId: numbe
 
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${baseUrl}/api/categories/${categoryId}`, {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+      const res = await authFetch(`${baseUrl}/api/categories/${categoryId}`, {
         method: "DELETE",
       });
 
