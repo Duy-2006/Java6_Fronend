@@ -15,7 +15,14 @@ const logoutAndRedirect = () => {
   }
 };
 
-const authFetch = async (url: string, options: RequestInit = {}) => {
+export const isLoggedIn = () => {
+  if (typeof window !== 'undefined') {
+    return !!localStorage.getItem('token');
+  }
+  return false;
+};
+
+export const authFetch = async (url: string, options: RequestInit = {}) => {
   const token = getToken();
   const headers = {
     'Content-Type': 'application/json',
