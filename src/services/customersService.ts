@@ -10,6 +10,7 @@ export interface CustomerSummary {
   active: boolean;
   totalSpending: number;
   customerType: string;
+  avatar?: string;
 }
 
 export interface CustomerHistory extends CustomerSummary {

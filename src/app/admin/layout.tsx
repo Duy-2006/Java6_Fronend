@@ -18,7 +18,7 @@ export default function AdminLayout({
   return (
     <div className="d-flex vh-100">
       <AdminSidebar />
-      <div className="flex-grow-1 d-flex flex-column">
+      <div className="flex-grow-1 d-flex flex-column admin-main-wrapper">
         <AdminTopbar />
         <main className="main-content flex-grow-1 p-6 bg-gray-50 overflow-auto">
           {children}

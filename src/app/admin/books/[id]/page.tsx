@@ -9,11 +9,17 @@ import {
     createChapter,
     updateChapter,
     deleteChapter,
+    deleteChapterAudio,
+    regenerateLanguageAudio,
     generateTTS,
     generateTTSBulk,
     stopTTS,
+    getLanguagesWithVoices,
+    toggleAudioLanguageStatus,
+    addLanguageTranslation,
     Chapter,
     AudioSegment,
+    LanguageOption,
 } from "@/services/audiobooksService";
 import {
     ArrowLeft,
@@ -32,9 +38,13 @@ import {
     CheckCircle,
     Clock,
     AlertCircle,
+    AlertTriangle,
     Barcode,
     Settings2,
     Music4,
+    Eye,
+    EyeOff,
+    Plus,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
@@ -82,6 +92,9 @@ export default function BookDetailPage() {
     const [activeTab, setActiveTab] = useState<"info" | "audio">("info");
     const [selectedVoice, setSelectedVoice] = useState("banmai");
     const [selectedSpeed, setSelectedSpeed] = useState("1.0x");
+    const [languages, setLanguages] = useState<LanguageOption[]>([]);
+    const [selectedLanguage, setSelectedLanguage] = useState("vi");
+    const [translationLanguage, setTranslationLanguage] = useState("vi");
     const [toast, setToast] = useState<ToastState | null>(null);
 
     // ── Upload modal ──
@@ -91,7 +104,6 @@ export default function BookDetailPage() {
     const [newChapterTextContent, setNewChapterTextContent] = useState("");
     const [newChapterFile, setNewChapterFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-
     // ── Edit modal ──
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
@@ -99,6 +111,13 @@ export default function BookDetailPage() {
     const [editChapterTitle, setEditChapterTitle] = useState("");
     const [editChapterTextContent, setEditChapterTextContent] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
+
+    // ── Translation modal state ──
+    const [isAddTranslationModalOpen, setIsAddTranslationModalOpen] = useState(false);
+    const [translationChapter, setTranslationChapter] = useState<Chapter | null>(null);
+    const [translationVoice, setTranslationVoice] = useState("banmai");
+    const [translationTextSegment, setTranslationTextSegment] = useState("");
+    const [isSubmittingTranslation, setIsSubmittingTranslation] = useState(false);
 
     // ── Playback (Playlist engine) ──
     /** Danh sách segments đã sort theo sequenceOrder của chương đang phát */
@@ -109,6 +128,8 @@ export default function BookDetailPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     /** Chương đang được phát (dùng cho player UI) */
     const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
+    /** Ngôn ngữ đang được phát */
+    const [currentPlayLanguage, setCurrentPlayLanguage] = useState<string>("vi");
     /** Thời gian hiện tại của segment đang phát (giây) */
     const [currentTime, setCurrentTime] = useState(0);
     /** Thời lượng của segment đang phát (giây) */
@@ -164,6 +185,17 @@ export default function BookDetailPage() {
                     chapterErr.message || "Không thể tải danh sách chương sách từ backend."
                 );
                 handleAuthError(chapterErr);
+            }
+
+            try {
+                const langs = await getLanguagesWithVoices();
+                setLanguages(langs);
+                if (langs.length > 0 && langs[0].voices.length > 0) {
+                    setSelectedLanguage(langs[0].code);
+                    setSelectedVoice(langs[0].voices[0].narratorCode);
+                }
+            } catch (langErr) {
+                console.error("Languages API failed:", langErr);
             }
         } catch (err: any) {
             console.error("Error loading book detail data:", err);
@@ -309,38 +341,37 @@ export default function BookDetailPage() {
 
 
     const handlePlaySample = useCallback(
-        (chapter: Chapter) => {
-            // Toggle play/pause nếu đang phát cùng chương
-            if (currentChapter?.id === chapter.id) {
+        (chapter: Chapter, languageCode: string = "vi") => {
+            // Toggle play/pause nếu đang phát cùng chương và cùng ngôn ngữ
+            if (currentChapter?.id === chapter.id && currentPlayLanguage === languageCode) {
                 if (isPlaying) {
                     audioRef.current?.pause();
                     setIsPlaying(false);
                 } else {
-                    // Resume: effect sẽ phát lại từ currentIndex
                     setIsPlaying(true);
                 }
                 return;
             }
 
-            // Lấy và sort audioSegments theo sequenceOrder tăng dần
+            // Lấy và sort audioSegments theo sequenceOrder tăng dần và lọc theo ngôn ngữ
             const segments = chapter.audioSegments ?? [];
             const readySegments = segments
-                .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined")
+                .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined" && (s.languageCode || "vi") === languageCode)
                 .sort((a, b) => (a.sequenceOrder ?? 0) - (b.sequenceOrder ?? 0));
 
             if (readySegments.length === 0) {
-                showToast("Chương này chưa có đoạn audio nào sẵn sàng để phát.", "error");
+                showToast(`Chương này chưa có đoạn audio tiếng ${languageCode.toUpperCase()} nào sẵn sàng để phát.`, "error");
                 return;
             }
 
-            // Cập nhật state → playlist engine (useEffect) sẽ tự động phát
             setCurrentChapter(chapter);
+            setCurrentPlayLanguage(languageCode);
             setPlaylist(readySegments);
             setCurrentIndex(0);
             setCurrentTime(0);
             setIsPlaying(true);
         },
-        [currentChapter, isPlaying, showToast]
+        [currentChapter, currentPlayLanguage, isPlaying, showToast]
     );
 
     const handleClosePlayback = useCallback(() => {
@@ -473,7 +504,170 @@ export default function BookDetailPage() {
         [bookId, showToast, handleAuthError]
     );
 
-    // ─── Upload modal ─────────────────────────────────────────────────────────
+    // ─── Translation & Granular Management Handlers ───────────────────────────
+
+    const handleOpenAddTranslationModal = useCallback((chapter: Chapter) => {
+        setTranslationChapter(chapter);
+        setTranslationTextSegment(chapter.textContent || "");
+        // Set default voice based on first language option if available
+        if (languages.length > 0 && languages[0].voices.length > 0) {
+            setTranslationLanguage(languages[0].code);
+            setTranslationVoice(languages[0].voices[0].narratorCode);
+        } else {
+            setTranslationLanguage("vi");
+            setTranslationVoice("banmai");
+        }
+        setIsAddTranslationModalOpen(true);
+    }, [languages]);
+
+    const handleToggleLanguageStatus = useCallback(
+        async (chapterId: number, languageId: number | undefined, langCode: string) => {
+            if (!bookId || !languageId) return;
+            try {
+                // Find current status to determine next status (ACTIVE <-> INACTIVE)
+                const chapter = chapters.find(c => c.id === chapterId);
+                const segs = chapter?.audioSegments ?? [];
+                const langSegs = segs.filter(s => (s.languageCode || "vi") === langCode);
+                const isCurrentlyInactive = langSegs.some(s => s.ttsStatus === "INACTIVE");
+                const nextStatus = isCurrentlyInactive ? "SUCCESS" : "INACTIVE";
+
+                const updatedChapter = await toggleAudioLanguageStatus(bookId, chapterId, languageId);
+                
+                setChapters((prev) =>
+                    prev.map((c) => (c.id === chapterId ? updatedChapter : c))
+                );
+                
+                showToast(
+                    `Đã ${nextStatus === "SUCCESS" ? "hiện" : "ẩn"} bản dịch tiếng ${langCode.toUpperCase()} thành công.`,
+                    "success"
+                );
+            } catch (err: any) {
+                console.error("Failed to toggle language status:", err);
+                showToast(err.message || "Không thể thay đổi trạng thái bản dịch.", "error");
+                handleAuthError(err);
+            }
+        },
+        [bookId, chapters, showToast, handleAuthError]
+    );
+
+    const handleDeleteLanguageAudio = useCallback(
+        async (chapterId: number, langCode: string) => {
+            if (!bookId) return;
+            const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn toàn bộ bản dịch tiếng ${langCode.toUpperCase()} của chương này?`);
+            if (!confirmed) return;
+            
+            try {
+                showToast("Đang xóa bản dịch...", "info");
+                const updatedChapter = await deleteChapterAudio(bookId, chapterId, langCode);
+                setChapters((prev) =>
+                    prev.map((c) => (c.id === chapterId ? updatedChapter : c))
+                );
+                showToast(`Đã xóa vĩnh viễn bản dịch tiếng ${langCode.toUpperCase()} thành công.`, "success");
+            } catch (err: any) {
+                console.error("Failed to delete language audio:", err);
+                showToast(err.message || "Không thể xóa bản dịch.", "error");
+                handleAuthError(err);
+            }
+        },
+        [bookId, showToast, handleAuthError]
+    );
+
+    const handleRegenerateLanguageAudio = useCallback(
+        async (chapterId: number, languageId: number | undefined, langCode: string) => {
+            if (!bookId || !languageId) return;
+            try {
+                showToast(`Đang gửi yêu cầu dịch lại tiếng ${langCode.toUpperCase()}...`, "info");
+                const updatedChapter = await regenerateLanguageAudio(bookId, chapterId, languageId);
+                setChapters((prev) =>
+                    prev.map((c) => (c.id === chapterId ? updatedChapter : c))
+                );
+                showToast(`✅ Đã gửi yêu cầu dịch lại tiếng ${langCode.toUpperCase()} thành công.`, "success");
+            } catch (err: any) {
+                console.error("Failed to regenerate language audio:", err);
+                showToast(err.message || "Không thể dịch lại ngôn ngữ.", "error");
+                handleAuthError(err);
+            }
+        },
+        [bookId, showToast, handleAuthError]
+    );
+
+    const handleSubmitTranslation = useCallback(
+        async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!bookId || !translationChapter) return;
+
+            if (!translationTextSegment.trim()) {
+                showToast("Nội dung văn bản dịch không được để trống.", "error");
+                return;
+            }
+
+            // Find the voice option to get its ID
+            let selectedVoiceId: number | undefined = undefined;
+            for (const lang of languages) {
+                const found = lang.voices.find(v => v.narratorCode === translationVoice);
+                if (found) {
+                    selectedVoiceId = found.id;
+                    break;
+                }
+            }
+
+            setIsSubmittingTranslation(true);
+            try {
+                const updatedChapter = await addLanguageTranslation(
+                    bookId,
+                    translationChapter.id,
+                    translationVoice,
+                    translationTextSegment,
+                    selectedVoiceId
+                );
+
+                setChapters((prev) =>
+                    prev.map((c) => (c.id === translationChapter.id ? updatedChapter : c))
+                );
+
+                showToast("Đã khởi tạo bản dịch audio thành công.", "success");
+                setIsAddTranslationModalOpen(false);
+                setTranslationChapter(null);
+                setTranslationTextSegment("");
+            } catch (err: any) {
+                console.error("Failed to add language translation:", err);
+                showToast(err.message || "Thêm bản dịch ngôn ngữ mới thất bại.", "error");
+                handleAuthError(err);
+            } finally {
+                setIsSubmittingTranslation(false);
+            }
+        },
+        [bookId, translationChapter, translationVoice, translationTextSegment, languages, showToast, handleAuthError]
+    );
+
+    const handleLanguageChange = useCallback((langCode: string) => {
+        setSelectedLanguage(langCode);
+        const langOpt = languages.find(l => l.code === langCode);
+        if (langOpt && langOpt.voices.length > 0) {
+            setSelectedVoice(langOpt.voices[0].narratorCode);
+        }
+    }, [languages]);
+
+    const handleTranslationLanguageChange = useCallback((langCode: string) => {
+        setTranslationLanguage(langCode);
+        const langOpt = languages.find(l => l.code === langCode);
+        if (langOpt && langOpt.voices.length > 0) {
+            setTranslationVoice(langOpt.voices[0].narratorCode);
+        }
+    }, [languages]);
+
+    const handleOpenUploadModal = useCallback(() => {
+        let nextNumber = 1;
+        if (chapters && chapters.length > 0) {
+            const numbers = chapters.map(c => parseInt(c.number, 10)).filter(num => !isNaN(num));
+            if (numbers.length > 0) {
+                nextNumber = Math.max(...numbers) + 1;
+            }
+        }
+        const formattedNum = nextNumber.toString().padStart(2, '0');
+        setNewChapterNumber(formattedNum);
+        setIsUploadModalOpen(true);
+    }, [chapters]);
 
     const resetUploadModal = useCallback(() => {
         setIsUploadModalOpen(false);
@@ -958,6 +1152,24 @@ export default function BookDetailPage() {
 
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
+                                        <label htmlFor="targetLanguage" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                            Ngôn ngữ dịch (Language)
+                                        </label>
+                                        <select
+                                            id="targetLanguage"
+                                            value={selectedLanguage}
+                                            onChange={(e) => handleLanguageChange(e.target.value)}
+                                            className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] transition-all font-medium text-slate-700"
+                                        >
+                                            {languages.map((lang) => (
+                                                <option key={lang.code} value={lang.code}>
+                                                    {lang.name} ({lang.code.toUpperCase()})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
                                         <label htmlFor="voiceModel" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                             Giọng đọc (AI Voice Model)
                                         </label>
@@ -967,14 +1179,11 @@ export default function BookDetailPage() {
                                             onChange={(e) => setSelectedVoice(e.target.value)}
                                             className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] transition-all font-medium text-slate-700"
                                         >
-                                            <option value="banmai">Ban Mai (Nữ miền Bắc)</option>
-                                            <option value="leminh">Lê Minh (Nam miền Bắc)</option>
-                                            <option value="giahuy">Gia Huy (Nam miền Nam)</option>
-                                            <option value="thuminh">Thu Minh (Nữ miền Nam)</option>
-                                            <option value="ngoclam">Ngọc Lâm (Nữ giọng chuẩn)</option>
-                                            <option value="baotin">Bảo Tín (Nam năng động)</option>
-                                            <option value="vyvy">Vy Vy (Nữ nhẹ nhàng)</option>
-                                            <option value="phuocloc">Phước Lộc (Nam vui vẻ)</option>
+                                            {(languages.find(l => l.code === selectedLanguage)?.voices ?? []).map((voice) => (
+                                                <option key={voice.narratorCode} value={voice.narratorCode}>
+                                                    {voice.voiceName} ({voice.narratorCode})
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -1020,7 +1229,7 @@ export default function BookDetailPage() {
                                         Danh sách Audio chương sách
                                     </h3>
                                     <button
-                                        onClick={() => setIsUploadModalOpen(true)}
+                                        onClick={handleOpenUploadModal}
                                         className="flex items-center gap-1 bg-white border border-slate-200 text-slate-700 hover:text-[#b70011] hover:border-[#b70011] font-bold px-3.5 py-2 rounded-lg text-[11px] transition-all shadow-sm"
                                     >
                                         <UploadCloud className="w-3.5 h-3.5" />
@@ -1045,13 +1254,13 @@ export default function BookDetailPage() {
                                                         <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                                             Tiêu đề
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                            Giọng / Thời lượng
+                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
+                                                            Bản dịch audio sẵn có
                                                         </th>
                                                         <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-36">
                                                             Trạng thái
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-44">
+                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">
                                                             Thao tác
                                                         </th>
                                                     </tr>
@@ -1083,38 +1292,91 @@ export default function BookDetailPage() {
                                                                     {chapter.title}
                                                                 </td>
 
-                                                                <td className="py-3 px-5">
-                                                                    {chapter.status === "completed" ? (
-                                                                        <div className="space-y-0.5">
-                                                                            <p className="text-[10px] font-semibold text-slate-600">
-                                                                                {chapter.voiceModel || "Mặc định"}
-                                                                            </p>
-                                                                            <p className="text-[9px] font-mono text-slate-400">
-                                                                                {chapter.duration || "—"}
-                                                                            </p>
-                                                                            {/* Hiển thị số đoạn audio và cảnh báo nếu trống */}
-                                                                            {(() => {
-                                                                                const segs = chapter.audioSegments ?? [];
-                                                                                const ready = segs.filter((s: AudioSegment) => s.audioUrl && s.audioUrl !== 'null');
-                                                                                if (segs.length === 0) {
-                                                                                    return (
-                                                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full mt-0.5">
-                                                                                            <AlertCircle className="w-2.5 h-2.5" />
-                                                                                            Chưa có audio
-                                                                                        </span>
-                                                                                    );
-                                                                                }
-                                                                                return (
-                                                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full mt-0.5">
-                                                                                        <Music4 className="w-2.5 h-2.5" />
-                                                                                        {`${ready.length}/${segs.length} đoạn`}
-                                                                                    </span>
-                                                                                );
-                                                                            })()}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-slate-400">—</span>
-                                                                    )}
+                                                                <td className="py-3 px-5 text-center">
+                                                                    {chapter.audioSegments && chapter.audioSegments.length > 0 ? (
+                                                                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                                             {(() => {
+                                                                                 const segs = chapter.audioSegments ?? [];
+                                                                                 const languagesInChapter = Array.from(
+                                                                                     new Set(
+                                                                                         segs
+                                                                                             .filter(s => (s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined") || s.ttsStatus === "PROCESSING" || s.ttsStatus === "processing")
+                                                                                             .map(s => s.languageCode || "vi")
+                                                                                     )
+                                                                                 );
+
+                                                                                 if (languagesInChapter.length === 0) {
+                                                                                     return <span className="text-[10px] text-slate-400 italic">Chưa có audio</span>;
+                                                                                 }
+
+                                                                                 return languagesInChapter.map(lang => {
+                                                                                     const isActive = currentChapter?.id === chapter.id && currentPlayLanguage === lang && isPlaying;
+                                                                                     const langSegs = segs.filter(s => (s.languageCode || "vi") === lang);
+                                                                                     const isInactive = langSegs.some(s => s.ttsStatus === "INACTIVE");
+                                                                                     const isProcessing = langSegs.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "processing");
+                                                                                     const languageId = langSegs[0]?.languageId;
+                                                                                     const isOutdated = langSegs.some(s => s.isOutdated);
+
+                                                                                     return (
+                                                                                         <div key={lang} className={`inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden ${isInactive ? 'opacity-60 bg-slate-100 border-slate-300' : isProcessing ? 'bg-indigo-50 border-indigo-200' : isOutdated ? 'bg-amber-50 border-amber-200' : isActive ? 'bg-emerald-50 border-emerald-200 font-bold' : 'bg-white border-slate-200'}`}>
+                                                                                             {/* Play Button */}
+                                                                                             <button
+                                                                                                 onClick={() => !isProcessing && handlePlaySample(chapter, lang)}
+                                                                                                 disabled={isProcessing}
+                                                                                                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-extrabold transition-colors border-r ${isInactive ? "text-slate-500 border-slate-300 hover:bg-slate-200" : isProcessing ? "text-indigo-600 border-indigo-200" : isActive
+                                                                                                     ? "text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                                                                                     : isOutdated
+                                                                                                     ? "text-amber-800 border-amber-200 hover:bg-amber-100"
+                                                                                                     : "text-[#b70011] border-slate-200 hover:bg-slate-50"
+                                                                                                     }`}
+                                                                                                 title={isProcessing ? `Đang xử lý bản dịch ${lang.toUpperCase()}...` : `Phát bản dịch ${lang.toUpperCase()}${isInactive ? ' (Đang ẩn)' : ''}${isOutdated ? ' (Lỗi thời)' : ''}`}
+                                                                                             >
+                                                                                                 {isProcessing ? (
+                                                                                                     <RotateCw className="w-2.5 h-2.5 text-indigo-600 animate-spin" />
+                                                                                                 ) : isActive ? (
+                                                                                                     <Pause className="w-2.5 h-2.5 text-[#b70011]" />
+                                                                                                 ) : (
+                                                                                                     <Play className={`w-2.5 h-2.5 ${isInactive ? 'text-slate-400' : isOutdated ? 'text-amber-600' : 'text-[#b70011]'}`} />
+                                                                                                 )}
+                                                                                                 <span className="inline-flex items-center gap-1">
+                                                                                                     {lang.toUpperCase()}{isInactive ? ' [Ẩn]' : ''}
+                                                                                                     {isOutdated && !isProcessing && (
+                                                                                                         <AlertTriangle className="w-3 h-3 text-amber-600 animate-pulse animate-duration-1000" />
+                                                                                                     )}
+                                                                                                 </span>
+                                                                                             </button>
+
+                                                                                             {/* Toggle Hide/Show Button */}
+                                                                                             <button
+                                                                                                 onClick={() => handleToggleLanguageStatus(chapter.id, languageId, lang)}
+                                                                                                 disabled={!languageId || isProcessing}
+                                                                                                 className={`p-1.5 transition-colors border-r ${isInactive ? 'text-slate-500 border-slate-300 hover:bg-slate-200' : 'text-slate-600 border-slate-200 hover:bg-slate-100'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                                                 title={isInactive ? `Hiện bản dịch tiếng ${lang.toUpperCase()}` : `Ẩn bản dịch tiếng ${lang.toUpperCase()}`}
+                                                                                             >
+                                                                                                 {isInactive ? (
+                                                                                                     <EyeOff className="w-3.5 h-3.5" />
+                                                                                                 ) : (
+                                                                                                     <Eye className="w-3.5 h-3.5" />
+                                                                                                 )}
+                                                                                             </button>
+
+                                                                                             {/* Regenerate Button */}
+                                                                                             <button
+                                                                                                 onClick={() => handleRegenerateLanguageAudio(chapter.id, languageId, lang)}
+                                                                                                 disabled={!languageId || isProcessing}
+                                                                                                 className={`p-1.5 transition-colors ${isOutdated ? 'text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-200' : 'text-slate-600 hover:bg-slate-100'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                                                 title={`Dịch/Cập nhật lại âm thanh tiếng ${lang.toUpperCase()}`}
+                                                                                             >
+                                                                                                 <RotateCw className={`w-3.5 h-3.5 ${isProcessing ? 'text-indigo-400 animate-spin' : isOutdated ? 'text-amber-600' : 'text-slate-500'}`} />
+                                                                                             </button>
+                                                                                         </div>
+                                                                                     );
+                                                                                 });
+                                                                             })()}
+                                                                         </div>
+                                                                     ) : (
+                                                                         <span className="text-[10px] text-slate-400">—</span>
+                                                                     )}
                                                                 </td>
 
                                                                 <td className="py-3 px-5 text-center">
@@ -1145,78 +1407,55 @@ export default function BookDetailPage() {
                                                                 </td>
 
                                                                 <td className="py-3 px-5 text-right">
-                                                                    <div className="flex items-center justify-end gap-1.5">
-                                                                        {chapter.status === "completed" && (
-                                                                            <>
-                                                                                <button
-                                                                                    onClick={() => handlePlaySample(chapter)}
-                                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[9px] font-bold transition-all"
-                                                                                >
-                                                                                    {currentChapter?.id === chapter.id && isPlaying ? (
-                                                                                        <Pause className="w-3 h-3 text-[#b70011]" />
-                                                                                    ) : (
-                                                                                        <Play className="w-3 h-3 text-[#b70011]" />
-                                                                                    )}
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => handleStartSingleTTS(chapter.id)}
-                                                                                    className="inline-flex items-center px-2 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-all"
-                                                                                    title="Chuyển đổi lại TTS"
-                                                                                >
-                                                                                    <RotateCw className="w-3 h-3" />
-                                                                                </button>
-                                                                            </>
-                                                                        )}
-
-                                                                        {chapter.status === "processing" && (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span className="text-[9px] font-bold text-slate-400 italic">
-                                                                                    Đang chạy...
-                                                                                </span>
-                                                                                <button
-                                                                                    onClick={() => handleStopTTS(chapter.id)}
-                                                                                    className="p-1 hover:bg-slate-100 hover:text-red-600 rounded text-slate-400 transition-colors"
-                                                                                    title="Dừng chuyển đổi"
-                                                                                >
-                                                                                    <AlertCircle className="w-3 h-3" />
-                                                                                </button>
-                                                                            </div>
-                                                                        )}
-
-                                                                        {chapter.status === "failed" && (
+                                                                        <div className="flex items-center justify-end gap-1.5">
+                                                                            {/* Play/Pause Chapter Button */}
                                                                             <button
-                                                                                onClick={() => handleStartSingleTTS(chapter.id)}
-                                                                                className="bg-red-50 text-red-600 hover:bg-[#b70011] hover:text-white font-bold text-[9px] px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 border border-red-100"
+                                                                                onClick={() => handlePlaySample(chapter)}
+                                                                                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-all shadow-sm ${currentChapter?.id === chapter.id && isPlaying ? 'bg-red-600 text-white border-red-700' : 'bg-red-50 hover:bg-red-600 border-red-200 text-red-600 hover:text-white'}`}
+                                                                                title={currentChapter?.id === chapter.id && isPlaying ? "Tạm dừng" : "Nghe thử audio"}
                                                                             >
-                                                                                <RotateCw className="w-3 h-3" />
-                                                                                <span>Dịch lại</span>
+                                                                                {currentChapter?.id === chapter.id && isPlaying ? (
+                                                                                    <Pause className="w-4 h-4" />
+                                                                                ) : (
+                                                                                    <Play className="w-4 h-4 translate-x-[1px]" />
+                                                                                )}
                                                                             </button>
-                                                                        )}
 
-                                                                        {chapter.status === "pending" && (
-                                                                            <button
-                                                                                onClick={() => handleStartSingleTTS(chapter.id)}
-                                                                                className="bg-[#b70011]/15 text-[#b70011] hover:bg-[#b70011] hover:text-white font-bold text-[9px] px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1"
-                                                                            >
-                                                                                <Cpu className="w-3 h-3" />
-                                                                                <span>TTS</span>
-                                                                            </button>
-                                                                        )}
+                                                                        {/* Start/Stop TTS Button */}
+                                                                         {chapter.status === "processing" ? (
+                                                                             <button
+                                                                                 onClick={() => handleStopTTS(chapter.id)}
+                                                                                 className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-600 border border-amber-200 text-amber-600 hover:text-white transition-all shadow-sm"
+                                                                                 title="Dừng xử lý AI"
+                                                                             >
+                                                                                 <RotateCw className="w-4 h-4 animate-spin" />
+                                                                             </button>
+                                                                         ) : (
+                                                                             <button
+                                                                                 onClick={() => handleStartSingleTTS(chapter.id)}
+                                                                                 className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 text-indigo-600 hover:text-white transition-all shadow-sm"
+                                                                                 title="Dịch giọng nói (TTS)"
+                                                                             >
+                                                                                 <Cpu className="w-4 h-4" />
+                                                                             </button>
+                                                                         )}
 
+                                                                        {/* Add translation button */}
                                                                         <button
-                                                                            onClick={() => handleOpenEditModal(chapter)}
-                                                                            className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md transition-colors"
-                                                                            title="Sửa văn bản chương"
+                                                                            onClick={() => handleOpenAddTranslationModal(chapter)}
+                                                                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-600 border border-emerald-200 text-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                            title="Thêm bản dịch ngôn ngữ mới"
                                                                         >
-                                                                            <Edit className="w-3.5 h-3.5" />
+                                                                            <Plus className="w-4 h-4" />
                                                                         </button>
 
+                                                                        {/* Edit chapter button */}
                                                                         <button
-                                                                            onClick={() => handleDeleteChapter(chapter.id)}
-                                                                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors"
-                                                                            title="Xóa chương này"
+                                                                            onClick={() => handleOpenEditModal(chapter)}
+                                                                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-600 border border-blue-200 text-blue-600 hover:text-white transition-all shadow-sm"
+                                                                            title="Sửa chương sách"
                                                                         >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                            <Edit className="w-4 h-4" />
                                                                         </button>
                                                                     </div>
                                                                 </td>
@@ -1518,6 +1757,126 @@ export default function BookDetailPage() {
                                         <>
                                             <CheckCircle className="w-3.5 h-3.5" />
                                             <span>Lưu thay đổi</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Add Translation Modal ── */}
+            {isAddTranslationModalOpen && translationChapter && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-center justify-center p-4 backdrop-blur-[2px]">
+                    <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
+                        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-emerald-600" />
+                                Thêm bản dịch ngôn ngữ mới (Chương {translationChapter.number})
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setIsAddTranslationModalOpen(false);
+                                    setTranslationChapter(null);
+                                    setTranslationTextSegment("");
+                                }}
+                                className="text-slate-400 hover:text-slate-600 font-bold text-lg leading-none"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmitTranslation} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                            <div className="space-y-1">
+                                <label 
+                                    htmlFor="translation-lang-select"
+                                    className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+                                >
+                                    Ngôn ngữ dịch (Language)
+                                </label>
+                                <select
+                                    id="translation-lang-select"
+                                    title="Chọn ngôn ngữ dịch"
+                                    value={translationLanguage}
+                                    onChange={(e) => handleTranslationLanguageChange(e.target.value)}
+                                    className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all"
+                                >
+                                    {languages.map((lang) => (
+                                        <option key={lang.code} value={lang.code}>
+                                            {lang.name} ({lang.code.toUpperCase()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label 
+                                    htmlFor="translation-voice-select"
+                                    className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+                                >
+                                    Giọng đọc dịch (TTS Voice)
+                                </label>
+                                <select
+                                    id="translation-voice-select"
+                                    title="Chọn giọng đọc dịch (TTS Voice)"
+                                    value={translationVoice}
+                                    onChange={(e) => setTranslationVoice(e.target.value)}
+                                    className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all"
+                                >
+                                    {(languages.find(l => l.code === translationLanguage)?.voices ?? []).map((voice) => (
+                                        <option key={voice.narratorCode} value={voice.narratorCode}>
+                                            {voice.voiceName} ({voice.narratorCode})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label 
+                                    htmlFor="translation-text-textarea"
+                                    className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block"
+                                >
+                                    Nội dung văn bản dịch / Nội dung chương
+                                </label>
+                                <textarea
+                                    id="translation-text-textarea"
+                                    title="Nội dung văn bản dịch hoặc nội dung chương"
+                                    rows={8}
+                                    placeholder="Nhập văn bản đã dịch cho chương này..."
+                                    value={translationTextSegment}
+                                    onChange={(e) => setTranslationTextSegment(e.target.value)}
+                                    className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all resize-y font-normal"
+                                />
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsAddTranslationModalOpen(false);
+                                        setTranslationChapter(null);
+                                        setTranslationTextSegment("");
+                                    }}
+                                    disabled={isSubmittingTranslation}
+                                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs transition-colors disabled:opacity-50"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingTranslation}
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-md flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                >
+                                    {isSubmittingTranslation ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-white" />
+                                            <span>Đang tạo TTS...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            <span>Xác nhận dịch</span>
                                         </>
                                     )}
                                 </button>

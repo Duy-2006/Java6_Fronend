@@ -1,7 +1,7 @@
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import { isBlank } from "@/services/validation";
@@ -35,8 +35,10 @@ interface AddressForm {
   isDefault: boolean;
 }
 
-export default function NewAddressPage() {
+export default function EditAddressPage() {
   const router = useRouter();
+  const params = useParams();
+  const addressId = params.id;
   const [form, setForm] = useState<AddressForm>({
     receiverName: "",
     receiverPhone: "",
@@ -48,7 +50,7 @@ export default function NewAddressPage() {
     street: "",
     isDefault: false,
   });
-  
+
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -60,23 +62,64 @@ export default function NewAddressPage() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
-  
+
   useEffect(() => {
     if (!isLoggedIn()) {
       router.push("/auth/login");
       return;
     }
-    
+
     // Fetch provinces with depth=3 to get provinces > districts > wards
     fetch("https://provinces.open-api.vn/api/?depth=3")
       .then(res => res.json())
-      .then(data => setProvinces(data))
+      .then(data => {
+        setProvinces(data);
+        // After fetching provinces, if we have an addressId, fetch the address!
+        if (addressId && addressId !== 'new') {
+          fetchAddress(data);
+        }
+      })
       .catch(err => {
         console.error("Lỗi lấy danh sách Tỉnh/Thành:", err);
         showToast("Lỗi lấy danh sách Tỉnh/Thành phố", "error");
       });
-  }, [router]);
-  
+  }, [router, addressId]);
+
+  const fetchAddress = async (provs: Province[]) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await authFetch(`${apiUrl}/api/profile/addresses/${addressId}`);
+      if (res.ok) {
+        const addr = await res.json();
+        setForm({
+          receiverName: addr.receiverName || "",
+          receiverPhone: addr.receiverPhone || "",
+          provinceId: addr.provinceId || 0,
+          provinceName: addr.provinceName || "",
+          districtId: addr.districtId || 0,
+          wardCode: addr.wardCode || "",
+          wardName: addr.wardName || "",
+          street: addr.street || "",
+          isDefault: addr.isDefault || false,
+        });
+
+        const prov = provs.find((p: any) => p.code === addr.provinceId);
+        if (prov) {
+          setDistricts(prov.districts || []);
+          const dist = prov.districts?.find((d: any) => d.code === addr.districtId);
+          if (dist) {
+            setWards(dist.wards || []);
+          }
+        }
+      } else {
+        showToast("Không thể tải thông tin địa chỉ.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Lỗi kết nối tải địa chỉ.", "error");
+    }
+  };
+
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const code = parseInt(e.target.value);
     const prov = provinces.find(p => p.code === code);
@@ -139,7 +182,7 @@ export default function NewAddressPage() {
       return;
     }
     setSaving(true);
-    
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
       const payload = {
@@ -153,15 +196,15 @@ export default function NewAddressPage() {
         street: form.street.trim(),
         isDefault: form.isDefault
       };
-      
-      const res = await authFetch(`${apiUrl}/api/profile/addresses`, {
-        method: "POST",
+
+      const res = await authFetch(`${apiUrl}/api/profile/addresses/${addressId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      
+
       if (res.ok) {
-        showToast("Thêm địa chỉ mới thành công!");
+        showToast("Cập nhật địa chỉ thành công!");
         setTimeout(() => {
           router.back();
         }, 1500);
@@ -178,11 +221,10 @@ export default function NewAddressPage() {
 
   const inputCls = (field: keyof AddressForm) => {
     const hasError = !!errors[field];
-    return `w-full bg-[#f8fafc] border ${
-      hasError 
-        ? 'border-red-400 bg-red-50/20 focus:border-red-500 focus:ring-red-100' 
+    return `w-full bg-[#f8fafc] border ${hasError
+        ? 'border-red-400 bg-red-50/20 focus:border-red-500 focus:ring-red-100'
         : 'border-gray-200 hover:border-gray-300 focus:border-[#b70011] focus:ring-red-100/50'
-    } rounded-xl px-4.5 py-3.5 text-sm transition-all duration-300 outline-none h-[52px] focus:ring-4 focus:bg-white shadow-sm font-medium text-[#1c1e21]`;
+      } rounded-xl px-4.5 py-3.5 text-sm transition-all duration-300 outline-none h-[52px] focus:ring-4 focus:bg-white shadow-sm font-medium text-[#1c1e21]`;
   };
 
   return (
@@ -192,7 +234,7 @@ export default function NewAddressPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-blue-100/30 blur-[100px] pointer-events-none" />
 
       <Navbar />
-      
+
       {/* Toast Alert with Modern Floating Animation */}
       {toast && (
         <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 text-white px-6 py-4 rounded-2xl shadow-xl font-semibold text-sm flex items-center gap-3 animate-bounce duration-500 backdrop-blur-md border border-white/10 ${toast.type === 'success' ? 'bg-[#191c1e]/95' : 'bg-[#b70011]/95'}`}>
@@ -206,26 +248,23 @@ export default function NewAddressPage() {
       <div className="flex-1 max-w-[850px] w-full mx-auto px-4 py-10 z-10">
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <button 
-              onClick={() => router.back()} 
+            <button
+              onClick={() => router.back()}
               className="text-gray-500 hover:text-[#b70011] text-xs font-bold transition-all duration-300 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-gray-100 w-fit"
             >
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               QUAY LẠI
             </button>
             <h1 className="text-3xl font-extrabold mt-3 text-[#191c1e] tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-2xl text-[#b70011]">add_location_alt</span>
-              Thêm địa chỉ nhận hàng mới
+              <span className="material-symbols-outlined text-2xl text-[#b70011]">home_pin</span>
+              Cập nhật địa chỉ nhận hàng
             </h1>
-          </div>
-          <div className="text-xs text-gray-500 font-medium">
-            Địa chỉ này sẽ dùng để tính toán phí vận chuyển GHTK
           </div>
         </div>
 
         <div className="bg-white/80 backdrop-blur-lg p-6 md:p-10 rounded-3xl border border-white/40 shadow-xl shadow-gray-200/50 hover:shadow-2xl hover:shadow-gray-200/80 transition-all duration-500">
           <form onSubmit={handleSubmit} className="space-y-8">
-            
+
             {/* Section 1: Thông tin người nhận */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-gray-100 pb-3 mb-5">
@@ -237,11 +276,11 @@ export default function NewAddressPage() {
                 <div className="space-y-2">
                   <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Họ tên người nhận</label>
                   <div className="relative">
-                    <input 
+                    <input
                       className={inputCls("receiverName")}
-                      value={form.receiverName} 
+                      value={form.receiverName}
                       onChange={e => setField("receiverName", e.target.value)}
-                      placeholder="Nhập đầy đủ họ và tên" 
+                      placeholder="Nhập đầy đủ họ và tên"
                     />
                   </div>
                   {errors.receiverName && (
@@ -254,11 +293,11 @@ export default function NewAddressPage() {
 
                 <div className="space-y-2">
                   <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Số điện thoại liên lạc</label>
-                  <input 
+                  <input
                     className={inputCls("receiverPhone")}
-                    value={form.receiverPhone} 
+                    value={form.receiverPhone}
                     onChange={e => setField("receiverPhone", e.target.value)}
-                    placeholder="Ví dụ: 0901234567" 
+                    placeholder="Ví dụ: 0901234567"
                   />
                   {errors.receiverPhone && (
                     <p className="text-red-500 text-[11px] font-semibold flex items-center gap-1 mt-1">
@@ -280,7 +319,7 @@ export default function NewAddressPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Tỉnh/Thành phố</label>
-                  <select 
+                  <select
                     aria-label="Tỉnh/Thành phố"
                     title="Tỉnh/Thành phố"
                     className={inputCls("provinceId") + " cursor-pointer pr-10 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_16px_center] bg-no-repeat"}
@@ -300,7 +339,7 @@ export default function NewAddressPage() {
 
                 <div className="space-y-2">
                   <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Quận/Huyện</label>
-                  <select 
+                  <select
                     aria-label="Quận/Huyện"
                     title="Quận/Huyện"
                     className={inputCls("districtId") + ` pr-10 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_16px_center] bg-no-repeat ${!form.provinceId ? 'opacity-60 cursor-not-allowed bg-gray-100' : 'cursor-pointer'}`}
@@ -321,7 +360,7 @@ export default function NewAddressPage() {
 
                 <div className="space-y-2">
                   <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Phường/Xã</label>
-                  <select 
+                  <select
                     aria-label="Phường/Xã"
                     title="Phường/Xã"
                     className={inputCls("wardCode") + ` pr-10 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_16px_center] bg-no-repeat ${!form.districtId ? 'opacity-60 cursor-not-allowed bg-gray-100' : 'cursor-pointer'}`}
@@ -343,11 +382,11 @@ export default function NewAddressPage() {
 
               <div className="space-y-2 pt-2">
                 <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Địa chỉ cụ thể (Số nhà, ngõ, đường...)</label>
-                <input 
+                <input
                   className={inputCls("street")}
-                  value={form.street} 
+                  value={form.street}
                   onChange={e => setField("street", e.target.value)}
-                  placeholder="Ví dụ: 123 Đường 3/2" 
+                  placeholder="Ví dụ: 123 Đường 3/2"
                 />
                 {errors.street && (
                   <p className="text-red-500 text-[11px] font-semibold flex items-center gap-1 mt-1">
@@ -361,10 +400,10 @@ export default function NewAddressPage() {
             {/* Set Default Address */}
             <div className="flex items-center gap-3 pt-4 pb-2">
               <label className="relative flex items-center cursor-pointer select-none">
-                <input 
-                  type="checkbox" 
-                  id="isDefault" 
-                  className="sr-only peer" 
+                <input
+                  type="checkbox"
+                  id="isDefault"
+                  className="sr-only peer"
                   checked={form.isDefault}
                   onChange={e => setField("isDefault", e.target.checked)}
                 />
@@ -377,7 +416,7 @@ export default function NewAddressPage() {
 
             {/* Action Buttons */}
             <div className="pt-8 border-t border-gray-100 flex flex-col sm:flex-row gap-4 justify-end">
-              <button 
+              <button
                 type="button"
                 onClick={() => router.back()}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center cursor-pointer active:scale-[0.98]"
@@ -385,8 +424,8 @@ export default function NewAddressPage() {
                 Hủy bỏ
               </button>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={saving}
                 className="bg-[#b70011] hover:bg-[#93000b] text-white px-10 py-3.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2.5 disabled:opacity-75 cursor-pointer shadow-lg shadow-red-900/10 hover:shadow-red-950/20 active:scale-[0.98]"
               >
@@ -395,7 +434,7 @@ export default function NewAddressPage() {
                 ) : (
                   <span className="material-symbols-outlined text-[18px]">done_all</span>
                 )}
-                <span>{saving ? 'Đang lưu...' : 'Lưu địa chỉ mới'}</span>
+                <span>{saving ? 'Đang lưu...' : 'Lưu cập nhật'}</span>
               </button>
             </div>
 

@@ -52,6 +52,7 @@ const NAV_GROUPS = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [adminName, setAdminName] = useState("");
+  const [adminAvatar, setAdminAvatar] = useState("");
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const handleLogout = () => {
@@ -68,28 +69,38 @@ export default function AdminSidebar() {
   };
 
   useEffect(() => {
-    // Admin status check (cookie implicitly sent by authFetch)
-    authFetch(`${API_URL}/api/auth/me`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
+    const updateAdminInfo = () => {
+      authFetch(`${API_URL}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
-      .then((data) => {
-        if (data.role === "ADMIN") {
-          setAdminName(data.name);
-        } else {
+        .then((res) => {
+          if (!res.ok) throw new Error("Unauthorized");
+          return res.json();
+        })
+        .then((data) => {
+          if (data.role === "ADMIN") {
+            setAdminName(data.name);
+            setAdminAvatar(data.avatar || "");
+          } else {
+            handleLogout();
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching admin in sidebar:", err);
           handleLogout();
-        }
-      })
-      .catch((err) => {
-        console.error("Error fetching admin in sidebar:", err);
-        handleLogout();
-      });
+        });
+    };
+
+    updateAdminInfo();
+
+    // Listen to storage/profile updates
+    window.addEventListener("storage", updateAdminInfo);
+    return () => {
+      window.removeEventListener("storage", updateAdminInfo);
+    };
   }, []);
 
   const isActive = (href: string) => {
@@ -139,19 +150,19 @@ export default function AdminSidebar() {
 
       {/* User Profile & Logout at Bottom */}
       <div className="p-4 border-t border-[#e6bdb8]/10 bg-[#131517] flex flex-col gap-3">
-        <div className="flex items-center gap-3">
+        <Link href="/admin/profile" className="flex items-center gap-3 cursor-pointer group text-decoration-none">
           <img
-            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Admin")}&background=b70011&color=fff`}
-            className="w-10 h-10 rounded-full border border-[#e6bdb8]/20"
+            src={adminAvatar ? (adminAvatar.startsWith("http") ? adminAvatar : `${API_URL}${adminAvatar}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Admin")}&background=b70011&color=fff`}
+            className="w-10 h-10 rounded-full border border-[#e6bdb8]/20 group-hover:border-[#b70011] transition-all object-cover"
             alt="Avatar"
             loading="lazy"
             decoding="async"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{adminName || "..."}</p>
-            <p className="text-xs text-[#916f6b]">Administrator</p>
+            <p className="text-sm font-semibold text-white group-hover:text-red-400 transition-colors truncate mb-0">{adminName || "..."}</p>
+            <p className="text-xs text-[#916f6b] mb-0">Administrator</p>
           </div>
-        </div>
+        </Link>
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-400 bg-red-950/20 border border-red-900/30 hover:bg-[#b70011] hover:text-white hover:border-[#b70011] transition-all"

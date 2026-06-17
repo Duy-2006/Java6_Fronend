@@ -38,13 +38,15 @@ class TTSRequest(BaseModel):
 # ==========================================
 VOICE_PROFILES = {
     "banmai": {"voice": "vi-VN-HoaiMyNeural", "pitch": "+0Hz", "rate": "+0%"},
-    "thuminh": {"voice": "en-US-AvaMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"},
-    "ngoclam": {"voice": "en-US-EmmaMultilingualNeural", "pitch": "+0Hz",  "rate": "+0%"},
+    "thuminh": {"voice": "en-US-AriaNeural", "pitch": "+0Hz", "rate": "+0%"},
+    "ngoclam": {"voice": "en-US-JennyNeural", "pitch": "+0Hz",  "rate": "+0%"},
     "leminh": {"voice": "vi-VN-NamMinhNeural", "pitch": "+0Hz", "rate": "+0%"},
-    "giahuy": {"voice": "en-US-AndrewMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"},
-    "baotin": {"voice": "en-US-BrianMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"},
+    "giahuy": {"voice": "en-US-GuyNeural", "pitch": "+0Hz", "rate": "+0%"},
+    "baotin": {"voice": "en-US-ChristopherNeural", "pitch": "+0Hz", "rate": "+0%"},
     "vyvy": {"voice": "fr-FR-VivienneMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"},
-    "phuocloc": {"voice": "de-DE-FlorianMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"}
+    "phuocloc": {"voice": "de-DE-FlorianMultilingualNeural", "pitch": "+0Hz", "rate": "+0%"},
+    "nanami": {"voice": "ja-JP-NanamiNeural", "pitch": "+0Hz", "rate": "+0%"},
+    "keita": {"voice": "ja-JP-KeitaNeural", "pitch": "+0Hz", "rate": "+0%"}
 }
 
 # Tiện ích làm sạch văn bản

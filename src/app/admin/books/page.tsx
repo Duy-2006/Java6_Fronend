@@ -149,7 +149,7 @@ function BooksContent() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
+    <div className="space-y-6 max-w-7xl w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
 
       {/* Alert Banner */}
       {alert && (

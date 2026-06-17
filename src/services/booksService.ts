@@ -13,6 +13,7 @@ export interface Book {
   active: boolean;
   description?: string; 
   imageUrl?: string;
+  audioPrice?: number;
 }
 
 export async function getAllBooks(): Promise<Book[]> {

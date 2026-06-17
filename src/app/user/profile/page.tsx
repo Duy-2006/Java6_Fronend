@@ -1,7 +1,7 @@
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -12,24 +12,28 @@ interface ProfileResponse {
   name: string;
   email: string;
   phone: string;
+  avatar?: string;
 }
 
 interface ProfileUpdateRequest {
   name: string;
   email: string;
   phone: string;
+  avatar?: string;
 }
 
 
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [form, setForm] = useState<ProfileUpdateRequest>({ name: "", email: "", phone: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState<ProfileUpdateRequest>({ name: "", email: "", phone: "", avatar: "" });
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
   const [errors, setErrors] = useState<Partial<ProfileUpdateRequest>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,6 +75,7 @@ export default function ProfilePage() {
             name: data.name ?? "",
             email: data.email ?? "",
             phone: data.phone ?? "",
+            avatar: data.avatar ?? "",
           });
         }
       })
@@ -143,6 +148,62 @@ export default function ProfilePage() {
     router.push("/auth/login");
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith("image/")) {
+      setToast("Chỉ hỗ trợ file hình ảnh");
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setToast("Dung lượng ảnh tối đa là 5MB");
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append("imageFile", file);
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+
+    try {
+      const res = await authFetch(`${apiUrl}/api/profile/update-avatar`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setForm((prev) => ({ ...prev, avatar: data.avatar }));
+        setToast("Cập nhật ảnh đại diện thành công!");
+        setTimeout(() => setToast(null), 3000);
+
+        // Sync local storage user object
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const userObj = JSON.parse(userStr);
+          userObj.avatar = data.avatar;
+          localStorage.setItem("user", JSON.stringify(userObj));
+        }
+        window.dispatchEvent(new Event("storage"));
+      } else {
+        const errText = await res.text();
+        alert(errText || "Tải ảnh lên thất bại.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const setField = (field: keyof ProfileUpdateRequest, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => ({ ...e, [field]: undefined }));
@@ -182,8 +243,16 @@ export default function ProfilePage() {
           {/* User profile card */}
           <div className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f2f4f6]">
-              <div className="w-12 h-12 rounded-full bg-[#b70011]/8 text-[#b70011] flex items-center justify-center text-xl font-bold border-2 border-white ring-4 ring-[#b70011]/5 select-none font-mono">
-                {form.name ? form.name.trim().charAt(0).toUpperCase() : "U"}
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-[#b70011]/8 text-[#b70011] flex items-center justify-center text-xl font-bold border-2 border-white ring-4 ring-[#b70011]/5 select-none font-mono">
+                {form.avatar ? (
+                  <img
+                    src={form.avatar.startsWith("http") ? form.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${form.avatar}`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  form.name ? form.name.trim().charAt(0).toUpperCase() : "U"
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-bold text-sm text-[#b70011] truncate">{form.name || "Người dùng"}</p>
@@ -239,13 +308,37 @@ export default function ProfilePage() {
           
           {/* Cover Info Section */}
           <section className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col md:flex-row items-center gap-6">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-full bg-[#b70011]/8 text-[#b70011] flex items-center justify-center text-3xl font-bold border-4 border-[#e0e3e5] shadow-sm select-none font-mono">
-                {form.name ? form.name.trim().charAt(0).toUpperCase() : "U"}
+            <div 
+              className="relative group cursor-pointer shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-[#b70011]/8 text-[#b70011] flex items-center justify-center text-3xl font-bold border-4 border-[#e0e3e5] shadow-sm select-none font-mono">
+                {uploadingAvatar ? (
+                  <div className="w-6 h-6 border-2 border-[#b70011] border-t-transparent rounded-full animate-spin" />
+                ) : form.avatar ? (
+                  <img
+                    src={form.avatar.startsWith("http") ? form.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${form.avatar}`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  form.name ? form.name.trim().charAt(0).toUpperCase() : "U"
+                )}
               </div>
-              <div className="absolute bottom-0 right-0 p-2 bg-[#b70011] text-white rounded-full shadow-md hover:scale-105 transition-transform duration-200 cursor-pointer">
+              <div className="absolute bottom-0 right-0 p-2 bg-[#b70011] text-white rounded-full shadow-md hover:scale-110 active:scale-95 transition-transform duration-200">
                 <span className="material-symbols-outlined text-sm block">photo_camera</span>
               </div>
+              
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAvatarChange}
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingAvatar}
+                title="Chọn ảnh đại diện"
+                aria-label="Chọn ảnh đại diện"
+              />
             </div>
             <div className="text-center md:text-left flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-2 mb-1.5">

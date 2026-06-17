@@ -64,32 +64,44 @@ export default function Footer() {
 
           {/* Contact + Social */}
           <div className="space-y-6">
-            <div className="space-y-3 border-l pl-4 border-gray-100">
-              <h4 className="text-sm font-bold uppercase mb-4 text-gray-800">LIÊN HỆ</h4>
-              {[
-                { icon: "location_on", text: "60-62 Lê Lợi, Q.1, TP. HCM" },
-                { icon: "mail",        text: "cskh@bookstore.com.vn" },
-                { icon: "call",        text: "1900 636 467" },
-              ].map(item => (
-                <p key={item.icon} className="text-[13px] flex items-center gap-2 text-gray-600">
-                  <span className="material-symbols-outlined text-sm text-red-500">{item.icon}</span>
-                  {item.text}
-                </p>
-              ))}
-            </div>
+  <div className="space-y-3 border-l pl-4 border-gray-100">
+    <h4 className="text-sm font-bold uppercase mb-4 text-gray-800">LIÊN HỆ</h4>
+    {[
+      { icon: "location_on", text: "60-62 Lê Lợi, Q.1, TP. HCM" },
+      { icon: "mail", text: "cskh@bookstore.com.vn", link: "mailto:cskh@bookstore.com.vn" },
+      { icon: "call", text: "1900 636 467", link: "tel:1900636467" },
+    ].map((item) => (
+      <p key={item.icon} className="text-[13px] flex items-center gap-2 text-gray-600">
+        <span className="material-symbols-outlined text-sm text-red-500">{item.icon}</span>
+        
+        {/* Đã sửa phần này: Thêm điều kiện render thẻ <a> */}
+        {item.link ? (
+          <a href={item.link} className="hover:text-red-500 transition-colors">
+            {item.text}
+          </a>
+        ) : (
+          <span>{item.text}</span>
+        )}
+        
+      </p>
+    ))}
+  </div>
 
-            <div className="pt-4 border-t border-gray-100">
-              <h4 className="text-sm font-bold uppercase mb-4 text-gray-800">MẠNG XÃ HỘI</h4>
-              <div className="flex gap-4">
-                {["facebook", "instagram", "youtube", "tiktok"].map(name => (
-                  <a key={name} href="#"
-                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 flex items-center justify-center transition">
-                    <span className="text-gray-500 text-xs font-bold uppercase">{name[0]}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
+  <div className="pt-4 border-t border-gray-100">
+    <h4 className="text-sm font-bold uppercase mb-4 text-gray-800">MẠNG XÃ HỘI</h4>
+    <div className="flex gap-4">
+      {["facebook", "instagram", "youtube", "tiktok"].map((name) => (
+        <a 
+          key={name} 
+          href="#"
+          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 flex items-center justify-center transition"
+        >
+          <span className="text-gray-500 text-xs font-bold uppercase">{name[0]}</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</div>
         </div>
 
         {/* Logistics logos */}

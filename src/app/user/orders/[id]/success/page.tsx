@@ -32,6 +32,7 @@ interface OrderFull {
   details: OrderDetail[];
   orderDetails: OrderDetail[];
   discountAmount?: number;
+  shippingFee?: number;
 }
 
 interface BookRecommendation {
@@ -57,74 +58,9 @@ export default function OrderSuccessPage() {
   }, []);
 
   useEffect(() => {
-    if (!order || !order.customerAddress) {
-      setShippingFee(0);
-      return;
+    if (order) {
+      setShippingFee(order.shippingFee || 0);
     }
-
-    const calculateFee = async () => {
-      setCalculating(true);
-      const parts = order.customerAddress.split(",").map(s => s.trim());
-      const provName = parts[parts.length - 1] || "";
-      const distName = parts[parts.length - 2] || "";
-
-      if (!provName) {
-        setCalculating(false);
-        return;
-      }
-
-      // Tính tổng khối lượng sách (giả định mỗi cuốn sách nặng 250g)
-      const details = order.orderDetails || order.details || [];
-      const totalWeight = details.reduce((acc, item) => acc + item.quantity * 250, 0) || 500;
-      const subtotal = order.totalAmount || 0;
-
-      try {
-        const params = new URLSearchParams({
-          pick_province: "Cần Thơ",
-          pick_district: "Quận Ninh Kiều",
-          province: provName,
-          district: distName,
-          weight: totalWeight.toString(),
-          value: subtotal.toString(),
-          deliver_option: "none"
-        });
-
-        const res = await authFetch(`/api/shipment/fee?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.fee) {
-            setShippingFee(data.fee.fee);
-            setCalculating(false);
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn("GHTK API error in order success page:", e);
-      }
-
-      // FALLBACK
-      const isHaNoi = provName.includes("Hà Nội");
-      const northernProvinces = [
-        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc",
-        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên",
-        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng",
-        "Bắc Kạn", "Lạng Sơn", "Thái Bình", "Nam Định", "Ninh Bình", "Thanh Hóa"
-      ];
-      const isNorthern = northernProvinces.some(p => provName.includes(p));
-
-      let baseFee = 38000;
-      if (isHaNoi) {
-        baseFee = 22000;
-      } else if (isNorthern) {
-        baseFee = 30000;
-      }
-
-      const weightSurcharge = totalWeight > 1000 ? Math.floor((totalWeight - 1000) / 500) * 5000 : 0;
-      setShippingFee(baseFee + weightSurcharge);
-      setCalculating(false);
-    };
-
-    calculateFee();
   }, [order]);
 
   // Lấy gợi ý sách

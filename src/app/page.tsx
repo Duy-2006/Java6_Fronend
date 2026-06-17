@@ -209,9 +209,36 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [banners, setBanners] = useState<any[]>([]);
   const [heroSlide, setHeroSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState(3600 * 2 + 15 * 60 + 40);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
+
+  const getImageUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+    return `${API_URL}${url}`;
+  };
+
+  const fetchBanners = async () => {
+    try {
+      const res = await authFetch(`${API_URL}/api/banners`);
+      if (res.ok) {
+        const data = await res.json();
+        const now = new Date();
+        const activeBanners = data.filter((b: any) => {
+          if (!b.active) return false;
+          if (b.start_date && new Date(b.start_date) > now) return false;
+          if (b.end_date && new Date(b.end_date) < now) return false;
+          return true;
+        });
+        activeBanners.sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+        setBanners(activeBanners);
+      }
+    } catch (err) {
+      console.error("Fetch banners error:", err);
+    }
+  };
 
   const showToast = (message: string, isError: boolean = false) => {
     setToast({ message, isError });
@@ -460,6 +487,7 @@ export default function HomePage() {
         fetchNewBooks(0, false),
         fetchBestSellers(0, false),
         fetchAudioBooks(),
+        fetchBanners(),
       ]);
       setLoading(false);
     };
@@ -468,9 +496,12 @@ export default function HomePage() {
 
   // Hero slider auto shift
   useEffect(() => {
-    const id = setInterval(() => setHeroSlide(s => (s + 1) % 3), 5000);
+    const totalSlides = banners.length > 0 ? banners.length : 3;
+    const id = setInterval(() => {
+      setHeroSlide(s => (s + 1) % totalSlides);
+    }, 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [banners.length]);
 
   // Countdown timer
   useEffect(() => {
@@ -565,55 +596,100 @@ export default function HomePage() {
 
         {/* 1. Cinematic Hero Section */}
         <section className="max-w-7xl mx-auto px-4 md:px-8 mt-8">
-          <div className="relative rounded-3xl overflow-hidden h-[440px] md:h-[500px] lg:h-[540px] group shadow-2xl">
-            <img
-              alt="Mắt Biếc"
-              className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[2000ms] ease-out"
-              src={HERO_IMAGE}
-            />
-            {/* Cinematic Overlay Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#191c1e] via-[#191c1e]/75 to-transparent z-10" />
+          <div className="relative rounded-3xl overflow-hidden h-[440px] md:h-[500px] lg:h-[540px] group shadow-2xl bg-[#f2f4f6]">
+            {banners.length > 0 ? (
+              banners.map((banner, index) => {
+                const isCurrent = index === heroSlide;
+                return (
+                  <div
+                    key={banner.id || index}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                      isCurrent ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+                    }`}
+                  >
+                    <Link href={banner.link || "#"} className="block w-full h-full">
+                      <img
+                        alt={`Banner ${index}`}
+                        className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out hover:scale-105"
+                        src={getImageUrl(banner.image_url)}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = HERO_IMAGE;
+                        }}
+                      />
+                      {/* Cinematic Overlay Gradient to make layout consistent */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-15 pointer-events-none" />
+                    </Link>
+                  </div>
+                );
+              })
+            ) : (
+              /* Fallback Mat Biec Cinematic Banner */
+              <>
+                <img
+                  alt="Mắt Biếc"
+                  className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[2000ms] ease-out"
+                  src={HERO_IMAGE}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#191c1e] via-[#191c1e]/75 to-transparent z-10" />
 
-            <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-3xl z-20">
-              <div className="flex items-center gap-2 mb-6">
-                <span className="px-3 py-1 bg-[#b70011] text-white font-semibold rounded text-[11px] uppercase tracking-widest">
-                  Sách Mới Nhất
-                </span>
-                <span className="px-3 py-1 bg-white/10 text-white backdrop-blur-md font-semibold rounded text-[11px] uppercase tracking-widest border border-white/10">
-                  Bestseller
-                </span>
-              </div>
+                <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-3xl z-20">
+                  <div className="flex items-center gap-2 mb-6">
+                    <span className="px-3 py-1 bg-[#b70011] text-white font-semibold rounded text-[11px] uppercase tracking-widest">
+                      Sách Mới Nhất
+                    </span>
+                    <span className="px-3 py-1 bg-white/10 text-white backdrop-blur-md font-semibold rounded text-[11px] uppercase tracking-widest border border-white/10">
+                      Bestseller
+                    </span>
+                  </div>
 
-              <h1 className="font-extrabold text-[40px] md:text-[54px] lg:text-[60px] leading-tight text-white mb-6 font-headline-lg tracking-tighter">
-                Mắt Biếc: <span className="text-[#ffb4ab]">Eternal Memory</span>
-              </h1>
+                  <h1 className="font-extrabold text-[40px] md:text-[54px] lg:text-[60px] leading-tight text-white mb-6 font-headline-lg tracking-tighter">
+                    Mắt Biếc: <span className="text-[#ffb4ab]">Eternal Memory</span>
+                  </h1>
 
-              <p className="text-white/80 text-sm md:text-base lg:text-lg mb-10 leading-relaxed max-w-xl font-body-lg">
-                Đắm chìm trong tuyệt tác của Nguyễn Nhật Ánh qua định dạng sách nói chất lượng cao, với âm hưởng điện ảnh và giọng đọc đầy cảm xúc.
-              </p>
+                  <p className="text-white/80 text-sm md:text-base lg:text-lg mb-10 leading-relaxed max-w-xl font-body-lg">
+                    Đắm chìm trong tuyệt tác của Nguyễn Nhật Ánh qua định dạng sách nói chất lượng cao, với âm hưởng điện ảnh và giọng đọc đầy cảm xúc.
+                  </p>
 
-              <div className="flex flex-wrap gap-4">
-                <Link
-                  href="/user/books/1016/audiobook"
-                  className="bg-[#b70011] hover:bg-[#dc2626] text-white px-8 py-4 font-bold rounded-xl transition-all duration-300 flex items-center gap-3 shadow-lg shadow-[#b70011]/30 group/btn"
-                >
-                  <span className="material-symbols-outlined fill-1 transition-transform group-hover/btn:scale-110">play_circle</span>
-                  Nghe Thử Ngay
-                </Link>
-                <Link
-                  href="/user/books/1016"
-                  className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 font-bold rounded-xl hover:bg-white/20 transition-all duration-300"
-                >
-                  Xem Chi Tiết
-                </Link>
-              </div>
-            </div>
+                  <div className="flex flex-wrap gap-4">
+                    <Link
+                      href="/user/books/1016/audiobook"
+                      className="bg-[#b70011] hover:bg-[#dc2626] text-white px-8 py-4 font-bold rounded-xl transition-all duration-300 flex items-center gap-3 shadow-lg shadow-[#b70011]/30 group/btn"
+                    >
+                      <span className="material-symbols-outlined fill-1 transition-transform group-hover/btn:scale-110">play_circle</span>
+                      Nghe Thử Ngay
+                    </Link>
+                    <Link
+                      href="/user/books/1016"
+                      className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 font-bold rounded-xl hover:bg-white/20 transition-all duration-300"
+                    >
+                      Xem Chi Tiết
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Custom Dot Indicators */}
-            <div className="absolute bottom-8 right-8 md:right-16 flex gap-3 z-20">
-              <div className="w-12 h-1.5 bg-[#b70011] rounded-full cursor-pointer"></div>
-              <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer hover:bg-white/50 transition-all duration-300"></div>
-              <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer hover:bg-white/50 transition-all duration-300"></div>
+            <div className="absolute bottom-8 right-8 md:right-16 flex gap-3 z-30">
+              {banners.length > 0 ? (
+                banners.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setHeroSlide(index)}
+                    aria-label={`Chuyển đến slide ${index + 1}`}
+                    title={`Chuyển đến slide ${index + 1}`}
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      index === heroSlide ? "w-12 bg-[#b70011]" : "w-3 bg-white/30 hover:bg-white/50"
+                    }`}
+                  />
+                ))
+              ) : (
+                <>
+                  <div className="w-12 h-1.5 bg-[#b70011] rounded-full cursor-pointer"></div>
+                  <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer"></div>
+                  <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer"></div>
+                </>
+              )}
             </div>
           </div>
         </section>

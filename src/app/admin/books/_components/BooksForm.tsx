@@ -246,23 +246,6 @@ export default function BookForm({ book, authors, categories }: BookFormProps) {
                   </div>
 
                   <div className="col-md-4 mb-3">
-                    <label className="form-label" htmlFor="audioPrice">Giá sách nói (Audio) <span className="text-muted text-sm">(Tùy chọn)</span></label>
-                    <div className="input-group">
-                      <input
-                        id="audioPrice"
-                        type="number"
-                        className="form-control fw-bold text-end text-success"
-                        value={form.audioPrice}
-                        onChange={e => setField("audioPrice", e.target.value)}
-                        placeholder="Để trống nếu không có bản Audio..."
-                        min={0}
-                        step={1000}
-                      />
-                      <span className="input-group-text bg-light fw-bold">VNĐ</span>
-                    </div>
-                  </div>
-
-                  <div className="col-md-4 mb-3">
                     <label className="form-label" htmlFor="quantity">
                       Số lượng tồn kho <span className="text-danger">*</span>
                     </label>

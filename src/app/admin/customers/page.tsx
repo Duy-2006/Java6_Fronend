@@ -363,8 +363,29 @@ function CustomersContent() {
           {paginatedCustomers.map((item) => (
             <div key={item.username} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4">
               <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-full border flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-sm ${getAvatarBgColor(item.username)}`}>
-                  {getAvatarInitials(item.fullName)}
+                <div className={`w-14 h-14 rounded-full border flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-sm overflow-hidden ${getAvatarBgColor(item.username)}`}>
+                  {item.avatar ? (
+                    <img
+                      src={item.avatar.startsWith("http") ? item.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${item.avatar}`}
+                      alt={item.fullName}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.classList.add("hidden");
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const initialsSpan = parent.querySelector(".avatar-initials") as HTMLElement;
+                          if (initialsSpan) {
+                            initialsSpan.classList.remove("hidden");
+                            initialsSpan.classList.add("block");
+                          }
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <span className={`avatar-initials ${item.avatar ? "hidden" : "block"}`}>
+                    {getAvatarInitials(item.fullName)}
+                  </span>
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold text-slate-800 truncate" title={item.fullName}>{item.fullName}</h3>
@@ -446,8 +467,29 @@ function CustomersContent() {
                   <tr key={item.username} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm ${getAvatarBgColor(item.username)}`}>
-                          {getAvatarInitials(item.fullName)}
+                        <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm overflow-hidden ${getAvatarBgColor(item.username)}`}>
+                          {item.avatar ? (
+                            <img
+                              src={item.avatar.startsWith("http") ? item.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${item.avatar}`}
+                              alt={item.fullName}
+                              className="w-full h-full object-cover rounded-full"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.classList.add("hidden");
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  const initialsSpan = parent.querySelector(".avatar-initials") as HTMLElement;
+                                  if (initialsSpan) {
+                                    initialsSpan.classList.remove("hidden");
+                                    initialsSpan.classList.add("block");
+                                  }
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <span className={`avatar-initials ${item.avatar ? "hidden" : "block"}`}>
+                            {getAvatarInitials(item.fullName)}
+                          </span>
                         </div>
                         <div>
                           <p className="text-sm font-bold text-slate-800">{item.fullName}</p>

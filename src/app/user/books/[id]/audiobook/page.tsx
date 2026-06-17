@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/authFetch";
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { getUserChapters, Chapter } from "@/services/audiobooksService";
+import { getMediaPlayerChapters, Chapter } from "@/services/audiobooksService";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
@@ -78,12 +78,19 @@ export default function UserAudiobookPlayer() {
   const [showModal, setShowModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // Countdown Modal State
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownTimer, setCountdownTimer] = useState(5);
+  const [pendingNextChapter, setPendingNextChapter] = useState<Chapter | null>(null);
+
   // Player controls state
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [viewMode, setViewMode] = useState<"player" | "text">("player");
+  // Ngôn ngữ người dùng đang chọn để nghe
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("vi");
 
   // Detect login state once on mount
   useEffect(() => {
@@ -135,7 +142,7 @@ export default function UserAudiobookPlayer() {
     // Lấy danh sách chapters của user (có chứa isLocked)
     setChapterError(null);
     progressLoadedRef.current = false;
-    getUserChapters(bookId)
+    getMediaPlayerChapters(bookId)
       .then(async (data) => {
         setChapters(data);
         if (data.length === 0) return;
@@ -144,7 +151,8 @@ export default function UserAudiobookPlayer() {
         let restored = false;
 
         // 1) Try backend progress (logged-in users, cross-device)
-        if (isLoggedIn) {
+        const isUserLoggedIn = isLoggedIn || (typeof window !== 'undefined' && !!localStorage.getItem("user"));
+        if (isUserLoggedIn) {
           try {
             const pRes = await authFetch(`${API_URL}/api/user/books/${bookId}/progress`, {
               headers: { "Content-Type": "application/json" },
@@ -158,6 +166,7 @@ export default function UserAudiobookPlayer() {
                   setCurrentChapter(ch);
                   setCurrentSegmentIndex(p.segmentIndex || 0);
                   if (p.playbackRate) setPlaybackRate(p.playbackRate);
+                  if (p.languageCode) setSelectedLanguage(p.languageCode);
                   // We'll seek to currentTimeSeconds after audio loads
                   (window as any).__pendingSeek = p.currentTimeSeconds || 0;
                   restored = true;
@@ -179,6 +188,7 @@ export default function UserAudiobookPlayer() {
                   setCurrentChapter(ch);
                   setCurrentSegmentIndex(p.segmentIndex || 0);
                   if (p.playbackRate) setPlaybackRate(p.playbackRate);
+                  if (p.languageCode) setSelectedLanguage(p.languageCode);
                   (window as any).__pendingSeek = p.currentTimeSeconds || 0;
                   restored = true;
                 }
@@ -216,10 +226,20 @@ export default function UserAudiobookPlayer() {
       audioRef.current.playbackRate = playbackRate;
       audioRef.current.volume = volume;
       if (isPlaying) {
-        audioRef.current.play().catch(() => setIsPlaying(false));
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            if (err.name !== 'AbortError') {
+              console.error("Audio play error:", err);
+              setIsPlaying(false);
+            }
+          });
+        }
+      } else {
+        audioRef.current.pause();
       }
     }
-  }, [currentSegmentIndex, currentChapter, isPlaying]);
+  }, [currentSegmentIndex, currentChapter, isPlaying, playbackRate, volume]);
 
   // === SAVE PROGRESS (every 10s + on beforeunload) ===
   const saveProgressNow = useCallback(() => {
@@ -229,6 +249,7 @@ export default function UserAudiobookPlayer() {
       segmentIndex: currentSegmentIndex,
       currentTimeSeconds: audioRef.current?.currentTime || 0,
       playbackRate,
+      languageCode: selectedLanguage,
     };
 
     // Always save to localStorage (works for guests + same-device)
@@ -237,7 +258,8 @@ export default function UserAudiobookPlayer() {
     } catch { /* quota exceeded — ignore */ }
 
     // Also save to backend if logged in (cross-device)
-    if (isLoggedIn) {
+    const isUserLoggedIn = isLoggedIn || (typeof window !== 'undefined' && !!localStorage.getItem("user"));
+    if (isUserLoggedIn) {
       authFetch(`${API_URL}/api/user/books/${bookId}/progress`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -245,7 +267,22 @@ export default function UserAudiobookPlayer() {
         keepalive: true, // ensures the request completes even during page unload
       }).catch(() => { });
     }
-  }, [currentChapter, currentSegmentIndex, playbackRate, bookId]);
+  }, [currentChapter, currentSegmentIndex, playbackRate, bookId, selectedLanguage, isLoggedIn]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showCountdown && countdownTimer > 0) {
+      timer = setTimeout(() => {
+        setCountdownTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (showCountdown && countdownTimer <= 0) {
+      setShowCountdown(false);
+      if (pendingNextChapter) {
+        handleChapterClick(pendingNextChapter);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [showCountdown, countdownTimer, pendingNextChapter]);
 
   useEffect(() => {
     // Auto-save every 10 seconds while playing
@@ -256,11 +293,28 @@ export default function UserAudiobookPlayer() {
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
     };
   }, [isPlaying, saveProgressNow]);
-  // lưu tiến trình khi người dùng đóng tab hoặc đóng trình duyệt
+  // lưu tiến trình khi người dùng đóng tab, tắt màn hình, hoặc chuyển ứng dụng (đặc biệt cho iOS/Mobile)
   useEffect(() => {
-    const onUnload = () => saveProgressNow();
-    window.addEventListener("beforeunload", onUnload);
-    return () => window.removeEventListener("beforeunload", onUnload);
+    const onUnloadOrHide = () => saveProgressNow();
+    
+    // Desktop: beforeunload
+    window.addEventListener("beforeunload", onUnloadOrHide);
+    // Mobile Safari / iOS: pagehide là chuẩn thay cho beforeunload
+    window.addEventListener("pagehide", onUnloadOrHide);
+    
+    // Khi tắt màn hình hoặc chuyển app (background)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        saveProgressNow();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", onUnloadOrHide);
+      window.removeEventListener("pagehide", onUnloadOrHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [saveProgressNow]);
   // khai báo thông tin hiển thị như bản tên sách , tên tác giả và ảnh bìa sách
   useEffect(() => {
@@ -314,13 +368,18 @@ export default function UserAudiobookPlayer() {
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
-      // Seek to saved position if pending
+    }
+  };
+
+  const handleCanPlay = () => {
+    if (audioRef.current) {
       const pendingSeek = (window as any).__pendingSeek;
-      if (pendingSeek && pendingSeek > 0 && pendingSeek < audioRef.current.duration) {
+      // Không check `pendingSeek < duration` vì iOS thỉnh thoảng báo duration = Infinity lúc mới load
+      if (pendingSeek && pendingSeek > 0) {
         audioRef.current.currentTime = pendingSeek;
         setCurrentTime(pendingSeek);
+        (window as any).__pendingSeek = 0;
       }
-      (window as any).__pendingSeek = 0;
     }
   };
 
@@ -388,22 +447,35 @@ export default function UserAudiobookPlayer() {
   };
 
   const handleAudioEnded = () => {
-    if (!currentChapter || !currentChapter.audioSegments) return;
-    if (currentSegmentIndex < currentChapter.audioSegments.length - 1) {
+    if (!currentChapter) return;
+    // Dùng số đoạn đã lọc theo ngôn ngữ (computed bên dưới)
+    // Vì handleAudioEnded được gọi từ JSX sau khi activeSegments tính xong,
+    // chúng ta tính lại inline để tránh stale closure.
+    const langSegments = (currentChapter.audioSegments || [])
+      .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined")
+      .filter(s => ((s as any).languageCode || "vi") === selectedLanguage)
+      .sort((a, b) => ((a as any).sequenceOrder ?? 0) - ((b as any).sequenceOrder ?? 0));
+
+    if (langSegments.length > 0 && currentSegmentIndex < langSegments.length - 1) {
       setCurrentSegmentIndex((prev) => prev + 1);
     } else {
-      setIsPlaying(false);
       // Tự động nhảy sang chương tiếp theo
-      playNextChapter();
+      playNextChapter(true);
     }
   };
 
-  const playNextChapter = () => {
+  const playNextChapter = (auto: boolean = false) => {
     if (!currentChapter) return;
     const currentIndex = chapters.findIndex((c) => c.id === currentChapter.id);
     if (currentIndex !== -1 && currentIndex + 1 < chapters.length) {
       const nextChapter = chapters[currentIndex + 1];
-      handleChapterClick(nextChapter);
+      if (auto) {
+        setPendingNextChapter(nextChapter);
+        setCountdownTimer(5);
+        setShowCountdown(true);
+      } else {
+        handleChapterClick(nextChapter);
+      }
     }
   };
 
@@ -519,7 +591,22 @@ export default function UserAudiobookPlayer() {
     );
   }
 
-  const currentSegment = currentChapter?.audioSegments?.[currentSegmentIndex];
+  // Tập hợp tất cả ngôn ngữ có sẵn trong toàn bộ sách
+  const availableLanguages = Array.from(
+    new Set(
+      chapters.flatMap(ch => ch.audioSegments || [])
+        .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined")
+        .map(s => (s as any).languageCode || "vi")
+    )
+  ) as string[];
+
+  // Lọc các segment của chapter hiện tại theo ngôn ngữ được chọn
+  const activeSegments = (currentChapter?.audioSegments || [])
+    .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined")
+    .filter(s => ((s as any).languageCode || "vi") === selectedLanguage)
+    .sort((a, b) => ((a as any).sequenceOrder ?? 0) - ((b as any).sequenceOrder ?? 0));
+
+  const currentSegment = activeSegments[currentSegmentIndex] ?? currentChapter?.audioSegments?.[currentSegmentIndex];
 
   return (
     <>
@@ -555,7 +642,7 @@ export default function UserAudiobookPlayer() {
         <main className="flex-1 flex flex-col relative min-h-screen">
 
           {/* Topbar */}
-          <header className="h-16 flex items-center justify-between px-8 z-10 flex-shrink-0">
+          <header className="h-10 flex items-center justify-between px-8 z-10 flex-shrink-0 pt-2">
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <span className="cursor-pointer hover:text-white transition-colors" onClick={() => router.push(`/user/books/${bookId}`)}>Sách nói</span>
               <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -565,6 +652,29 @@ export default function UserAudiobookPlayer() {
             </div>
 
             <div className="flex items-center gap-6">
+              {/* Language Selector — only shown when the book has multiple languages */}
+              {availableLanguages.length > 1 && (
+                <div className="flex items-center gap-2 bg-[#1c1c1e] rounded-full px-3 h-[32px] border border-white/10">
+                  <span className="material-symbols-outlined text-[16px] text-gray-400">translate</span>
+                  <select
+                    id="language-selector"
+                    value={selectedLanguage}
+                    onChange={(e) => {
+                      setSelectedLanguage(e.target.value);
+                      setCurrentSegmentIndex(0); // Reset về segment đầu khi đổi ngôn ngữ
+                    }}
+                    className="!bg-transparent text-xs font-semibold !text-white cursor-pointer !border-none !ring-0 !outline-none focus:ring-0 focus:border-transparent focus:outline-none pr-2"
+                    aria-label="Chọn ngôn ngữ phát"
+                  >
+                    {availableLanguages.map(lang => (
+                      <option key={lang} value={lang} className="bg-[#1c1c1e] text-white">
+                        {lang === "vi" ? "Tiếng Việt" : lang === "en" ? "English" : lang === "ja" ? "日本語" : lang.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* View Mode Toggle */}
               <div className="flex items-center gap-2 bg-white/5 rounded-full p-1 border border-white/5">
                 <button
@@ -583,7 +693,7 @@ export default function UserAudiobookPlayer() {
 
               <div className="relative hidden md:block">
                 <input
-                  className="bg-white/10 border-transparent rounded-full px-5 py-1.5 text-sm w-64 focus:ring-red-600 focus:border-red-600 transition-all placeholder-gray-500 text-white"
+                  className="!bg-[#1c1c1e] border border-white/10 rounded-full px-4 h-[32px] text-xs w-64 focus:ring-red-600 focus:border-red-600 transition-all placeholder-gray-500 !text-white outline-none"
                   placeholder="Tìm kiếm hệ thống..."
                   type="text"
                 />
@@ -609,7 +719,7 @@ export default function UserAudiobookPlayer() {
           <div className="flex-1 flex px-12 py-6 overflow-hidden z-10 max-w-7xl mx-auto w-full">
 
             {/* LEFT: Hero Content & Main Controls / Text Content */}
-            <div className="flex-[3] flex flex-col items-center justify-center space-y-12 pr-8 h-full overflow-y-auto custom-scrollbar" data-purpose="audio-main-stage">
+            <div className="flex-[3] flex flex-col items-center justify-start py-8 pr-8 h-full overflow-y-auto custom-scrollbar" data-purpose="audio-main-stage">
               {viewMode === "player" ? (
                 // Cover Art Mode
                 <div className="relative group my-auto flex flex-col items-center">
@@ -617,7 +727,7 @@ export default function UserAudiobookPlayer() {
                     <div className="absolute inset-0 bg-red-600/20 blur-3xl rounded-full opacity-50 group-hover:opacity-75 transition-opacity"></div>
                     <img
                       alt={bookTitle}
-                      className="w-[280px] md:w-[350px] aspect-[3/4] object-cover rounded-xl shadow-2xl relative transition-transform duration-500 group-hover:scale-105 border border-white/10"
+                      className="w-[280px] md:w-[350px] max-h-[60vh] object-contain rounded-xl shadow-2xl relative transition-transform duration-500 group-hover:scale-105 border border-white/10"
                       src={bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
                     />
                   </div>
@@ -688,7 +798,7 @@ export default function UserAudiobookPlayer() {
 
                       {/* Next Chapter */}
                       <button
-                        onClick={playNextChapter}
+                        onClick={() => playNextChapter(false)}
                         className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                         aria-label="Chương tiếp"
                       >
@@ -740,7 +850,7 @@ export default function UserAudiobookPlayer() {
                       <p className="font-semibold text-red-200 mb-1">Không thể tải danh sách chương</p>
                       <p className="text-xs opacity-80">{chapterError}</p>
                       <button
-                        onClick={() => { setChapterError(null); getUserChapters(bookId).then(setChapters).catch((e: Error) => setChapterError(e.message)); }}
+                        onClick={() => { setChapterError(null); getMediaPlayerChapters(bookId).then(setChapters).catch((e: Error) => setChapterError(e.message)); }}
                         className="mt-2 text-xs underline hover:text-white transition-colors"
                       >
                         Thử lại
@@ -847,7 +957,11 @@ export default function UserAudiobookPlayer() {
                     <img
                       alt={nextBook.title}
                       className="w-16 rounded shadow-lg aspect-[3/4] object-cover"
-                      src={nextBook.imageUrl || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
+                      src={
+                        nextBook.imageUrl
+                          ? `${API_URL}/uploads/books/${nextBook.imageUrl.startsWith("books/") ? nextBook.imageUrl.substring(6) : nextBook.imageUrl}`
+                          : "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"
+                      }
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white group-hover:text-red-500 transition-colors truncate">{nextBook.title}</p>
@@ -945,7 +1059,7 @@ export default function UserAudiobookPlayer() {
 
                 {/* Skip Next */}
                 <button
-                  onClick={playNextChapter}
+                  onClick={() => playNextChapter(false)}
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                   aria-label="Chương tiếp"
                 >
@@ -1027,13 +1141,52 @@ export default function UserAudiobookPlayer() {
       {currentSegment && (
         <audio
           ref={audioRef}
+          /*đường link trực tiếp dẫn tới Cloudinary*/
           src={currentSegment.audioUrl}
           onEnded={handleAudioEnded}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onCanPlay={handleCanPlay}
+          onPause={() => saveProgressNow()}
           autoPlay={isPlaying}
           className="hidden"
         />
+      )}
+
+      {/* Auto-play Next Chapter Countdown Modal */}
+      {showCountdown && pendingNextChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1c1c1e] border border-white/10 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden text-white p-8 text-center">
+            <div className="w-20 h-20 bg-red-600/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold border border-red-500/30">
+              {countdownTimer}
+            </div>
+            <h3 className="text-xl font-bold mb-2">Đang chuyển sang chương tiếp theo...</h3>
+            <p className="text-red-400 font-semibold text-lg mb-8">
+              {pendingNextChapter.title || `Chương ${pendingNextChapter.number}`}
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowCountdown(false);
+                  setIsPlaying(false);
+                }}
+                className="flex-1 py-3.5 rounded-xl font-bold text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  setShowCountdown(false);
+                  handleChapterClick(pendingNextChapter);
+                }}
+                className="flex-1 py-3.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_0_rgba(220,38,38,0.3)] transition cursor-pointer"
+              >
+                Nghe ngay
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Purchase Modal */}

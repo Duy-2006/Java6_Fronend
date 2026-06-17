@@ -3,41 +3,49 @@ import { authFetch } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Menu, Shield, Bell, Settings, HelpCircle } from "lucide-react";
 
 export default function AdminTopbar() {
   const [adminName, setAdminName] = useState("");
+  const [adminAvatar, setAdminAvatar] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   useEffect(() => {
-    // Status checking delegated to implicit authFetch
-
-    authFetch(`${API_URL}/api/auth/me`, {
-      method: "GET",
-      headers: { 
-        
-        "Content-Type": "application/json"
-      },
-    })
-      .then(async res => {
-        if (!res.ok) throw new Error("Unauthorized");
-        return res.json();
+    const fetchAdmin = () => {
+      authFetch(`${API_URL}/api/auth/me`, {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json"
+        },
       })
-      .then(data => {
-        if (data.role !== "ADMIN") {
+        .then(async res => {
+          if (!res.ok) throw new Error("Unauthorized");
+          return res.json();
+        })
+        .then(data => {
+          if (data.role !== "ADMIN") {
+            localStorage.removeItem("token");
+            window.location.replace("/");
+          } else {
+            setAdminName(data.name);
+            setAdminAvatar(data.avatar || "");
+          }
+        })
+        .catch(() => {
           localStorage.removeItem("token");
           window.location.replace("/");
-        } else {
-          setAdminName(data.name);
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        window.location.replace("/");
-      })
-      .finally(() => setIsLoading(false));
+        })
+        .finally(() => setIsLoading(false));
+    };
+
+    fetchAdmin();
+    window.addEventListener("storage", fetchAdmin);
+    return () => {
+      window.removeEventListener("storage", fetchAdmin);
+    };
   }, []);
 
   const getPageTitle = () => {
@@ -51,6 +59,7 @@ export default function AdminTopbar() {
     if (pathname.includes("/banners")) return "Banner";
     if (pathname.includes("/promotions")) return "Khuyến mãi";
     if (pathname.includes("/voucher")) return "Vouchers";
+    if (pathname.includes("/profile")) return "Thông tin cá nhân";
     return "Admin Panel";
   };
 
@@ -63,7 +72,7 @@ export default function AdminTopbar() {
 
   if (isLoading) {
     return (
-      <nav className="navbar px-4 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between w-full">
+      <nav className="navbar px-4 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#b70011] border-t-transparent" />
           <span className="text-sm font-semibold text-slate-400">Loading system...</span>
@@ -73,7 +82,7 @@ export default function AdminTopbar() {
   }
 
   return (
-    <nav className="navbar px-6 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between w-full">
+    <nav className="navbar px-6 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between">
       <div className="flex items-center gap-3">
         {/* Mobile menu toggle */}
         <button 
@@ -129,13 +138,15 @@ export default function AdminTopbar() {
         </div>
 
         {/* User Avatar */}
-        <img
-          src={`https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Le Minh")}&background=b70011&color=fff`}
-          className="w-9 h-9 rounded-lg border border-slate-200/50 object-cover ml-1 shadow-sm"
-          alt="Avatar"
-          loading="lazy"
-          decoding="async"
-        />
+        <Link href="/admin/profile">
+          <img
+            src={adminAvatar ? (adminAvatar.startsWith("http") ? adminAvatar : `${API_URL}${adminAvatar}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(adminName || "Le Minh")}&background=b70011&color=fff`}
+            className="w-9 h-9 rounded-lg border border-slate-200/50 object-cover ml-1 shadow-sm hover:border-[#b70011] transition-all cursor-pointer"
+            alt="Avatar"
+            loading="lazy"
+            decoding="async"
+          />
+        </Link>
       </div>
     </nav>
   );

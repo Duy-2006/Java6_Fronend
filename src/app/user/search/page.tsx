@@ -120,7 +120,7 @@ function SearchContent() {
             {books.map((b) => (
               <Link
                 key={b.id}
-                href={`/books/${b.id}`}
+                href={`/user/books/${b.id}`}
                 className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
               >
                 <div className="relative aspect-[3/4] overflow-hidden bg-gray-50 p-3 flex items-center justify-center">

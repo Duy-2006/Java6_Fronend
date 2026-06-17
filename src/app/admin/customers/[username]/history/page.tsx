@@ -145,8 +145,29 @@ export default function CustomerHistoryPage() {
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm p-6 space-y-6">
             <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-24 h-24 rounded-full bg-[#ffdad6] text-[#b70011] border-4 border-white shadow-md flex items-center justify-center text-3xl font-bold font-sans">
-                {initial}
+              <div className="w-24 h-24 rounded-full bg-[#ffdad6] text-[#b70011] border-4 border-white shadow-md flex items-center justify-center text-3xl font-bold font-sans overflow-hidden relative">
+                {customer.avatar ? (
+                  <img
+                    src={customer.avatar.startsWith("http") ? customer.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${customer.avatar}`}
+                    alt={customer.fullName}
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.classList.add("hidden");
+                      const parent = target.parentElement;
+                      if (parent) {
+                        const initialsSpan = parent.querySelector(".avatar-initials") as HTMLElement;
+                        if (initialsSpan) {
+                          initialsSpan.classList.remove("hidden");
+                          initialsSpan.classList.add("block");
+                        }
+                      }
+                    }}
+                  />
+                ) : null}
+                <span className={`avatar-initials ${customer.avatar ? "hidden" : "block"}`}>
+                  {initial}
+                </span>
               </div>
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-800">{customer.fullName || "Khách hàng"}</h3>

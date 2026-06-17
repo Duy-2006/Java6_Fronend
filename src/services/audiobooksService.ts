@@ -6,6 +6,10 @@ export interface AudioSegment {
   audioUrl: string;
   sequenceOrder: number;
   durationSeconds: number;
+  languageCode?: string;
+  languageId?: number;
+  ttsStatus?: string;
+  isOutdated?: boolean;
 }
 
 /**
@@ -27,6 +31,21 @@ export interface Chapter {
   textContent?: string;
   isLocked?: boolean;
   locked?: boolean;
+}
+
+/** Một giọng đọc thuộc một ngôn ngữ — tương ứng với VoiceDTO từ backend */
+export interface VoiceOption {
+  id: number;
+  narratorCode: string;
+  voiceName: string;
+}
+
+/** Một ngôn ngữ kèm danh sách giọng đọc — tương ứng với LanguageWithVoicesDTO từ backend */
+export interface LanguageOption {
+  id: number;
+  code: string;
+  name: string;
+  voices: VoiceOption[];
 }
 
 
@@ -162,12 +181,80 @@ export async function deleteChapter(bookId: number, chapterId: number): Promise<
   }
 }
 
+// Delete specific language audio from a chapter
+export async function deleteChapterAudio(bookId: number, chapterId: number, langCode: string): Promise<Chapter> {
+    if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/audio/${langCode}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    throw new Error(`Xóa audio ngôn ngữ ${langCode} thất bại (Status: ${res.status})`);
+  }
+  return await res.json();
+}
+
+// Regenerate single language audio for a specific chapter
+export async function regenerateLanguageAudio(
+  bookId: number,
+  chapterId: number,
+  languageId: number
+): Promise<Chapter> {
+  if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/audio/${languageId}/regenerate`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    throw new Error(`Khởi tạo dịch lại thất bại (Status: ${res.status})`);
+  }
+  return await res.json();
+}
+
+/**
+ * Lấy danh sách tất cả ngôn ngữ kèm theo danh sách giọng đọc thuộc mỗi ngôn ngữ.
+ * Gọi endpoint: GET /api/admin/languages-with-voices
+ */
+export async function getLanguagesWithVoices(): Promise<LanguageOption[]> {
+  try {
+    const res = await authFetch(`${BASE_URL}/api/admin/languages-with-voices`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`Lỗi tải ngôn ngữ (Status: ${res.status})`);
+    return await res.json();
+  } catch (err: any) {
+    console.error('getLanguagesWithVoices error:', err);
+    return [];
+  }
+}
+
 // Trigger TTS conversion on backend with authentication
 export async function generateTTS(
   bookId: number,
   chapterId: number,
   voice: string,
-  speed: string
+  speed: string,
+  languageCode?: string
 ): Promise<Chapter> {
     if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
@@ -177,7 +264,7 @@ export async function generateTTS(
     method: 'POST',
     headers: getAuthHeaders(),
     credentials: 'include',
-    body: JSON.stringify({ voice, speed })
+    body: JSON.stringify({ voice, speed, ...(languageCode ? { languageCode } : {}) })
   });
 
   if (res.status === 401) {
@@ -194,7 +281,8 @@ export async function generateTTS(
 export async function generateTTSBulk(
   bookId: number,
   voice: string,
-  speed: string
+  speed: string,
+  languageCode?: string
 ): Promise<Chapter[]> {
     if (!isLoggedIn()) {
     throw new Error("401: Chưa đăng nhập");
@@ -204,7 +292,7 @@ export async function generateTTSBulk(
     method: 'POST',
     headers: getAuthHeaders(),
     credentials: 'include',
-    body: JSON.stringify({ voice, speed })
+    body: JSON.stringify({ voice, speed, ...(languageCode ? { languageCode } : {}) })
   });
 
   if (res.status === 401) {
@@ -285,6 +373,95 @@ export async function getStorefrontAudiobooks(page = 0, size = 10): Promise<{ co
   } catch (err) {
     console.error("Fetch storefront audiobooks error:", err);
     return { content: [], totalPages: 1 };
+  }
+}
+
+// Toggle audiobook segment status between SUCCESS and INACTIVE for a specific voice language
+export async function toggleAudioLanguageStatus(
+  bookId: number,
+  chapterId: number,
+  languageId: number
+): Promise<Chapter> {
+  if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/audio/${languageId}/toggle`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Thay đổi trạng thái ẩn/hiện thất bại (Status: ${res.status})`);
+  }
+  return await res.json();
+}
+
+// Add language translation via text segment
+export async function addLanguageTranslation(
+  bookId: number,
+  chapterId: number,
+  voice: string,
+  textSegment: string,
+  languageId?: number
+): Promise<Chapter> {
+  if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/tts-append`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ voice, textSegment, ...(languageId ? { languageId: languageId.toString() } : {}) }),
+  });
+
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Thêm bản dịch thất bại (Status: ${res.status})`);
+  }
+  return await res.json();
+}
+
+// Get chapters for user media player (with authorized check for SUCCESS & INACTIVE tracks)
+export async function getMediaPlayerChapters(bookId: number): Promise<Chapter[]> {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  try {
+    const res = await authFetch(`${BASE_URL}/api/user/books/${bookId}/chapters/media`, {
+      headers,
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (res.status === 401) {
+      throw new Error("401: Phiên làm việc hết hạn hoặc chưa đăng nhập. Vui lòng đăng nhập lại.");
+    }
+
+    if (res.status === 403) {
+      throw new Error("403: Bạn chưa mua sách nói này.");
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Lỗi tải danh sách chương (Status: ${res.status}): ${text}`);
+    }
+
+    return await res.json();
+  } catch (err: any) {
+    if (err.message?.includes('Failed to fetch')) {
+      throw new Error('NETWORK_ERROR: Không thể kết nối tới backend. Vui lòng kiểm tra server.');
+    }
+    throw err;
   }
 }
 

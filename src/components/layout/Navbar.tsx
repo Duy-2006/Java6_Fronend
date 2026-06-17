@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 
 interface Category { id: number; name: string }
-interface User { id: number; name: string; role: string; username?: string; email?: string; }
+interface User { id: number; name: string; role: string; username?: string; email?: string; avatar?: string; }
 
 export default function Navbar() {
   const router = useRouter();
@@ -79,9 +79,22 @@ export default function Navbar() {
 
     fetchCartCount();
 
+    const handleStorageChange = () => {
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (e) { console.error(e); }
+      } else {
+        setUser(null);
+      }
+    };
+
     window.addEventListener("cartUpdated", fetchCartCount);
+    window.addEventListener("storage", handleStorageChange);
     return () => {
       window.removeEventListener("cartUpdated", fetchCartCount);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [API_URL, pathname]);
 
@@ -265,8 +278,26 @@ export default function Navbar() {
             {user ? (
               <div className="relative group/user h-20 flex items-center">
                 <button className="flex items-center gap-2 p-1.5 pr-4 rounded-full hover:bg-[#f2f4f6] transition-all duration-300">
-                  <div className="w-9 h-9 rounded-full bg-[#eceef0] flex items-center justify-center overflow-hidden border border-[#eceef0]">
-                    <span className="material-symbols-outlined text-gray-500">person</span>
+                  <div className="w-9 h-9 rounded-full bg-[#eceef0] flex items-center justify-center overflow-hidden border border-[#eceef0] relative">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar.startsWith("http") ? user.avatar : `${API_URL}${user.avatar}`}
+                        alt={user.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const next = target.nextElementSibling as HTMLElement;
+                          if (next) next.style.display = "block";
+                        }}
+                      />
+                    ) : null}
+                    <span 
+                      className="material-symbols-outlined text-gray-500"
+                      style={{ display: user.avatar ? "none" : "block" }}
+                    >
+                      person
+                    </span>
                   </div>
                   <span className="text-sm font-semibold text-[#191c1e] hidden sm:block max-w-[100px] truncate">{user.name}</span>
                 </button>
