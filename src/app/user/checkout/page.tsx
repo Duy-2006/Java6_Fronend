@@ -530,6 +530,22 @@ export default function CheckoutPage() {
             sessionStorage.setItem("pendingOrderCode", data.orderCode);
             window.location.href = paymentData.paymentUrl;
           } else throw new Error(paymentData.message || "Không tạo được cổng thanh toán VNPay");
+        } else if (form.paymentMethod === "PAYOS") {
+          const paymentRes = await authFetch(`${API_URL}/api/pay-os/create`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", },
+            body: JSON.stringify({
+              amount: finalAmount,
+              orderId: data.orderId,
+              description: `Thanh toan don ${data.orderId}`.substring(0, 25),
+            }),
+          });
+          const paymentData = await paymentRes.json();
+          if (paymentData.checkoutUrl) {
+            sessionStorage.setItem("pendingOrderId", data.orderId);
+            sessionStorage.setItem("pendingOrderCode", data.orderCode);
+            window.location.href = paymentData.checkoutUrl;
+          } else throw new Error(paymentData.error || "Không tạo được cổng thanh toán PayOS");
         } else {
           router.push(`/user/orders/${data.orderId}/success`);
         }
@@ -926,11 +942,18 @@ export default function CheckoutPage() {
                         icon: "qr_code_scanner",
                         disabled: false,
                       },
+                      {
+                        value: "PAYOS",
+                        label: "Thanh toán qua PayOS (VietQR)",
+                        desc: "Chuyển khoản liên ngân hàng miễn phí, tự động xác nhận",
+                        icon: "qr_code",
+                        disabled: false,
+                      },
                     ].map((opt) => {
                       const isSelected = form.paymentMethod === opt.value;
                       if (opt.disabled && isSelected) {
-                        // Tự động chuyển qua VNPAY nếu COD bị vô hiệu hóa
-                        setTimeout(() => setFormField("paymentMethod", "VNPAY"), 0);
+                        // Tự động chuyển qua PAYOS nếu COD bị vô hiệu hóa
+                        setTimeout(() => setFormField("paymentMethod", "PAYOS"), 0);
                       }
 
                       return (
@@ -974,6 +997,14 @@ export default function CheckoutPage() {
                       <div className="font-semibold text-[#191c1e] mb-1">Hướng dẫn thanh toán VNPay:</div>
                       <div>• Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của VNPay.</div>
                       <div>• Bạn có thể chọn quét mã QR bằng ứng dụng ngân hàng hoặc nhập thông tin thẻ ATM, VISA, Mastercard.</div>
+                    </div>
+                  )}
+
+                  {form.paymentMethod === "PAYOS" && (
+                    <div className="mt-4 p-4 bg-[#e8f4fc] border border-[#bae0ff] rounded-[2px] text-[11px] text-[#0050b3] font-mono space-y-1">
+                      <div className="font-semibold text-[#003a8c] mb-1">Hướng dẫn thanh toán PayOS (VietQR):</div>
+                      <div>• Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của PayOS.</div>
+                      <div>• Vui lòng mở ứng dụng ngân hàng và quét mã VietQR để hoàn tất giao dịch tự động.</div>
                     </div>
                   )}
                 </div>

@@ -87,6 +87,9 @@ function LoginContent() {
         if (userData.id) {
           localStorage.setItem("userId", userData.id.toString());
         }
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
       }
 
       // Chuyển hướng sau khi đăng nhập

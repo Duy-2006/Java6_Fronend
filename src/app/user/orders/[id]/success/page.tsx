@@ -165,6 +165,7 @@ export default function OrderSuccessPage() {
   const getPaymentMethodLabel = (method: string) => {
     if (method === 'COD') return 'COD (Thanh toán khi nhận hàng)';
     if (method === 'VNPAY') return 'VNPAY';
+    if (method === 'PAYOS') return 'PayOS Online';
     return method;
   };
 

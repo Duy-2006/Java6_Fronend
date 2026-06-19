@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Chỉ bật cấu hình IP LAN khi đang chạy dev (chạy npm run dev), 
   // lên production (npm run start) thì Next.js tự động bỏ qua dòng này.
   ...(process.env.NODE_ENV === 'development' && {
-    allowedDevOrigins: ['192.168.38.99'],
+    allowedDevOrigins: ['localhost', '127.0.0.1'],
   }),
 
   async rewrites() {

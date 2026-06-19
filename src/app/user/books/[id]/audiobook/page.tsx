@@ -520,7 +520,7 @@ export default function UserAudiobookPlayer() {
         customerName: me.name || "Khách Hàng Sách Nói",
         customerPhone: me.phone || "0999999999",
         customerAddress: me.address || "Digital Delivery, VN",
-        paymentMethod: "VNPAY",
+        paymentMethod: "PAYOS",
         // Now passing formatType so backend links it to Book_Format
         items: [{ bookId, formatType: "AUDIO", quantity: 1, price: bookPrice }],
       };
@@ -535,23 +535,24 @@ export default function UserAudiobookPlayer() {
       const checkoutData = await checkoutRes.json();
       if (!checkoutRes.ok) throw new Error(checkoutData.message || "Tạo đơn hàng thất bại");
 
-      // 3. Create VNPAY Payment
-      const paymentRes = await authFetch(`${API_URL}/api/payment/create`, {
+      // 3. Create PayOS Payment
+      const paymentRes = await authFetch(`${API_URL}/api/pay-os/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", },
         body: JSON.stringify({
           amount: checkoutData.finalAmount,
-          orderId: checkoutData.orderId.toString(),
-          orderInfo: `audiobook_${bookId}_${checkoutData.orderCode}`,
-          bankCode: "VNBANK",
+          orderId: checkoutData.orderId,
+          description: `Thanh toan don ${checkoutData.orderId}`.substring(0, 25),
+          returnUrl: `${window.location.origin}/user/books/${bookId}/audiobook?payment=success`,
+          cancelUrl: `${window.location.origin}/user/books/${bookId}/audiobook?payment=failure`,
         }),
       });
 
       const paymentData = await paymentRes.json();
-      if (paymentData.paymentUrl) {
-        window.location.href = paymentData.paymentUrl;
+      if (paymentData.checkoutUrl) {
+        window.location.href = paymentData.checkoutUrl;
       } else {
-        throw new Error("Không tạo được URL thanh toán");
+        throw new Error(paymentData.error || "Không tạo được cổng thanh toán PayOS");
       }
     } catch (err: any) {
       alert("Lỗi thanh toán: " + err.message);

@@ -282,7 +282,8 @@ function OrderDetailContent() {
                   <span className="text-[14px] font-semibold text-[#191c1e] mt-1">
                     {order.paymentMethod === "COD" ? "Thanh toán COD (Tiền mặt)"
                       : order.paymentMethod === "VNPAY" ? "VNPAY Online"
-                        : order.paymentMethod}
+                        : order.paymentMethod === "PAYOS" ? "PayOS Online"
+                          : order.paymentMethod}
                   </span>
                 </div>
                 <div className="flex flex-col">

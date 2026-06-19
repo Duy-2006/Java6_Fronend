@@ -170,4 +170,61 @@ sequenceDiagram
 1. **Thành viên 1** trình bày giao diện và API tạo chương sách (Đầu vào văn bản).
 2. **Thành viên 2** giải thích cách Backend Spring xử lý văn bản đó và gửi yêu cầu đi.
 3. **Thành viên 3** giải thích cách Python tạo ra file âm thanh hoàn chỉnh và lưu lên đám mây.
-4. **Thành viên 4** trình bày cách client (trình duyệt) lấy file âm thanh về phát mượt mà cho người dùng.
+4. **Thành viên 4** trình bày cách client (trình duyệt) lấy file âm thanh về phát mượt mà cho người dùng.
+
+---
+
+## Ⅳ. Hướng dẫn Chạy Dự án (Local & Mạng LAN)
+
+Hệ thống có thể khởi chạy ở 2 chế độ: **Chạy cục bộ (Local)** trên máy tính cá nhân hoặc **Chạy trong mạng LAN** để kiểm thử trên các thiết bị khác (như điện thoại, máy tính bảng).
+
+### 1. Khởi chạy mặc định (Chế độ Local)
+Chế độ này phục vụ phát triển trực tiếp trên máy tính của bạn thông qua địa chỉ `localhost`.
+
+* **Địa chỉ truy cập:**
+  * **Frontend (Next.js):** [http://localhost:3000](http://localhost:3000)
+  * **Backend (Spring Boot):** [http://localhost:8080](http://localhost:8080)
+  * **Python TTS Service:** [http://localhost:8000](http://localhost:8000)
+* **Cấu hình file `.env.local`:**
+  ```env
+  NEXT_PUBLIC_API_URL=http://localhost:8080
+  ```
+* **Cách chạy:**
+  Chỉ cần click đúp vào file `run-dev.bat` ở thư mục gốc của dự án. Hệ thống sẽ tự động khởi động cả 3 cổng dịch vụ.
+
+### 2. Khởi chạy để test trên mạng LAN (Cho thiết bị khác kết nối)
+Nếu bạn muốn dùng điện thoại hoặc thiết bị khác trong cùng mạng Wi-Fi truy cập vào dự án:
+
+1. **Tìm địa chỉ IP (IPv4) của máy tính:**
+   Mở CMD/PowerShell trên máy tính chạy Backend và gõ lệnh:
+   ```bash
+   ipconfig
+   ```
+   *Ví dụ tìm được IP là: `192.168.1.31`*
+
+2. **Cập nhật cấu hình Frontend (`.env.local`):**
+   Đổi `localhost` thành IP máy tính của bạn:
+   ```env
+   NEXT_PUBLIC_API_URL=http://192.168.1.31:8080
+   ```
+
+3. **Cập nhật cách khởi chạy cổng Frontend Next.js:**
+   Để các thiết bị khác trong LAN truy cập được Next.js, cần chạy với cờ `-H 0.0.0.0`. 
+   Bạn có thể sửa dòng số **9** trong file `run-dev.bat` từ:
+   ```batch
+   start "Frontend Next.js" cmd /k "cd /d d:\Java6 && npm run dev"
+   ```
+   Thành:
+   ```batch
+   start "Frontend Next.js" cmd /k "cd /d d:\Java6 && npm run dev -- -H 0.0.0.0"
+   ```
+
+4. **Truy cập từ thiết bị di động:**
+   Kết nối điện thoại vào cùng Wi-Fi với máy tính, sau đó mở trình duyệt và truy cập:
+   ```text
+   http://[IP_MAY_TINH]:3000  (Ví dụ: http://192.168.1.31:3000)
+   ```
+
+> [!NOTE]
+> * Backend Spring Boot đã được thiết lập CORS động với mẫu đầu vào (`allowedOriginPatterns`) cho phép mọi IP trong dải `http://192.168.*:3000` kết nối mà không bị chặn.
+> * Hãy đảm bảo tường lửa (Firewall) trên máy tính chạy server không chặn các cổng 3000, 8080 và 8000.
