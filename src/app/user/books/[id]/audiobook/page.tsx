@@ -296,12 +296,12 @@ export default function UserAudiobookPlayer() {
   // lưu tiến trình khi người dùng đóng tab, tắt màn hình, hoặc chuyển ứng dụng (đặc biệt cho iOS/Mobile)
   useEffect(() => {
     const onUnloadOrHide = () => saveProgressNow();
-    
+
     // Desktop: beforeunload
     window.addEventListener("beforeunload", onUnloadOrHide);
     // Mobile Safari / iOS: pagehide là chuẩn thay cho beforeunload
     window.addEventListener("pagehide", onUnloadOrHide);
-    
+
     // Khi tắt màn hình hoặc chuyển app (background)
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -1150,6 +1150,8 @@ export default function UserAudiobookPlayer() {
           onCanPlay={handleCanPlay}
           onPause={() => saveProgressNow()}
           autoPlay={isPlaying}
+          controlsList="nodownload"
+          onContextMenu={(e) => e.preventDefault()}
           className="hidden"
         />
       )}
