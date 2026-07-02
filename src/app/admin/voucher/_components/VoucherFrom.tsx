@@ -141,7 +141,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
       try {
         const data = await res.json();
         if (!res.ok) {
-          errorMessage = data.error || data.message || (isEdit ? "Cập nhật thất bại" : "Tạo voucher thất bại");
+          errorMessage = data.error || data.message || (isEdit ? "Cập nhật thất bại voucher" : "Tạo voucher thất bại");
         } else {
           // Thành công
           router.push("/admin/voucher");
