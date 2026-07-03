@@ -1,3 +1,13 @@
+/*
+ * page.tsx (Cart Page)
+ * Component hien thi gio hang cua khach hang.
+ * Chuc nang:
+ * - Lay danh sach san pham trong gio hang tu backend.
+ * - Cho phep thay doi so luong, xoa san pham, chon san pham de thanh toan.
+ * - Hien thi sach goi y (Recommendations) va chuong trinh Flash Sale.
+ * - Tinh toan tam tinh va dieu huong sang trang thanh toan (Checkout).
+ */
+
 /* eslint-disable @next/next/no-img-element */
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";

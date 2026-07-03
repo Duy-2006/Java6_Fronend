@@ -6,27 +6,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { validateAuthor } from "@/services/validation";
 import FieldError from "@/components/layout/FieldError";
-import { 
-  ArrowLeft, 
-  Save, 
-  User, 
-  Mail, 
-  ChevronRight, 
-  UserPlus, 
-  Edit 
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Mail,
+  ChevronRight,
+  UserPlus,
+  Edit
 } from "lucide-react";
 
-interface Author { 
-  id?: number | null; 
-  name: string; 
-  email?: string; 
+interface Author {
+  id?: number | null;
+  name: string;
+  email?: string;
 }
 
 export default function AuthorForm({ author }: { author?: Author }) {
   const isEdit = !!author?.id;
   const router = useRouter();
 
-  // ✅ FALLBACK URL
+  //  FALLBACK URL
   const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const [form, setForm] = useState({
@@ -137,9 +137,8 @@ export default function AuthorForm({ author }: { author?: Author }) {
                 <User className="w-4.5 h-4.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${
-                    errors.name ? "ring-2 ring-red-500" : ""
-                  }`}
+                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.name ? "ring-2 ring-red-500" : ""
+                    }`}
                   value={form.name}
                   onChange={(e) => setField("name", e.target.value)}
                   onBlur={() =>
@@ -169,9 +168,8 @@ export default function AuthorForm({ author }: { author?: Author }) {
                 <Mail className="w-4.5 h-4.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
-                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${
-                    errors.email ? "ring-2 ring-red-500" : ""
-                  }`}
+                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.email ? "ring-2 ring-red-500" : ""
+                    }`}
                   value={form.email}
                   onChange={(e) => setField("email", e.target.value)}
                   onBlur={() => {

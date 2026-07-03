@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { validatePromotion } from "@/services/validation";
 import { createPromotion, updatePromotion } from "@/services/promotionServices";
-import { 
+import {
   Info, Sparkles, Calendar, Save, ChevronRight, Search, Globe, BookOpen, Layers, CheckCircle2, AlertCircle
 } from "lucide-react";
 
-interface Book     { id: number; title: string }
-interface Category { id: number; name:  string }
+interface Book { id: number; title: string }
+interface Category { id: number; name: string }
 interface Promotion {
   id?: number;
   name?: string;
@@ -43,21 +43,21 @@ export default function PromotionForm({
   const router = useRouter();
 
   const [form, setForm] = useState({
-    name:          promotion?.name          ?? "",
+    name: promotion?.name ?? "",
     discountValue: promotion?.discountValue ?? "",
-    startDate:     promotion?.startDate     ?? "",
-    endDate:       promotion?.endDate       ?? "",
-    applyType:     promotion?.applyType     ?? "ALL",
-    usageLimit:    promotion?.usageLimit    ?? "",
+    startDate: promotion?.startDate ?? "",
+    endDate: promotion?.endDate ?? "",
+    applyType: promotion?.applyType ?? "ALL",
+    usageLimit: promotion?.usageLimit ?? "",
   });
 
-  const [selBooks,          setSelBooks]          = useState<Set<number>>(new Set(selectedBookIds));
-  const [selCats,           setSelCats]           = useState<Set<number>>(new Set(selectedCategoryIds));
-  const [bookSearch,        setBookSearch]        = useState("");
-  const [catSearch,         setCatSearch]         = useState("");
-  const [errors,            setErrors]            = useState<ReturnType<typeof validatePromotion>>({});
-  const [loading,           setLoading]           = useState(false);
-  const [serverError,       setServerError]       = useState("");
+  const [selBooks, setSelBooks] = useState<Set<number>>(new Set(selectedBookIds));
+  const [selCats, setSelCats] = useState<Set<number>>(new Set(selectedCategoryIds));
+  const [bookSearch, setBookSearch] = useState("");
+  const [catSearch, setCatSearch] = useState("");
+  const [errors, setErrors] = useState<ReturnType<typeof validatePromotion>>({});
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const set = (field: string, value: any) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -78,18 +78,18 @@ export default function PromotionForm({
     e.preventDefault();
     setServerError("");
 
-    const errs = validatePromotion({ 
-      ...form, 
-      selBooks: selBooks.size, 
-      selCats: selCats.size 
+    const errs = validatePromotion({
+      ...form,
+      selBooks: selBooks.size,
+      selCats: selCats.size
     });
 
-    if (Object.keys(errs).length > 0) { 
-      setErrors(errs); 
-      return; 
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
     }
 
-    
+
     if (!isLoggedIn()) {
       setServerError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
@@ -97,18 +97,18 @@ export default function PromotionForm({
 
     setLoading(true);
     try {
-      const bookIds:     number[] = form.applyType === "BOOK"     ? Array.from(selBooks) : [];
-      const categoryIds: number[] = form.applyType === "CATEGORY" ? Array.from(selCats)  : [];
+      const bookIds: number[] = form.applyType === "BOOK" ? Array.from(selBooks) : [];
+      const categoryIds: number[] = form.applyType === "CATEGORY" ? Array.from(selCats) : [];
       const applyType = form.applyType as "ALL" | "BOOK" | "CATEGORY";
 
       const payload = {
-        name:          form.name,
+        name: form.name,
         discountValue: Number(form.discountValue),
-        startDate:     form.startDate || undefined,
-        endDate:       form.endDate   || undefined,
+        startDate: form.startDate || undefined,
+        endDate: form.endDate || undefined,
         applyType,
-        status:        true,
-        usageLimit:    form.usageLimit ? Number(form.usageLimit) : null,
+        status: true,
+        usageLimit: form.usageLimit ? Number(form.usageLimit) : null,
         bookIds,
         categoryIds,
       };
@@ -273,15 +273,18 @@ export default function PromotionForm({
 
             {/* Apply Type Select */}
             <div>
-              <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+              <label htmlFor="apply-type" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                 Áp dụng cho
               </label>
               <select
+                id="apply-type"
+                title="Loại áp dụng"
+                aria-label="Loại áp dụng"
                 value={form.applyType}
                 onChange={e => set("applyType", e.target.value)}
                 className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20 cursor-pointer"
               >
-                <option value="ALL">Toàn sàn</option>
+                <option value="ALL">Tất cả sách</option>
                 <option value="BOOK">Theo sách</option>
                 <option value="CATEGORY">Theo thể loại</option>
               </select>
@@ -301,10 +304,13 @@ export default function PromotionForm({
             <div className="grid grid-cols-2 gap-4">
               {/* Start Date */}
               <div>
-                <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                <label htmlFor="start-date" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                   Ngày bắt đầu <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="start-date"
+                  title="Ngày bắt đầu"
+                  aria-label="Ngày bắt đầu"
                   type="date"
                   value={form.startDate}
                   onChange={e => set("startDate", e.target.value)}
@@ -315,10 +321,13 @@ export default function PromotionForm({
 
               {/* End Date */}
               <div>
-                <label className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                <label htmlFor="end-date" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
                   Ngày kết thúc <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="end-date"
+                  title="Ngày kết thúc"
+                  aria-label="Ngày kết thúc"
                   type="date"
                   value={form.endDate}
                   onChange={e => set("endDate", e.target.value)}
@@ -382,7 +391,7 @@ export default function PromotionForm({
                 <div className="w-16 h-16 bg-[#ffdad6]/20 text-[#b70011] rounded-full flex items-center justify-center mb-4 border border-[#ffdad6]">
                   <Globe className="w-8 h-8" />
                 </div>
-                <h4 className="text-base font-bold text-[#191c1e] mb-2">Áp dụng toàn sàn</h4>
+                <h4 className="text-base font-bold text-[#191c1e] mb-2">Áp dụng toàn sách</h4>
                 <p className="text-xs text-[#5c403c] max-w-md leading-relaxed">
                   Tất cả sản phẩm sách hiện có trên toàn bộ hệ thống cửa hàng Libris sẽ tự động được áp dụng mức giảm giá này trong khoảng thời gian diễn ra chiến dịch.
                 </p>
@@ -447,19 +456,21 @@ export default function PromotionForm({
                           setSelBooks(toggle(selBooks, b.id));
                           setErrors(v => ({ ...v, applyType: undefined }));
                         }}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${
-                          isSelected 
-                            ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-medium' 
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${isSelected
+                            ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-medium'
                             : 'border-[#e6bdb8]/20 bg-slate-50 hover:bg-white hover:border-blue-300'
-                        }`}
+                          }`}
                       >
                         <input
+                          id={`book-${b.id}`}
+                          title={`Chọn sách ${b.title}`}
+                          aria-label={`Chọn sách ${b.title}`}
                           type="checkbox"
                           checked={isSelected}
                           readOnly
                           className="w-3.5 h-3.5 text-blue-600 border-[#e6bdb8] rounded focus:ring-blue-500 pointer-events-none"
                         />
-                        <span className="text-xs truncate" title={b.title}>{b.title}</span>
+                        <label htmlFor={`book-${b.id}`} className="text-xs truncate cursor-pointer" title={b.title}>{b.title}</label>
                       </div>
                     );
                   })}
@@ -527,19 +538,21 @@ export default function PromotionForm({
                           setSelCats(toggle(selCats, c.id));
                           setErrors(v => ({ ...v, applyType: undefined }));
                         }}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${
-                          isSelected 
-                            ? 'border-purple-500 bg-purple-50/50 text-purple-900 font-medium' 
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${isSelected
+                            ? 'border-purple-500 bg-purple-50/50 text-purple-900 font-medium'
                             : 'border-[#e6bdb8]/20 bg-slate-50 hover:bg-white hover:border-purple-300'
-                        }`}
+                          }`}
                       >
                         <input
+                          id={`cat-${c.id}`}
+                          title={`Chọn thể loại ${c.name}`}
+                          aria-label={`Chọn thể loại ${c.name}`}
                           type="checkbox"
                           checked={isSelected}
                           readOnly
                           className="w-3.5 h-3.5 text-purple-600 border-[#e6bdb8] rounded focus:ring-purple-500 pointer-events-none"
                         />
-                        <span className="text-xs truncate">{c.name}</span>
+                        <label htmlFor={`cat-${c.id}`} className="text-xs truncate cursor-pointer" title={c.name}>{c.name}</label>
                       </div>
                     );
                   })}

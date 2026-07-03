@@ -125,6 +125,8 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
           </div>
           <button 
             type="button" 
+            title="Đóng thông báo"
+            aria-label="Đóng thông báo"
             className="text-slate-400 hover:text-slate-600 cursor-pointer"
             onClick={() => setMessage(null)}
           >
@@ -142,8 +144,11 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Trạng thái đơn hàng:</label>
+              <label htmlFor="order-status" className="text-xs font-bold text-slate-400 uppercase tracking-wide">Trạng thái đơn hàng:</label>
               <select
+                id="order-status"
+                aria-label="Trạng thái đơn hàng"
+                title="Trạng thái đơn hàng"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-3.5 text-sm font-bold text-[#b70011] focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none disabled:opacity-50 cursor-pointer"
                 value={status}
                 onChange={handleStatusChange}

@@ -6,8 +6,8 @@ import { deletePromotion } from "@/services/promotionServices";
 import { Trash2 } from "lucide-react";
 
 interface Props {
-  promoId:   number;
-  onDeleted: () => void; // ✅ callback để parent tự refresh data
+  promoId: number;
+  onDeleted: () => void; // callback để parent tự refresh data
 }
 
 export default function DeletePromoButton({ promoId, onDeleted }: Props) {
@@ -16,7 +16,7 @@ export default function DeletePromoButton({ promoId, onDeleted }: Props) {
   const handleDelete = async () => {
     if (!window.confirm("Bạn có chắc muốn xóa khuyến mãi này?")) return;
 
-    
+
     if (!isLoggedIn()) {
       alert("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       return;
@@ -25,7 +25,7 @@ export default function DeletePromoButton({ promoId, onDeleted }: Props) {
     setLoading(true);
     try {
       await deletePromotion(promoId);
-      onDeleted(); // ✅ gọi callback → parent tự gọi lại getData()
+      onDeleted(); //  gọi callback → parent tự gọi lại getData()
     } catch (err: any) {
       alert(err.message || "Xóa thất bại.");
     } finally {

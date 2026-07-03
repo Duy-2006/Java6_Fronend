@@ -1,5 +1,14 @@
+/*
+ * page.tsx (My Audiobooks Page)
+ * Trang hien thi danh sach cac sach noi (audiobooks) ma nguoi dung da so huu (mua thanh cong).
+ * Chuc nang:
+ * - Lay danh sach sach noi tu API theo ID nguoi dung.
+ * - Hien thi duoi dang luoi (grid) voi thong tin co ban (Hinh anh, Ten sach, Tac gia).
+ * - Cung cap nut "Nghe ngay" de chuyen sang trang Audio Player.
+ */
+
 "use client";
-import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";

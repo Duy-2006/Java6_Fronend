@@ -1,5 +1,15 @@
+/*
+ * page.tsx (Checkout Page)
+ * Trang thanh toan don hang cua khach hang.
+ * Chuc nang:
+ * - Hien thi tom tat don hang, ap dung khuyen mai (Flash sale, Voucher).
+ * - Cho phep chon dia chi giao hang (GHTK API/Tich hop dia chi tu dong) hoac mua sach noi (Digital).
+ * - Tinh toan phi van chuyen tu dong.
+ * - Chon phuong thuc thanh toan (COD, VNPAY, PAYOS) va tich hop redirect sang cong thanh toan.
+ */
+
 "use client";
-import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";

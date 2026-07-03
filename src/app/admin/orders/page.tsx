@@ -146,13 +146,13 @@ function OrdersContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
-        <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải danh sách đơn hàng...</p>
+        <p className="mt-4 text-slate-500 font-medium">Đang tải danh sách đơn hàng...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn">
       {/* Toast Alert */}
       {toast && (
         <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
@@ -196,8 +196,8 @@ function OrdersContent() {
             <ChevronRight className="w-3.5 h-3.5" />
             <span className="text-[#b70011]">Đơn hàng</span>
           </nav>
-          <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Đơn hàng</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Theo dõi trạng thái giao hàng, kiểm tra chi tiết thanh toán và doanh thu thực tế.</p>
+          <h2 className="text-2xl font-bold text-[#191c1e]">Quản lý Đơn hàng</h2>
+          <p className="text-sm text-[#5c403c]">Theo dõi trạng thái giao hàng, kiểm tra chi tiết thanh toán và doanh thu thực tế.</p>
         </div>
       </section>
 
@@ -480,19 +480,25 @@ function OrdersContent() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  currentPage === page 
-                    ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
-                    : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
+            {(() => {
+              let startPage = Math.max(1, currentPage - 2);
+              let endPage = Math.min(totalPages, currentPage + 2);
+              if (currentPage <= 3) endPage = Math.min(totalPages, 5);
+              if (currentPage >= totalPages - 2) startPage = Math.max(1, totalPages - 4);
+              return Array.from({ length: Math.max(0, endPage - startPage + 1) }, (_, i) => startPage + i).map(page => (
+                <button
+                  key={page}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    currentPage === page 
+                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
+                      : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ));
+            })()}
 
             <button 
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
@@ -521,7 +527,7 @@ export default function OrdersPage() {
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
-        <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải trang...</p>
+        <p className="mt-4 text-slate-500 font-medium">Đang tải trang...</p>
       </div>
     }>
       <OrdersContent />

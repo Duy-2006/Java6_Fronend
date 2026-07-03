@@ -218,7 +218,7 @@ function OrderDetailContent() {
                       <span className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-xs font-semibold">
                         {order.paymentMethod || "COD"}
                       </span>
-                      {order.paymentStatus === "PAID" ? (
+                      {(order.paymentStatus === "PAID" || order.status === "COMPLETED" || order.status === "DELIVERED") ? (
                         <span className="bg-green-100 text-green-800 border border-green-200 px-2 py-0.5 rounded text-xs font-semibold">
                           Đã thanh toán
                         </span>

@@ -1,14 +1,23 @@
+/*
+ * validation.ts
+ * Tap hop cac ham kiem tra (validate) du lieu dau vao cho cac form tren giao dien Admin.
+ * Moi thuc the (Author, Category, Book, User, Promotion) co ham validate rieng.
+ * Khi nguoi dung nhap du lieu sai, ham tra ve object chua ten truong va thong bao loi tuong ung.
+ */
+
+// Kieu du lieu tra ve cua ham validate: object voi key la ten truong, value la thong bao loi
 export type FieldErrors<T> = Partial<Record<keyof T, string>>;
 
-export const isBlank        = (v?: string | null) => !v || !v.trim();
-export const isValidEmail   = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-export const isValidPrice   = (v: string | number) => !isNaN(Number(v)) && Number(v) >= 0;
-export const isValidQty     = (v: string | number) => !isNaN(Number(v)) && Number(v) >= 0 && Number.isInteger(Number(v));
-export const isValidPercent = (v: string | number) => !isNaN(Number(v)) && Number(v) > 0 && Number(v) <= 100;
-export const isValidISBN    = (v: string) => v === "" || /^[\d\-]{10,17}$/.test(v.trim());
-export const isValidDate    = (v: string) => v !== "" && !isNaN(Date.parse(v));
+// Cac ham kiem tra co ban - dung chung cho nhieu loai form
+export const isBlank        = (v?: string | null) => !v || !v.trim();                                          // Kiem tra chuoi rong hoac chi chua khoang trang
+export const isValidEmail   = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());                     // Kiem tra dinh dang email hop le
+export const isValidPrice   = (v: string | number) => !isNaN(Number(v)) && Number(v) >= 0;                     // Kiem tra gia tien (so khong am)
+export const isValidQty     = (v: string | number) => !isNaN(Number(v)) && Number(v) >= 0 && Number.isInteger(Number(v)); // Kiem tra so luong (so nguyen khong am)
+export const isValidPercent = (v: string | number) => !isNaN(Number(v)) && Number(v) > 0 && Number(v) <= 100;  // Kiem tra phan tram (1-100)
+export const isValidISBN    = (v: string) => v === "" || /^[\d\-]{10,17}$/.test(v.trim());                     // Kiem tra ma ISBN (10-17 ky tu so va gach ngang)
+export const isValidDate    = (v: string) => v !== "" && !isNaN(Date.parse(v));                                 // Kiem tra ngay thang hop le
 
-/* ── Author ─────────────────────────── */
+// Validate du lieu form tac gia (Author)
 export interface AuthorFields { name: string; email?: string }
 export function validateAuthor(f: AuthorFields): FieldErrors<AuthorFields> {
   const e: FieldErrors<AuthorFields> = {};
@@ -19,7 +28,7 @@ export function validateAuthor(f: AuthorFields): FieldErrors<AuthorFields> {
   return e;
 }
 
-/* ── Category ───────────────────────── */
+// Validate du lieu form the loai (Category)
 export interface CategoryFields { name: string }
 export function validateCategory(f: CategoryFields): FieldErrors<CategoryFields> {
   const e: FieldErrors<CategoryFields> = {};
@@ -29,7 +38,7 @@ export function validateCategory(f: CategoryFields): FieldErrors<CategoryFields>
   return e;
 }
 
-/* ── Book ───────────────────────────── */
+// Validate du lieu form sach (Book)
 export interface BookFields { title: string; isbn?: string; price: string|number; quantity: string|number }
 export function validateBook(f: BookFields): FieldErrors<BookFields> {
   const e: FieldErrors<BookFields> = {};
@@ -45,7 +54,7 @@ export function validateBook(f: BookFields): FieldErrors<BookFields> {
   return e;
 }
 
-/* ── User ───────────────────────────── */
+// Validate du lieu form tai khoan nguoi dung (User/Admin)
 export interface UserFields { username: string; password?: string; fullname?: string; email?: string; isEdit: boolean }
 export function validateUser(f: UserFields): FieldErrors<Omit<UserFields,"isEdit">> {
   const e: FieldErrors<Omit<UserFields,"isEdit">> = {};
@@ -61,7 +70,7 @@ export function validateUser(f: UserFields): FieldErrors<Omit<UserFields,"isEdit
   return e;
 }
 
-/* ── Promotion ──────────────────────── */
+// Validate du lieu form khuyen mai (Promotion)
 export interface PromotionFields { name: string; discountValue: string|number; startDate: string; endDate: string; applyType: string; selBooks: number; selCats: number; usageLimit?: string|number }
 export function validatePromotion(f: PromotionFields): FieldErrors<PromotionFields> {
   const e: FieldErrors<PromotionFields> = {};

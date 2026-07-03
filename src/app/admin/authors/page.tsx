@@ -428,19 +428,25 @@ function AuthorsContent() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                  currentPage === page 
-                    ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
-                    : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
+            {(() => {
+              let startPage = Math.max(1, currentPage - 2);
+              let endPage = Math.min(totalPages, currentPage + 2);
+              if (currentPage <= 3) endPage = Math.min(totalPages, 5);
+              if (currentPage >= totalPages - 2) startPage = Math.max(1, totalPages - 4);
+              return Array.from({ length: Math.max(0, endPage - startPage + 1) }, (_, i) => startPage + i).map(page => (
+                <button
+                  key={page}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    currentPage === page 
+                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
+                      : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ));
+            })()}
 
             <button 
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"

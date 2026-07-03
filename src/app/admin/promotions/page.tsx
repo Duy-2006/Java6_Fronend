@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getAllPromotions, PromotionDTO } from "@/services/promotionServices";
 import DeletePromoButton from "@/app/admin/promotions/_components/DeletePromoButton";
-import { 
+import {
   Plus, Search, Edit, Tag, AlertCircle, CheckCircle2, Clock, Calendar,
   TrendingUp, RefreshCw, ChevronRight, FileSpreadsheet, Globe, BookOpen, Layers
 } from "lucide-react";
@@ -26,7 +26,7 @@ export default function PromotionsPage() {
     else setRefreshing(true);
     setError("");
 
-    
+
     if (!isLoggedIn()) {
       router.push("/admin/login");
       return;
@@ -80,7 +80,7 @@ export default function PromotionsPage() {
       UNKNOWN: { text: "Chưa đặt ngày", bg: "bg-amber-50 border-amber-200", textCol: "text-amber-700", dot: "bg-amber-700" },
     };
     const s = statusConfig[status] || { text: status, bg: "bg-gray-50 border-gray-200", textCol: "text-gray-700", dot: "bg-gray-700" };
-    
+
     return (
       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${s.bg} ${s.textCol}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>
@@ -265,8 +265,11 @@ export default function PromotionsPage() {
         <div className="flex flex-wrap items-center gap-3 flex-1">
           {/* Status Dropdown */}
           <div className="flex items-center gap-2 bg-[#f2f4f6] px-3 py-1.5 rounded-lg border border-[#e6bdb8]/50">
-            <span className="text-xs font-semibold text-[#5c403c]">Trạng thái:</span>
-            <select 
+            <label htmlFor="status-filter" className="text-xs font-semibold text-[#5c403c]">Trạng thái:</label>
+            <select
+              id="status-filter"
+              title="Lọc theo trạng thái"
+              aria-label="Lọc theo trạng thái"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-transparent border-none text-xs font-bold p-0 pr-6 focus:ring-0 text-[#191c1e] cursor-pointer"
@@ -281,14 +284,17 @@ export default function PromotionsPage() {
 
           {/* Apply Type Dropdown */}
           <div className="flex items-center gap-2 bg-[#f2f4f6] px-3 py-1.5 rounded-lg border border-[#e6bdb8]/50">
-            <span className="text-xs font-semibold text-[#5c403c]">Phân loại:</span>
-            <select 
+            <label htmlFor="apply-filter" className="text-xs font-semibold text-[#5c403c]">Phân loại:</label>
+            <select
+              id="apply-filter"
+              title="Lọc theo phân loại"
+              aria-label="Lọc theo phân loại"
               value={applyFilter}
               onChange={(e) => setApplyFilter(e.target.value)}
               className="bg-transparent border-none text-xs font-bold p-0 pr-6 focus:ring-0 text-[#191c1e] cursor-pointer"
             >
               <option value="ALL">Tất cả hình thức</option>
-              <option value="ALL_STORE">Toàn sàn</option>
+              <option value="ALL_STORE">Tất cả sách</option>
               <option value="BOOK">Theo sách</option>
               <option value="CATEGORY">Theo thể loại</option>
             </select>
@@ -308,9 +314,9 @@ export default function PromotionsPage() {
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-2 border border-[#e6bdb8] rounded-lg font-semibold text-xs text-[#5c403c] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
           >
@@ -401,7 +407,7 @@ export default function PromotionsPage() {
             </div>
             <h3 className="text-base font-bold text-[#191c1e] mb-1">Chưa có khuyến mãi nào</h3>
             <p className="text-[#5c403c] text-xs max-w-sm mb-6">
-              {searchTerm 
+              {searchTerm
                 ? `Không tìm thấy chương trình nào phù hợp với từ khóa "${searchTerm}"`
                 : "Bạn chưa tạo bất kỳ chương trình khuyến mãi nào. Hãy tạo chương trình đầu tiên!"}
             </p>

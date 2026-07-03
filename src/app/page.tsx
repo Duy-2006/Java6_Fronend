@@ -1,5 +1,13 @@
+/*
+ * page.tsx (Home Page)
+ * Trang chu cua ung dung BookStore.
+ * Hien thi cac banner quang cao, the loai noi bat, sach flash sale, sach ban chay va sach moi.
+ * Xu ly logic tuong tac: them vao gio hang, chuyen trang, dem nguoc thoi gian flash sale.
+ * Su dung authFetch de tu dong gui cookie xac thuc cho cac request can dang nhap.
+ */
+
 "use client";
-import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -10,8 +18,6 @@ import Footer from "@/components/layout/Footer";
 const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida/ADBb0ugHjrY8tAvrREQdtUimgd1bjF-cWPdDhU6ZyTv3D1p43vZNu-ciJQNSTseUx-PR03kkb36UL9GYHUlTb1Z1YyKyEJxFzyA0TwwRknkvypkhMKD6R6pjuYVaaDG9D3hov90KJNoWwT5Y6x-paL72oVm37XXAsHS8eKE5tDVSSEt6z2XrH3rtteInGdkIKUFqh3SLpprDqNbOxXd3C6pF3IkXckXIDSbNM-fO6IcC5SwosqArKUsBU90SoJ0";
-
-// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 // Custom Premium BookCard Component
 interface BookCardProps {
@@ -338,8 +344,7 @@ export default function HomePage() {
       // Merge with flash sale
       let flashMap = new Map();
       try {
-
-        const flashRes = await fetch(`${API_URL}/api/books/new`);
+        const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
 
         if (flashRes.ok) {
           const flashData = await flashRes.json();
@@ -408,8 +413,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-
-        const response = await fetch(`${API_URL}/api/books/new`);
+        const response = await fetch(`${API_URL}/api/books/flash-sale`);
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();

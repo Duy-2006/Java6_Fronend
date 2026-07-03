@@ -1,5 +1,16 @@
+/*
+ * Navbar.tsx
+ * Component thanh dieu huong (Navigation bar) chinh cua phan khach hang.
+ * Chuc nang:
+ * - Hien thi logo, menu danh muc san pham (Mega menu).
+ * - Thanh tim kiem nang cao (ho tro tim kiem bang van ban va hinh anh).
+ * - Quan ly trang thai dang nhap, hien thi gio hang (kem so luong) va menu ca nhan (dropdown).
+ * - Tu dong cap nhat thong tin tu localStorage va kiem tra token backend.
+ */
+
+"use strict";
 "use client";
-import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -293,8 +304,7 @@ export default function Navbar() {
                       />
                     ) : null}
                     <span 
-                      className="material-symbols-outlined text-gray-500"
-                      style={{ display: user.avatar ? "none" : "block" }}
+                      className={`material-symbols-outlined text-gray-500 ${user.avatar ? "hidden" : "block"}`}
                     >
                       person
                     </span>

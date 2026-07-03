@@ -1,3 +1,10 @@
+/*
+ * Footer.tsx
+ * Component chan trang (Footer) dung chung cho toan bo giao dien nguoi dung.
+ * Bao gom: thanh dang ky nhan ban tin, luoi lien ket (dich vu, ho tro, tai khoan),
+ * thong tin lien he, mang xa hoi, logo doi tac van chuyen/thanh toan, va ban quyen.
+ */
+
 import Link from "next/link";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "";

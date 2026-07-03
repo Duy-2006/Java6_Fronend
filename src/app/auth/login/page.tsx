@@ -1,3 +1,12 @@
+/*
+ * page.tsx (Login Page)
+ * Trang dang nhap danh cho nguoi dung va admin.
+ * Xu ly logic dang nhap, gui request toi backend (Spring Security).
+ * Neu thanh cong, backend se tu dong set HTTP-Only Cookie cho phien dang nhap.
+ * Cung cap cac tuy chon: dang nhap bang email/username, dang nhap bang Google OAuth2.
+ * Quan ly trang thai loi, hien thi thong bao va chuyen huong sau khi dang nhap.
+ */
+
 "use client";
 import { authFetch } from "@/lib/authFetch";
 

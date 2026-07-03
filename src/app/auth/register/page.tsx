@@ -1,3 +1,11 @@
+/*
+ * page.tsx (Register Page)
+ * Trang dang ky tai khoan moi cho nguoi dung.
+ * Bao gom form nhap thong tin (username, ten, email, sdt, mat khau, xac nhan mat khau).
+ * Xu ly kiem tra loi phia client (validate) truoc khi gui request len backend.
+ * Neu dang ky thanh cong, thong bao va chuyen huong ve trang dang nhap.
+ */
+
 "use client";
 import { authFetch } from "@/lib/authFetch";
 

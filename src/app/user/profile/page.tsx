@@ -1,5 +1,14 @@
+/*
+ * page.tsx (Profile Page)
+ * Trang quan ly thong tin ca nhan cua nguoi dung.
+ * Chuc nang:
+ * - Hien thi va cap nhat thong tin co ban (Ten, Email, So dien thoai).
+ * - Ho tro upload va cap nhat Anh dai dien (Avatar) tich hop Cloudinary.
+ * - Hien thi bang dieu khien menu (lich su mua hang, sach noi, gio hang).
+ */
+
 "use client";
-import { authFetch, isLoggedIn } from "@/lib/authFetch";;
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
