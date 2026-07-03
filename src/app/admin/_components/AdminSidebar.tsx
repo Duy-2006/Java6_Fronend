@@ -33,6 +33,7 @@ const NAV_GROUPS = [
       { href: "/admin/books", icon: BookOpen, label: "Sách" },
       { href: "/admin/categories", icon: List, label: "Thể loại" },
       { href: "/admin/authors", icon: PenTool, label: "Tác giả" },
+      { href: "/admin/publishers", icon: List, label: "Nhà xuất bản" },
       { href: "/admin/orders", icon: ShoppingCart, label: "Đơn hàng" },
       { href: "/admin/customers", icon: Users, label: "Khách hàng" },
       { href: "/admin/banners", icon: ImageIcon, label: "Banner" },

@@ -1,24 +1,30 @@
 @echo off
-echo Starting Backend (Spring Boot) in a new window...
-start "Backend" cmd /k "cd /d D:\JAVADATN\Java6_Backend && mvnw.cmd spring-boot:run"
+echo ===========================================
+echo [START] Dang khoi dong he thong Du An Tot Nghiep...
+echo ===========================================
 
-echo Waiting 15 seconds for Backend to fully initialize...
+:: 1. Chay Backend bang Maven he thong
+echo CHAY BACKEND (Spring Boot)...
+start "Backend - Spring Boot" cmd /k "cd /d D:\duantotnghiep\Java6_Backend && mvn spring-boot:run"
+
+:: Doi 15 giay cho Backend khoi dong xong hoàn toan
+echo Dang cho Backend tai du lieu (15s)...
 ping 127.0.0.1 -n 15 > NUL
 
-echo Starting Frontend (Next.js) in a new window...
-start "Frontend" cmd /k "npm run dev"
+:: 2. Chay Frontend (Next.js)
+echo CHAY FRONTEND (Next.js)...
+start "Frontend - Next.js" cmd /k "cd /d D:\Program Files\duantotnghiepfronend\Java6_Fronend && npm run dev"
 
-<<<<<<< HEAD
-echo [+] Dang khoi dong Python TTS Microservice (cong 8000)...
-start "Python TTS Microservice" cmd /k "cd /d D:\Java6\TTS-Python-Service && python -m uvicorn main:app --port 8000 --reload"
+:: Doi 5 giay cho Frontend san sang
+echo Dang cho Frontend khoi dong (5s)...
+ping 127.0.0.1 -n 5 > NUL
 
-echo.
-echo [Hoan tat] Da mo 3 cua so lenh moi. Ban co the dong cua so nay.
-pause
-=======
-echo Waiting 5 seconds for Frontend...
-ping 127.0.0.1 -n 6 > NUL
+:: 3. Tu dong mo trang web tren trinh duyet
+echo [HOAN TAT] Dang mo trang web tren trinh duyet...
 start http://localhost:3000
 
-echo Done! Both services are running in separate windows.
->>>>>>> origin/admin1
+echo Cua so nay se tu dong dong sau 3 giay.
+ping 127.0.0.1 -n 3 > NUL
+exit
+
+//                          .\run-dev.bat
