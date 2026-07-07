@@ -1,11 +1,3 @@
-/*
- * page.tsx (Home Page)
- * Trang chu cua ung dung BookStore.
- * Hien thi cac banner quang cao, the loai noi bat, sach flash sale, sach ban chay va sach moi.
- * Xu ly logic tuong tac: them vao gio hang, chuyen trang, dem nguoc thoi gian flash sale.
- * Su dung authFetch de tu dong gui cookie xac thuc cho cac request can dang nhap.
- */
-
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
@@ -34,6 +26,8 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
 
   useEffect(() => {
     let isMounted = true;
+    if (!b?.id) return;
+    
     authFetch(`${API_URL}/api/books/${b.id}/reviews`)
       .then((r) => (r.ok ? r.json() : []))
       .then((reviews) => {
@@ -56,11 +50,11 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
     return () => {
       isMounted = false;
     };
-  }, [b.id]);
+  }, [b?.id]);
 
   const getImageSrc = () => {
     if (imgError) return "/images/book-default.jpg";
-    if (b.imageUrl && b.imageUrl.trim()) {
+    if (b?.imageUrl && b.imageUrl.trim()) {
       let cleanUrl = b.imageUrl;
       if (cleanUrl.startsWith("books/")) cleanUrl = cleanUrl.substring(6);
       return `${API_URL}/uploads/books/${cleanUrl}`;
@@ -68,17 +62,16 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
     return "/images/book-default.jpg";
   };
 
-  const price = Number(b.price) || 0;
-  const discountPriceRaw = Number(b.discountPrice) || 0;
+  const price = Number(b?.price) || 0;
+  const discountPriceRaw = Number(b?.discountPrice) || 0;
   const hasDiscount = discountPriceRaw > 0 && discountPriceRaw < price;
-  const discountPercent = b.discountValue ? Number(b.discountValue) : (hasDiscount ? Math.round((1 - discountPriceRaw / price) * 100) : 0);
+  const discountPercent = b?.discountValue ? Number(b.discountValue) : (hasDiscount ? Math.round((1 - discountPriceRaw / price) * 100) : 0);
 
   const finalPrice = hasDiscount ? discountPriceRaw : price;
   const formattedPrice = new Intl.NumberFormat("vi-VN").format(finalPrice);
   const formattedOriginal = hasDiscount ? new Intl.NumberFormat("vi-VN").format(price) : null;
 
-  // Lấy giá sách nói từ database, mặc định = 0
-  const audioPrice = b.audioPrice ? Number(b.audioPrice) : 0;
+  const audioPrice = b?.audioPrice ? Number(b.audioPrice) : 0;
   const formattedAudioPrice = new Intl.NumberFormat("vi-VN").format(audioPrice);
 
   const handleImageError = () => { if (!imgError) setImgError(true); };
@@ -86,8 +79,10 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
   const handlePlayAudio = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/user/books/${b.id}/audiobook`);
+    router.push(`/user/books/${b?.id}/audiobook`);
   };
+
+  if (!b) return null;
 
   return (
     <div className="bg-white rounded-2xl p-4 transition-all duration-300 hover:-translate-y-2 group book-card-shadow border border-[#191c1e]/5 flex flex-col relative overflow-hidden">
@@ -215,36 +210,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [banners, setBanners] = useState<any[]>([]);
   const [heroSlide, setHeroSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState(3600 * 2 + 15 * 60 + 40);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
-
-  const getImageUrl = (url: string) => {
-    if (!url) return "";
-    if (url.startsWith("http") || url.startsWith("blob:")) return url;
-    return `${API_URL}${url}`;
-  };
-
-  const fetchBanners = async () => {
-    try {
-      const res = await authFetch(`${API_URL}/api/banners`);
-      if (res.ok) {
-        const data = await res.json();
-        const now = new Date();
-        const activeBanners = data.filter((b: any) => {
-          if (!b.active) return false;
-          if (b.start_date && new Date(b.start_date) > now) return false;
-          if (b.end_date && new Date(b.end_date) < now) return false;
-          return true;
-        });
-        activeBanners.sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
-        setBanners(activeBanners);
-      }
-    } catch (err) {
-      console.error("Fetch banners error:", err);
-    }
-  };
 
   const showToast = (message: string, isError: boolean = false) => {
     setToast({ message, isError });
@@ -252,7 +220,6 @@ export default function HomePage() {
   };
 
   const addToCart = async (book: any, redirectToCheckout: boolean = false) => {
-    // Cookie tự động gửi kèm request qua authFetch
     if (!isLoggedIn()) {
       showToast("Vui lòng đăng nhập để thêm vào giỏ hàng", true);
       router.push("/auth/login");
@@ -261,7 +228,7 @@ export default function HomePage() {
     try {
       const response = await authFetch(`${API_URL}/api/cart/add`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookId: book.id, quantity: 1 }),
       });
       const data = await response.json();
@@ -275,7 +242,6 @@ export default function HomePage() {
     }
   };
 
-  // Get new books
   const fetchNewBooks = async (page: number, isLoadMore = false) => {
     try {
       setLoadingNewBooks(true);
@@ -316,11 +282,11 @@ export default function HomePage() {
     }
   };
 
-  // Get best sellers
   const fetchBestSellers = async (page: number, isLoadMore = false) => {
     try {
       setLoadingBestSellers(true);
-      const res = await fetch(`${API_URL}/api/books/new?page=${page}&size=10`);
+      // FIXED [Frontend]: Sửa từ /books/new thành đúng endpoint /books/best-sellers
+      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10`);
       let books: any[] = [];
       let totalPages = 0;
       if (res.ok) {
@@ -329,8 +295,7 @@ export default function HomePage() {
         books = books.filter((b: any) => b.active !== false);
         totalPages = data.totalPages ?? 1;
       } else {
-        // fallback client-side
-        const allRes = await fetch(`${API_URL}/api/books/new`);
+        const allRes = await fetch(`${API_URL}/api/books/best-sellers`);
         if (!allRes.ok) throw new Error();
         let allBooks = await allRes.json();
         if (!Array.isArray(allBooks)) allBooks = [];
@@ -341,11 +306,9 @@ export default function HomePage() {
         totalPages = Math.ceil(allBooks.length / pageSize);
       }
 
-      // Merge with flash sale
       let flashMap = new Map();
       try {
-        const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
-
+        const flashRes = await fetch(`${API_URL}/api/books/new`);
         if (flashRes.ok) {
           const flashData = await flashRes.json();
           if (Array.isArray(flashData)) {
@@ -382,7 +345,6 @@ export default function HomePage() {
     }
   };
 
-  // Fetch audiobooks list from backend (with fallback to bestSellers having audioPrice > 0 if not implemented)
   const fetchAudioBooks = async () => {
     try {
       setLoadingAudioBooks(true);
@@ -393,7 +355,6 @@ export default function HomePage() {
         content = content.filter((b: any) => b.active !== false);
         setAudioBooksList(content);
       } else {
-        // Fallback: filter best sellers that have audioPrice configured
         const resBest = await authFetch(`${API_URL}/api/books/best-sellers?t=${Date.now()}`);
         if (resBest.ok) {
           const data = await resBest.json();
@@ -409,12 +370,10 @@ export default function HomePage() {
     }
   };
 
-  // Fetch flash sale
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/books/flash-sale`);
-
+        const response = await fetch(`${API_URL}/api/books/new`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         let fBooks = Array.isArray(data) ? data : [];
@@ -443,7 +402,6 @@ export default function HomePage() {
     fetchFlashSale();
   }, []);
 
-  // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -458,7 +416,6 @@ export default function HomePage() {
     fetchCategories();
   }, []);
 
-  // Set top categories
   useEffect(() => {
     if (bestSellers.length > 0 && categories.length > 0) {
       const catCount = new Map();
@@ -483,7 +440,6 @@ export default function HomePage() {
     }
   }, [bestSellers, categories]);
 
-  // Initial load
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -491,23 +447,17 @@ export default function HomePage() {
         fetchNewBooks(0, false),
         fetchBestSellers(0, false),
         fetchAudioBooks(),
-        fetchBanners(),
       ]);
       setLoading(false);
     };
     init();
   }, []);
 
-  // Hero slider auto shift
   useEffect(() => {
-    const totalSlides = banners.length > 0 ? banners.length : 3;
-    const id = setInterval(() => {
-      setHeroSlide(s => (s + 1) % totalSlides);
-    }, 5000);
+    const id = setInterval(() => setHeroSlide(s => (s + 1) % 3), 5000);
     return () => clearInterval(id);
-  }, [banners.length]);
+  }, []);
 
-  // Countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(t => (t > 0 ? t - 1 : 0));
@@ -519,8 +469,6 @@ export default function HomePage() {
   const h = String(Math.floor((timeLeft % (3600 * 24)) / 3600)).padStart(2, "0");
   const m = String(Math.floor((timeLeft % 3600) / 60)).padStart(2, "0");
   const s = String(timeLeft % 60).padStart(2, "0");
-
-  const newBooksNotInFlashSale = newBooks.filter(book => !flashSaleBooks.some(fb => fb.id === book.id));
 
   const handleLoadMoreNew = () => {
     if (newBooksPage + 1 < newBooksTotalPages) {
@@ -535,7 +483,6 @@ export default function HomePage() {
     }
   };
 
-  // Horizontal scroll controls for Sách Nói Mới
   const scrollAudio = (direction: "left" | "right") => {
     if (audioScrollRef.current) {
       const scrollAmount = direction === "left" ? -400 : 400;
@@ -577,8 +524,6 @@ export default function HomePage() {
     );
   }
 
-
-
   return (
     <div className="bg-[#f7f9fb] font-sans text-[#191c1e] antialiased min-h-screen">
       <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -586,8 +531,7 @@ export default function HomePage() {
 
       {/* Toast Alert */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-full shadow-2xl text-sm font-bold flex items-center gap-2 animate-fade-in ${toast.isError ? "bg-[#ba1a1a] text-white" : "bg-emerald-600 text-white"
-          }`}>
+        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-full shadow-2xl text-sm font-bold flex items-center gap-2 animate-fade-in ${toast.isError ? "bg-[#ba1a1a] text-white" : "bg-emerald-600 text-white"}`}>
           <span className="material-symbols-outlined text-[18px]">
             {toast.isError ? "error" : "check_circle"}
           </span>
@@ -600,100 +544,53 @@ export default function HomePage() {
 
         {/* 1. Cinematic Hero Section */}
         <section className="max-w-7xl mx-auto px-4 md:px-8 mt-8">
-          <div className="relative rounded-3xl overflow-hidden h-[440px] md:h-[500px] lg:h-[540px] group shadow-2xl bg-[#f2f4f6]">
-            {banners.length > 0 ? (
-              banners.map((banner, index) => {
-                const isCurrent = index === heroSlide;
-                return (
-                  <div
-                    key={banner.id || index}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                      isCurrent ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-                    }`}
-                  >
-                    <Link href={banner.link || "#"} className="block w-full h-full">
-                      <img
-                        alt={`Banner ${index}`}
-                        className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out hover:scale-105"
-                        src={getImageUrl(banner.image_url)}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = HERO_IMAGE;
-                        }}
-                      />
-                      {/* Cinematic Overlay Gradient to make layout consistent */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-15 pointer-events-none" />
-                    </Link>
-                  </div>
-                );
-              })
-            ) : (
-              /* Fallback Mat Biec Cinematic Banner */
-              <>
-                <img
-                  alt="Mắt Biếc"
-                  className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[2000ms] ease-out"
-                  src={HERO_IMAGE}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#191c1e] via-[#191c1e]/75 to-transparent z-10" />
+          <div className="relative rounded-3xl overflow-hidden h-[440px] md:h-[500px] lg:h-[540px] group shadow-2xl">
+            <img
+              alt="Mắt Biếc"
+              className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[2000ms] ease-out"
+              src={HERO_IMAGE}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#191c1e] via-[#191c1e]/75 to-transparent z-10" />
 
-                <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-3xl z-20">
-                  <div className="flex items-center gap-2 mb-6">
-                    <span className="px-3 py-1 bg-[#b70011] text-white font-semibold rounded text-[11px] uppercase tracking-widest">
-                      Sách Mới Nhất
-                    </span>
-                    <span className="px-3 py-1 bg-white/10 text-white backdrop-blur-md font-semibold rounded text-[11px] uppercase tracking-widest border border-white/10">
-                      Bestseller
-                    </span>
-                  </div>
+            <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 max-w-3xl z-20">
+              <div className="flex items-center gap-2 mb-6">
+                <span className="px-3 py-1 bg-[#b70011] text-white font-semibold rounded text-[11px] uppercase tracking-widest">
+                  Sách Mới Nhất
+                </span>
+                <span className="px-3 py-1 bg-white/10 text-white backdrop-blur-md font-semibold rounded text-[11px] uppercase tracking-widest border border-white/10">
+                  Bestseller
+                </span>
+              </div>
 
-                  <h1 className="font-extrabold text-[40px] md:text-[54px] lg:text-[60px] leading-tight text-white mb-6 font-headline-lg tracking-tighter">
-                    Mắt Biếc: <span className="text-[#ffb4ab]">Eternal Memory</span>
-                  </h1>
+              <h1 className="font-extrabold text-[40px] md:text-[54px] lg:text-[60px] leading-tight text-white mb-6 font-headline-lg tracking-tighter">
+                Mắt Biếc: <span className="text-[#ffb4ab]">Eternal Memory</span>
+              </h1>
 
-                  <p className="text-white/80 text-sm md:text-base lg:text-lg mb-10 leading-relaxed max-w-xl font-body-lg">
-                    Đắm chìm trong tuyệt tác của Nguyễn Nhật Ánh qua định dạng sách nói chất lượng cao, với âm hưởng điện ảnh và giọng đọc đầy cảm xúc.
-                  </p>
+              <p className="text-white/80 text-sm md:text-base lg:text-lg mb-10 leading-relaxed max-w-xl font-body-lg">
+                Đắm chìm trong tuyệt tác của Nguyễn Nhật Ánh qua định dạng sách nói chất lượng cao, với âm hưởng điện ảnh và giọng đọc đầy cảm xúc.
+              </p>
 
-                  <div className="flex flex-wrap gap-4">
-                    <Link
-                      href="/user/books/1016/audiobook"
-                      className="bg-[#b70011] hover:bg-[#dc2626] text-white px-8 py-4 font-bold rounded-xl transition-all duration-300 flex items-center gap-3 shadow-lg shadow-[#b70011]/30 group/btn"
-                    >
-                      <span className="material-symbols-outlined fill-1 transition-transform group-hover/btn:scale-110">play_circle</span>
-                      Nghe Thử Ngay
-                    </Link>
-                    <Link
-                      href="/user/books/1016"
-                      className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 font-bold rounded-xl hover:bg-white/20 transition-all duration-300"
-                    >
-                      Xem Chi Tiết
-                    </Link>
-                  </div>
-                </div>
-              </>
-            )}
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  href="/user/books/1016/audiobook"
+                  className="bg-[#b70011] hover:bg-[#dc2626] text-white px-8 py-4 font-bold rounded-xl transition-all duration-300 flex items-center gap-3 shadow-lg shadow-[#b70011]/30 group/btn"
+                >
+                  <span className="material-symbols-outlined fill-1 transition-transform group-hover/btn:scale-110">play_circle</span>
+                  Nghe Thử Ngay
+                </Link>
+                <Link
+                  href="/user/books/1016"
+                  className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 font-bold rounded-xl hover:bg-white/20 transition-all duration-300"
+                >
+                  Xem Chi Tiết
+                </Link>
+              </div>
+            </div>
 
-            {/* Custom Dot Indicators */}
-            <div className="absolute bottom-8 right-8 md:right-16 flex gap-3 z-30">
-              {banners.length > 0 ? (
-                banners.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setHeroSlide(index)}
-                    aria-label={`Chuyển đến slide ${index + 1}`}
-                    title={`Chuyển đến slide ${index + 1}`}
-                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                      index === heroSlide ? "w-12 bg-[#b70011]" : "w-3 bg-white/30 hover:bg-white/50"
-                    }`}
-                  />
-                ))
-              ) : (
-                <>
-                  <div className="w-12 h-1.5 bg-[#b70011] rounded-full cursor-pointer"></div>
-                  <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer"></div>
-                  <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer"></div>
-                </>
-              )}
+            <div className="absolute bottom-8 right-8 md:right-16 flex gap-3 z-20">
+              <div className="w-12 h-1.5 bg-[#b70011] rounded-full cursor-pointer"></div>
+              <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer hover:bg-white/50 transition-all duration-300"></div>
+              <div className="w-3 h-1.5 bg-white/30 rounded-full cursor-pointer hover:bg-white/50 transition-all duration-300"></div>
             </div>
           </div>
         </section>
@@ -741,7 +638,6 @@ export default function HomePage() {
         {flashSaleBooks.length > 0 && (
           <section className="max-w-7xl mx-auto px-4 md:px-8">
             <div className="flash-sale-gradient rounded-[28px] p-6 md:p-10 relative overflow-hidden shadow-xl">
-              {/* Background Accent Gradients */}
               <div className="absolute top-0 right-0 w-80 h-80 bg-[#b70011]/10 rounded-full blur-3xl -z-10 pointer-events-none" />
               <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#ffb4ab]/5 rounded-full blur-3xl -z-10 pointer-events-none" />
 
@@ -806,9 +702,9 @@ export default function HomePage() {
                   <button
                     onClick={handleLoadMoreBest}
                     disabled={loadingBestSellers}
-                    className="border-2 border-[#191c1e] hover:bg-[#191c1e] hover:text-white text-[#191c1e] font-bold text-sm px-8 py-3 rounded-full transition-all duration-300 shadow-sm disabled:opacity-40"
+                    className="px-8 py-3 bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white rounded-full text-xs font-bold transition-all duration-300 shadow-sm border border-transparent hover:shadow-md"
                   >
-                    {loadingBestSellers ? "Đang tải thêm..." : "Xem thêm sách bán chạy"}
+                    {loadingBestSellers ? "Đang tải..." : "Xem Thêm Siêu Phẩm"}
                   </button>
                 </div>
               )}
@@ -816,112 +712,19 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* 5. New Audiobooks Section (Immersive Design) */}
-        <section className="bg-[#f2f4f6] py-16 border-y border-[#e6e8ea]">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <div className="flex items-end justify-between mb-10">
-              <div>
-                <h2 className="font-extrabold text-2xl md:text-3xl text-[#191c1e] font-headline-lg">Sách Nói Mới</h2>
-                <p className="text-gray-500 text-xs md:text-sm mt-1.5">Trải nghiệm âm thanh đỉnh cao, đọc mọi lúc mọi nơi.</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => scrollAudio("left")}
-                  className="w-11 h-11 rounded-full border border-gray-300 flex items-center justify-center bg-white text-[#191c1e] hover:bg-[#b70011] hover:text-white hover:border-[#b70011] transition-all duration-300 shadow-sm"
-                >
-                  <span className="material-symbols-outlined text-xl">chevron_left</span>
-                </button>
-                <button
-                  onClick={() => scrollAudio("right")}
-                  className="w-11 h-11 rounded-full border border-gray-300 flex items-center justify-center bg-white text-[#191c1e] hover:bg-[#b70011] hover:text-white hover:border-[#b70011] transition-all duration-300 shadow-sm"
-                >
-                  <span className="material-symbols-outlined text-xl">chevron_right</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable container */}
-            <div
-              ref={audioScrollRef}
-              className="flex gap-6 overflow-x-auto no-scrollbar py-4"
-            >
-              {audioBooksList.map((book) => {
-                const physicalPrice = Number(book.price) || 0;
-                // Nếu chưa cấu hình giá sách nói thì mặc định = 0
-                const audioPrice = book.audioPrice ? Number(book.audioPrice) : 0;
-                const formattedAudioPrice = new Intl.NumberFormat("vi-VN").format(audioPrice);
-
-                let imageSrc = "/images/book-default.jpg";
-                if (book.imageUrl && book.imageUrl.trim()) {
-                  let cleanUrl = book.imageUrl;
-                  if (cleanUrl.startsWith("books/")) cleanUrl = cleanUrl.substring(6);
-                  imageSrc = `${API_URL}/uploads/books/${cleanUrl}`;
-                }
-
-                return (
-                  <div
-                    key={`audio-${book.id}`}
-                    className="group flex bg-white p-4 rounded-2xl border border-[#e6e8ea] hover:border-[#b70011]/30 transition-all duration-300 book-card-shadow shrink-0 w-[290px] md:w-[340px]"
-                  >
-                    {/* Audio Thumbnail Cover */}
-                    <Link href={`/user/books/${book.id}`} className="w-24 h-24 md:w-28 md:h-28 flex-shrink-0 relative overflow-hidden rounded-xl bg-[#f2f4f6] flex items-center justify-center p-2 block group/audiocover cursor-pointer">
-                      <img
-                        alt={book.title}
-                        className="w-full h-full object-contain group-hover/audiocover:scale-110 transition-transform duration-500"
-                        src={imageSrc}
-                        onError={(e) => { (e.target as HTMLImageElement).src = "/images/book-default.jpg"; }}
-                      />
-                      {/* Play Button Overlay */}
-                      <div
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/user/books/${book.id}/audiobook`); }}
-                        className="absolute inset-0 bg-black/35 flex items-center justify-center opacity-0 group-hover/audiocover:opacity-100 transition-opacity duration-300 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-white text-3xl fill-1 scale-90 group-hover/audiocover:scale-100 transition-transform duration-300">play_circle</span>
-                      </div>
-                    </Link>
-
-                    {/* Metadata Content */}
-                    <div className="ml-4 flex flex-col justify-center overflow-hidden flex-1">
-                      <span className="text-[9px] font-extrabold tracking-widest text-[#b70011] bg-[#b70011]/10 px-2 py-0.5 rounded w-fit mb-2 uppercase font-label-sm">
-                        Audiobook
-                      </span>
-                      <Link href={`/user/books/${book.id}`} className="block">
-                        <h4 className="font-semibold text-sm md:text-base text-[#191c1e] truncate mb-1 group-hover:text-[#b70011] transition-colors leading-snug">
-                          {book.title}
-                        </h4>
-                      </Link>
-                      <p className="text-gray-500 text-xs mb-3 truncate font-medium">{book.authorName || "Nguyễn Nhật Ánh"}</p>
-
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#b70011] text-sm md:text-base">{formattedAudioPrice} ₫</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 font-medium uppercase font-semibold">Đã bán {book.soldCount || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* 6. New Physical Books Section */}
-        {newBooksNotInFlashSale.length > 0 && (
+        {/* 5. New Books Section */}
+        {newBooks.length > 0 && (
           <section className="max-w-7xl mx-auto px-4 md:px-8">
             <div className="bg-white rounded-[28px] border border-[#191c1e]/5 p-6 md:p-8 shadow-sm">
               <div className="flex items-center justify-between mb-8 pb-5 border-b border-[#f2f4f6]">
                 <div>
-                  <h2 className="font-extrabold text-2xl md:text-3xl text-[#191c1e] font-headline-lg">Sách Giấy Mới Cập Nhật</h2>
+                  <h2 className="font-extrabold text-2xl md:text-3xl text-[#191c1e] font-headline-lg">Sách Mới Cập Nhật</h2>
                   <div className="w-12 h-1 bg-[#b70011] mt-2 rounded-full"></div>
                 </div>
-                <Link href="/user/catalog" className="text-[#b70011] font-bold text-xs hover:underline flex items-center gap-1 uppercase tracking-wider">
-                  Xem tất cả <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </Link>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-                {newBooksNotInFlashSale.map(book => (
+                {newBooks.map(book => (
                   <BookCard key={book.id} b={book} onAddToCart={addToCart} />
                 ))}
               </div>
@@ -931,40 +734,17 @@ export default function HomePage() {
                   <button
                     onClick={handleLoadMoreNew}
                     disabled={loadingNewBooks}
-                    className="border-2 border-[#191c1e] hover:bg-[#191c1e] hover:text-white text-[#191c1e] font-bold text-sm px-8 py-3 rounded-full transition-all duration-300 shadow-sm disabled:opacity-40"
+                    className="px-8 py-3 bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white rounded-full text-xs font-bold transition-all duration-300 shadow-sm border border-transparent hover:shadow-md"
                   >
-                    {loadingNewBooks ? "Đang tải thêm..." : "Xem thêm sách mới"}
+                    {loadingNewBooks ? "Đang tải..." : "Tải Thêm Sách Mới"}
                   </button>
                 </div>
               )}
             </div>
           </section>
         )}
-
       </main>
-
       <Footer />
-
-      {/* Styled Animations */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fade-in { 
-          from { opacity: 0; transform: translateY(8px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
-        .animate-fade-in { animation: fade-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .book-card-shadow {
-          box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
-        }
-        .book-card-shadow:hover {
-          box-shadow: 0 12px 30px -5px rgba(183, 0, 17, 0.08);
-        }
-        .flash-sale-gradient {
-          background: linear-gradient(135deg, #191c1e 0%, #2d3133 100%);
-        }
-      `}} />
     </div>
   );
 }
