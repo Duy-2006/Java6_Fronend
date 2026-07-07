@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 import AuthorForm from "@/app/admin/authors/_components/AuthorsForm";
 
 interface EditAuthorPageProps {
-  params: Promise<{ id: string }>;  // ✅ Đánh dấu là Promise
+  params: Promise<{ id: string }>;  //  Đánh dấu là Promise
 }
 
 async function getAuthor(id: string) {
-  // ✅ Fallback URL
+  // Fallback URL
   const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
   const url = `${API_BASE}/api/admin/authors/${id}`;
 
@@ -21,13 +21,13 @@ async function getAuthor(id: string) {
 }
 
 export async function generateMetadata({ params }: EditAuthorPageProps) {
-  const { id } = await params;  // ✅ await params
+  const { id } = await params;  //  await params
   const author = await getAuthor(id);
   return { title: author ? `Cập Nhật: ${author.name}` : "Cập Nhật Tác Giả" };
 }
 
 export default async function EditAuthorPage({ params }: EditAuthorPageProps) {
-  const { id } = await params;  // ✅ await params
+  const { id } = await params;  //  await params
   const author = await getAuthor(id);
   if (!author) notFound();
   return <AuthorForm author={author} />;

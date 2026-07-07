@@ -1,7 +1,7 @@
 fastapi  # Chờ AI đọc xong và lưu thành file mp3 trên máy tính
-uvicorn
-edge-tts
-cloudinary
-python-multipart
-pydantic
-pydub
+uvicorn #  Web server chạy FastAPI (ASGI)
+edge-tts # Thư viện TTS dùng giọng Microsoft Edge
+cloudinary   # SDK Cloudinary để upload file lên Cloud
+python-multipart # Xử lý file tải lên (multipart/form-data) 
+pydantic  # Định nghĩa schema dữ liệu đầu vào (Model)
+pydub # Thư viện xử lý audio (cắt ghép, trộn âm thanh) - **Không cần thiết**

@@ -411,21 +411,21 @@ export default function BookDetailPage() {
                 setChapters((prev) =>
                     prev.map((ch) => (ch.id === chapterId ? { ...ch, ...updatedChapter } : ch))
                 );
-                showToast(`✅ Đã gửi yêu cầu chuyển đổi chương ${updatedChapter.number || ""}. Đang chờ AI xử lý...`, "success");
+                showToast(` Đã gửi yêu cầu chuyển đổi chương ${updatedChapter.number || ""}. Đang chờ AI xử lý...`, "success");
             } catch (e: any) {
                 console.error("Backend TTS failed:", e);
                 const msg: string = e?.message ?? "";
                 // Phân loại và hiển thị thông báo lỗi chi tiết
                 if (msg.includes("API key") || msg.includes("api-key") || msg.includes("code=1")) {
-                    showToast("❌ Lỗi: API key không hợp lệ. Kiểm tra cấu hình hệ thống.", "error");
+                    showToast("Lỗi: API key không hợp lệ. Kiểm tra cấu hình hệ thống.", "error");
                 } else if (msg.includes("quota") || msg.includes("code=2")) {
-                    showToast("❌ Lỗi: Tài khoản TTS đã hết giới hạn sử dụng.", "error");
+                    showToast(" Lỗi: Tài khoản TTS đã hết giới hạn sử dụng.", "error");
                 } else if (msg.includes("quá dài") || msg.includes("code=5")) {
-                    showToast("❌ Lỗi: Văn bản chương quá dài. Backend đã tự cắt — thử lại.", "error");
+                    showToast("Lỗi: Văn bản chương quá dài. Backend đã tự cắt — thử lại.", "error");
                 } else if (msg.includes("trống") || msg.includes("blank")) {
-                    showToast("❌ Lỗi: Chương này không có nội dung văn bản để dịch.", "error");
+                    showToast("Lỗi: Chương này không có nội dung văn bản để dịch.", "error");
                 } else if (msg.includes("bảo trì") || msg.includes("code=10") || msg.includes("timeout")) {
-                    showToast("❌ Dịch vụ AI đang bận hoặc bảo trì. Vui lòng thử lại sau ít phút.", "error");
+                    showToast("Dịch vụ AI đang bận hoặc bảo trì. Vui lòng thử lại sau ít phút.", "error");
                 } else {
                     showToast(msg || "Không thể thực hiện chuyển đổi TTS. Kiểm tra console backend để biết chi tiết.", "error");
                 }
@@ -463,21 +463,21 @@ export default function BookDetailPage() {
         }
         try {
             showToast(
-                `⏳ Đang gửi ${toProcess} chương lên hệ thống AI... Quá trình có thể mất vài phút.`,
+                ` Đang gửi ${toProcess} chương lên hệ thống AI... Quá trình có thể mất vài phút.`,
                 "info"
             );
             const updatedList = await generateTTSBulk(bookId, selectedVoice, selectedSpeed);
             setChapters(updatedList);
-            showToast(`✅ Đã gửi ${toProcess} chương. Theo dõi tiến trình trong bảng bên dưới.`, "success");
+            showToast(`Đã gửi ${toProcess} chương. Theo dõi tiến trình trong bảng bên dưới.`, "success");
         } catch (e: any) {
             console.error("Backend bulk TTS failed:", e);
             const msg: string = e?.message ?? "";
             if (msg.includes("API key") || msg.includes("code=1")) {
-                showToast("❌ API key không hợp lệ. Kiểm tra cấu hình hệ thống.", "error");
+                showToast(" API key không hợp lệ. Kiểm tra cấu hình hệ thống.", "error");
             } else if (msg.includes("quota") || msg.includes("code=2")) {
-                showToast("❌ Tài khoản TTS hết giới hạn sử dụng.", "error");
+                showToast(" Tài khoản TTS hết giới hạn sử dụng.", "error");
             } else if (msg.includes("timeout")) {
-                showToast("❌ Dịch vụ AI phản hồi chậm. Vui lòng thử lại sau ít phút.", "error");
+                showToast(" Dịch vụ AI phản hồi chậm. Vui lòng thử lại sau ít phút.", "error");
             } else {
                 showToast(msg || "Chuyển đổi hàng loạt thất bại. Xem console backend để biết lỗi chi tiết.", "error");
             }
@@ -581,7 +581,7 @@ export default function BookDetailPage() {
                 setChapters((prev) =>
                     prev.map((c) => (c.id === chapterId ? updatedChapter : c))
                 );
-                showToast(`✅ Đã gửi yêu cầu dịch lại tiếng ${langCode.toUpperCase()} thành công.`, "success");
+                showToast(` Đã gửi yêu cầu dịch lại tiếng ${langCode.toUpperCase()} thành công.`, "success");
             } catch (err: any) {
                 console.error("Failed to regenerate language audio:", err);
                 showToast(err.message || "Không thể dịch lại ngôn ngữ.", "error");
