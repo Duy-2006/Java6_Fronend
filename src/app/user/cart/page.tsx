@@ -562,7 +562,7 @@ export default function CartPage() {
                   
                   <div className="space-y-3 font-sans">
                     <div className="flex justify-between text-[14px] text-[#545f73]">
-                      <span>Tạm tính ({items.length} sản phẩm)</span>
+                      <span>Tiền sách ({items.length} sản phẩm)</span>
                       <span className="font-semibold text-[#191c1e]">{fmt(subTotal)}</span>
                     </div>
                     <div className="flex justify-between text-[14px] text-[#545f73]">

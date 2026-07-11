@@ -24,7 +24,6 @@ const NAV_GROUPS = [
     heading: "Hệ Thống",
     items: [
       { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/admin/revenue", icon: BarChart3, label: "Doanh thu" },
     ],
   },
   {

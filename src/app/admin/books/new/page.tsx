@@ -5,12 +5,10 @@ import { authFetch } from "@/lib/authFetch"; // Đảm bảo import hàm fetch g
 
 export const metadata = { title: "Nhập Sách Mới" };
 
-// Hàm gọi trực tiếp đến API Backend thực tế của bạn
 async function getPublishersDirectly() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
   try {
-    // Gọi đúng endpoint không có /admin/ đã check trong Controller Java của bạn
-    const res = await authFetch(`${API_BASE}/api/publishers`);
+    const res = await authFetch(`${API_BASE}/api/admin/publishers`, { cache: "no-store" });
     if (!res.ok) return [];
     return await res.json();
   } catch (error) {

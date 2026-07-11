@@ -63,9 +63,14 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
   };
 
   const price = Number(b?.price) || 0;
-  const discountPriceRaw = Number(b?.discountPrice) || 0;
-  const hasDiscount = discountPriceRaw > 0 && discountPriceRaw < price;
-  const discountPercent = b?.discountValue ? Number(b.discountValue) : (hasDiscount ? Math.round((1 - discountPriceRaw / price) * 100) : 0);
+  
+  const hasValidDiscountPrice = b?.discountPrice !== undefined && b?.discountPrice !== null;
+  const discountPriceRaw = hasValidDiscountPrice ? Number(b.discountPrice) : price;
+  const hasDiscount = hasValidDiscountPrice && discountPriceRaw >= 0 && discountPriceRaw < price;
+  
+  const discountPercent = b?.discountValue 
+    ? Number(b.discountValue) 
+    : (hasDiscount ? Math.round((1 - discountPriceRaw / price) * 100) : 0);
 
   const finalPrice = hasDiscount ? discountPriceRaw : price;
   const formattedPrice = new Intl.NumberFormat("vi-VN").format(finalPrice);
@@ -140,7 +145,22 @@ function BookCard({ b, onAddToCart, showFormatBadges = true }: BookCardProps) {
               {b.title}
             </h3>
           </Link>
-          <p className="text-gray-500 text-xs mb-2 truncate font-medium">{b.authorName || "Nguyễn Nhật Ánh"}</p>
+          <p className="text-gray-500 text-xs mb-0.5 truncate font-medium">
+            {b.authorNames && b.authorNames.length > 0 
+              ? b.authorNames.join(", ") 
+              : (b.authors && b.authors.length > 0 
+                ? b.authors.map((a: any) => a.name).join(", ") 
+                : (b.authorName || "Nguyễn Nhật Ánh"))}
+          </p>
+          {((b.publisherNames && b.publisherNames.length > 0) || (b.publishers && b.publishers.length > 0) || b.publisherName || b.publisher?.name || b.publisher) && (
+            <p className="text-gray-400 text-[10px] mb-1.5 truncate">
+              NXB: {b.publisherNames && b.publisherNames.length > 0 
+                ? b.publisherNames.join(", ") 
+                : (b.publishers && b.publishers.length > 0 
+                  ? b.publishers.map((p: any) => p.name).join(", ") 
+                  : (b.publisherName || b.publisher?.name || b.publisher))}
+            </p>
+          )}
 
           <div className="flex items-center gap-1 mb-3">
             <span className="material-symbols-outlined text-[14px] text-yellow-500 fill-1">star</span>
@@ -251,6 +271,34 @@ export default function HomePage() {
         let content = data.content || (Array.isArray(data) ? data : []);
         content = content.filter((b: any) => b.active !== false);
         const totalPages = data.totalPages || 1;
+
+        let flashMap = new Map();
+        try {
+          const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
+          if (flashRes.ok) {
+            const flashData = await flashRes.json();
+            if (Array.isArray(flashData)) {
+              flashData.forEach((item: any) => {
+                flashMap.set(item.id, {
+                  discountPrice: item.discountPrice,
+                  discountValue: item.discountValue,
+                });
+              });
+            }
+          }
+        } catch (e) { }
+
+        content = content.map((book: any) => {
+          const flashInfo = flashMap.get(book.id);
+          if (flashInfo) {
+            return { ...book, discountPrice: flashInfo.discountPrice, discountValue: flashInfo.discountValue };
+          }
+          return book;
+        });
+
+        // Filter out books that are in Flash Sale
+        content = content.filter((book: any) => !flashMap.has(book.id));
+
         if (isLoadMore) {
           setNewBooks(prev => [...prev, ...content]);
         } else {
@@ -267,10 +315,38 @@ export default function HomePage() {
         const start = page * pageSize;
         const paginated = sorted.slice(start, start + pageSize);
         const totalPages = Math.ceil(sorted.length / pageSize);
+
+        let flashMap = new Map();
+        try {
+          const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
+          if (flashRes.ok) {
+            const flashData = await flashRes.json();
+            if (Array.isArray(flashData)) {
+              flashData.forEach((item: any) => {
+                flashMap.set(item.id, {
+                  discountPrice: item.discountPrice,
+                  discountValue: item.discountValue,
+                });
+              });
+            }
+          }
+        } catch (e) { }
+
+        const mappedPaginated = paginated.map((book: any) => {
+          const flashInfo = flashMap.get(book.id);
+          if (flashInfo) {
+            return { ...book, discountPrice: flashInfo.discountPrice, discountValue: flashInfo.discountValue };
+          }
+          return book;
+        });
+
+        // Filter out books that are in Flash Sale
+        const filteredMappedPaginated = mappedPaginated.filter((book: any) => !flashMap.has(book.id));
+
         if (isLoadMore) {
-          setNewBooks(prev => [...prev, ...paginated]);
+          setNewBooks(prev => [...prev, ...filteredMappedPaginated]);
         } else {
-          setNewBooks(paginated);
+          setNewBooks(filteredMappedPaginated);
         }
         setNewBooksTotalPages(totalPages);
       }
@@ -308,7 +384,7 @@ export default function HomePage() {
 
       let flashMap = new Map();
       try {
-        const flashRes = await fetch(`${API_URL}/api/books/new`);
+        const flashRes = await fetch(`${API_URL}/api/books/flash-sale`);
         if (flashRes.ok) {
           const flashData = await flashRes.json();
           if (Array.isArray(flashData)) {
@@ -330,10 +406,13 @@ export default function HomePage() {
         return book;
       });
 
+      // Filter out books that are in Flash Sale
+      const filteredMergedBooks = mergedBooks.filter((book: any) => !flashMap.has(book.id));
+
       if (isLoadMore) {
-        setBestSellers(prev => [...prev, ...mergedBooks]);
+        setBestSellers(prev => [...prev, ...filteredMergedBooks]);
       } else {
-        setBestSellers(mergedBooks);
+        setBestSellers(filteredMergedBooks);
       }
       setBestSellersTotalPages(totalPages);
       setBestSellersPage(page);
@@ -373,11 +452,24 @@ export default function HomePage() {
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/books/new`);
+        const response = await fetch(`${API_URL}/api/books/flash-sale`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         let fBooks = Array.isArray(data) ? data : [];
-        setFlashSaleBooks(fBooks.filter((b: any) => b.active !== false));
+        fBooks = fBooks.filter((b: any) => b.active !== false);
+        
+        // Sắp xếp: Ưu tiên mức giảm giá cao nhất, sau đó đến số lượng bán nhiều nhất
+        fBooks.sort((a: any, b: any) => {
+           const aDiscount = Number(a.discountValue) || 0;
+           const bDiscount = Number(b.discountValue) || 0;
+           if (bDiscount !== aDiscount) return bDiscount - aDiscount;
+           const aSold = Number(a.soldCount) || 0;
+           const bSold = Number(b.soldCount) || 0;
+           return bSold - aSold;
+        });
+
+        // Hiện tất cả sách để có thể lướt qua xem các sách tiếp theo
+        setFlashSaleBooks(fBooks);
 
         if (fBooks.length > 0) {
           let maxDate = 0;
@@ -637,40 +729,52 @@ export default function HomePage() {
         {/* 3. Flash Sale Section */}
         {flashSaleBooks.length > 0 && (
           <section className="max-w-7xl mx-auto px-4 md:px-8">
-            <div className="flash-sale-gradient rounded-[28px] p-6 md:p-10 relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 right-0 w-80 h-80 bg-[#b70011]/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#ffb4ab]/5 rounded-full blur-3xl -z-10 pointer-events-none" />
-
-              <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10 relative z-10">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#ffb4ab] text-3xl md:text-4xl">bolt</span>
-                    FLASH SALE
-                  </h2>
-                  <p className="text-white/60 text-xs md:text-sm mt-1">Giảm giá lên đến 50% chỉ trong hôm nay</p>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <span className="text-white/60 font-semibold text-xs tracking-wider">KẾT THÚC SAU</span>
-                  <div className="flex gap-2 font-mono">
-                    {parseInt(d) > 0 && (
-                      <>
-                        <div className="bg-[#b70011] text-white w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-bold text-lg md:text-xl shadow-md border border-white/5">{d}d</div>
-                        <span className="text-[#ffb4ab] self-center font-black text-xl">:</span>
-                      </>
-                    )}
-                    <div className="bg-[#b70011] text-white w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-bold text-lg md:text-xl shadow-md border border-white/5">{h}</div>
-                    <span className="text-[#ffb4ab] self-center font-black text-xl">:</span>
-                    <div className="bg-[#b70011] text-white w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-bold text-lg md:text-xl shadow-md border border-white/5">{m}</div>
-                    <span className="text-[#ffb4ab] self-center font-black text-xl">:</span>
-                    <div className="bg-[#b70011] text-white w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-bold text-lg md:text-xl shadow-md border border-white/5">{s}</div>
+            <div className="bg-[#f25841] rounded-[8px] p-4 relative shadow-md">
+              {/* White Banner Header */}
+              <div className="bg-white rounded-[8px] flex flex-col md:flex-row justify-between items-center px-4 py-3 mb-4 shadow-sm w-full">
+                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full md:w-auto">
+                  <div className="flex items-center">
+                    <span className="italic font-black text-2xl text-[#f25841] tracking-tighter flex items-center">
+                      FL<span className="material-symbols-outlined text-[#ffc107] text-[28px] mx-[-2px] fill-1" style={{fontVariationSettings: "'FILL' 1"}}>bolt</span>SH SALE
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#191c1e] font-semibold text-[13px] md:text-sm">Kết thúc trong</span>
+                    <div className="flex items-center gap-1 font-mono font-bold text-sm">
+                      {parseInt(d) > 0 && (
+                        <>
+                          <div className="bg-[#191c1e] text-white px-2 py-0.5 rounded-[4px] min-w-[28px] text-center">{d}</div>
+                          <span className="text-[#191c1e] font-black">:</span>
+                        </>
+                      )}
+                      <div className="bg-[#191c1e] text-white px-2 py-0.5 rounded-[4px] min-w-[28px] text-center">{h}</div>
+                      <span className="text-[#191c1e] font-black">:</span>
+                      <div className="bg-[#191c1e] text-white px-2 py-0.5 rounded-[4px] min-w-[28px] text-center">{m}</div>
+                      <span className="text-[#191c1e] font-black">:</span>
+                      <div className="bg-[#191c1e] text-white px-2 py-0.5 rounded-[4px] min-w-[28px] text-center">{s}</div>
+                    </div>
                   </div>
                 </div>
+
+                <button 
+                  onClick={() => {
+                    const container = document.getElementById('flash-sale-carousel');
+                    if (container) {
+                      container.scrollBy({ left: container.offsetWidth, behavior: 'smooth' });
+                    }
+                  }}
+                  className="text-[#0066cc] font-medium text-[13px] md:text-sm flex items-center hover:underline mt-3 md:mt-0 self-end md:self-auto cursor-pointer"
+                >
+                  Xem tất cả <span className="material-symbols-outlined text-[14px] ml-0.5 font-bold">chevron_right</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 relative z-10">
+              <div id="flash-sale-carousel" className="flex overflow-x-auto gap-3 md:gap-4 relative z-10 scroll-smooth no-scrollbar pb-2 snap-x snap-mandatory">
                 {flashSaleBooks.map(book => (
-                  <BookCard key={book.id} b={book} onAddToCart={addToCart} />
+                  <div key={book.id} className="min-w-[160px] w-[calc(50%-6px)] md:min-w-[200px] md:w-[calc(25%-12px)] lg:min-w-[220px] lg:w-[calc(20%-13px)] shrink-0 snap-start">
+                    <BookCard b={book} onAddToCart={addToCart} />
+                  </div>
                 ))}
               </div>
             </div>

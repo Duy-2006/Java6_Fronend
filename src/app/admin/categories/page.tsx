@@ -76,7 +76,7 @@ function CategoriesContent() {
 
   // Vietnamese Slug generator
   const generateSlug = (name: string) => {
-    return '/the-loai/' + name
+    return name
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -310,7 +310,7 @@ function CategoriesContent() {
 
                 <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex items-center justify-between">
                   <Link
-                    href={`/admin/categories/${item.id}/edit`}
+                    href={`/admin/categories/${item.id}`}
                     className="text-[#b70011] text-xs font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     Xem chi tiết <ArrowRight className="w-3.5 h-3.5" />
@@ -350,7 +350,7 @@ function CategoriesContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4">Thể loại</th>
-                  <th className="px-6 py-4">Slug</th>
+                  <th className="px-6 py-4">Đường dẫn</th>
                   <th className="px-6 py-4 text-center">Số lượng sách</th>
                   <th className="px-6 py-4">Trạng thái</th>
                   <th className="px-6 py-4 text-right">Thao tác</th>
@@ -374,8 +374,9 @@ function CategoriesContent() {
                             />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-800">{item.name}</p>
-                            <p className="text-[11px] text-slate-400">ID: {item.id}</p>
+                            <Link href={`/admin/categories/${item.id}`} className="hover:underline text-slate-800">
+                              <p className="text-sm font-bold text-inherit">{item.name}</p>
+                            </Link>
                           </div>
                         </div>
                       </td>

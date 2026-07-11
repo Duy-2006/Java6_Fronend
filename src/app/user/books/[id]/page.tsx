@@ -135,12 +135,19 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
     ? (reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : "0";
 
-  const authorName =
-    book.authorName ||
-    (typeof book.author === "object" && book.author?.name) ||
-    (typeof book.author === "string" ? book.author : null) ||
-    "—";
-  const publisher = book.publisher || "—";
+  const authorName = book.authorNames && book.authorNames.length > 0
+    ? book.authorNames.join(", ")
+    : (book.authors && book.authors.length > 0
+      ? book.authors.map((a: any) => a.name).join(", ")
+      : (book.authorName ||
+        (typeof book.author === "object" && book.author?.name) ||
+        (typeof book.author === "string" ? book.author : null) ||
+        "—"));
+  const publisher = book.publisherNames && book.publisherNames.length > 0
+    ? book.publisherNames.join(", ")
+    : (book.publishers && book.publishers.length > 0
+      ? book.publishers.map((p: any) => p.name).join(", ")
+      : (book.publisher || "—"));
   const description = book.description || "";
 
   return (

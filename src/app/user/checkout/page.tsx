@@ -502,7 +502,7 @@ export default function CheckoutPage() {
         customerName: form.customerName,
         customerPhone: form.customerPhone,
         email: form.email,
-        customerAddress: form.customerAddress,
+        customerAddress: onlyAudiobooks ? "Sách nói (Digital Delivery)" : form.customerAddress,
         paymentMethod: form.paymentMethod,
         voucherCode: appliedVoucher?.code || null,
         items: itemsPayload,
@@ -1195,7 +1195,7 @@ export default function CheckoutPage() {
                   {/* Calculations */}
                   <div className="border-t border-[#e0e3e5] pt-4 space-y-2.5 text-[13px]">
                     <div className="flex justify-between items-center text-[#545f73]">
-                      <span>Tạm tính</span>
+                      <span>Tiền sách</span>
                       <span className="font-semibold font-mono text-[#191c1e]">{fmt(totalAmount)}</span>
                     </div>
 

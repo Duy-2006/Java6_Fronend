@@ -312,7 +312,7 @@ export default function OrderSuccessPage() {
               <h2 className="text-lg font-semibold text-[#191c1e] mb-6">Tổng kết</h2>
               <div className="space-y-4">
                 <div className="flex justify-between text-[14px] text-[#545f73]">
-                  <span>Tạm tính</span>
+                  <span>Tiền sách</span>
                   <span>{((order.totalAmount || 0) + (order.discountAmount || 0)).toLocaleString('vi-VN')}đ</span>
                 </div>
                 {order.discountAmount && order.discountAmount > 0 ? (

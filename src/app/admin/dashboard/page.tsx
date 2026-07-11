@@ -44,6 +44,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState('year');
 
   // States
   const [stats, setStats] = useState({
@@ -79,7 +80,7 @@ export default function AdminDashboard() {
     return `${apiBase}/uploads/books/${cleanUrl}`;
   };
 
-  const loadDashboardData = async (isSilent = false) => {
+  const loadDashboardData = async (isSilent = false, range = timeRange) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     setError(null);
@@ -87,21 +88,17 @@ export default function AdminDashboard() {
     try {
       // Fetch stats, orders, books and authors
       const [data, allOrders, allBooksList, allAuthorsList] = await Promise.all([
-        getDashboardStats('year'),
+        getDashboardStats(range),
         getAllOrders(),
         getAllBooks().catch(() => []),
         getAllAuthors().catch(() => [])
       ]);
       
-      // Lọc các đơn hàng đã giao thành công (COMPLETED) để tính tổng doanh thu
-      const completedOrders = allOrders.filter(o => o.status === 'COMPLETED');
-      const calculatedRevenue = completedOrders.reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
-      
       const { summary, monthlyRevenue, topBooks, recentTransactions } = data;
 
       // Calculate Stats
       setStats({
-        totalRevenue: calculatedRevenue,
+        totalRevenue: summary?.totalRevenue || 0,
         totalOrders: summary?.totalOrders || 0,
         totalCustomers: summary?.totalCustomers || 0,
         revenueGrowth: summary?.revenueGrowth || 0,
@@ -244,8 +241,8 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    loadDashboardData(false, timeRange);
+  }, [timeRange]);
 
   if (loading) {
     return (
@@ -265,17 +262,20 @@ export default function AdminDashboard() {
           <p className="text-sm text-[#5c403c] font-sans">Chào mừng trở lại! Đây là tóm tắt hoạt động kinh doanh hôm nay.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => loadDashboardData(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[#e0e3e5] text-[#191c1e] rounded-lg font-semibold text-xs hover:bg-[#e6e8ea] transition-all border border-[#e6bdb8]/30 disabled:opacity-50 cursor-pointer"
+          <select 
+            value={timeRange} 
+            onChange={(e) => setTimeRange(e.target.value)}
+            disabled={refreshing || loading}
+            className="px-4 py-2 bg-white text-[#191c1e] rounded-lg font-semibold text-xs border border-[#e6bdb8]/50 focus:outline-none focus:ring-1 focus:ring-[#b70011] cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Tải lại dữ liệu
-          </button>
+            <option value="day">Hôm nay</option>
+            <option value="week">7 ngày qua</option>
+            <option value="month">Tháng này</option>
+            <option value="year">Năm nay</option>
+          </select>
           <button 
             onClick={handleExportReport}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer whitespace-nowrap"
           >
             <Download className="w-4 h-4" />
             Xuất Báo Cáo

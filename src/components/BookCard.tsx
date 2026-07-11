@@ -141,7 +141,22 @@ export default function BookCard({ b, onAddToCart, showFormatBadges = true }: Bo
               {b.title}
             </h3>
           </Link>
-          <p className="text-gray-500 text-xs mb-2 truncate font-medium">{b.authorName || b.author?.name || "Chưa rõ tác giả"}</p>
+          <p className="text-gray-500 text-xs mb-0.5 truncate font-medium">
+            {b.authorNames && b.authorNames.length > 0 
+              ? b.authorNames.join(", ") 
+              : (b.authors && b.authors.length > 0 
+                ? b.authors.map((a: any) => a.name).join(", ") 
+                : (b.authorName || b.author?.name || "Chưa rõ tác giả"))}
+          </p>
+          {((b.publisherNames && b.publisherNames.length > 0) || (b.publishers && b.publishers.length > 0) || b.publisherName || b.publisher?.name || b.publisher) && (
+            <p className="text-gray-400 text-[10px] mb-1.5 truncate">
+              NXB: {b.publisherNames && b.publisherNames.length > 0 
+                ? b.publisherNames.join(", ") 
+                : (b.publishers && b.publishers.length > 0 
+                  ? b.publishers.map((p: any) => p.name).join(", ") 
+                  : (b.publisherName || b.publisher?.name || b.publisher))}
+            </p>
+          )}
 
           <div className="flex items-center gap-1 mb-3">
             <span className="material-symbols-outlined text-[14px] text-yellow-500 fill-1">star</span>

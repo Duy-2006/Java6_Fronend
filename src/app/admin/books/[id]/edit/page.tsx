@@ -35,12 +35,25 @@ export async function generateMetadata({ params }: EditBookPageProps) {
   return { title: book ? `Cập Nhật: ${book.title}` : "Cập Nhật Sách" };
 }
 
+async function getPublishersDirectly() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  try {
+    const res = await authFetch(`${API_BASE}/api/admin/publishers`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error("Lỗi khi fetch nhà xuất bản:", error);
+    return [];
+  }
+}
+
 export default async function EditBookPage({ params }: EditBookPageProps) {
   const { id } = await params;
-  const [bookRaw, authors, categories] = await Promise.all([
+  const [bookRaw, authors, categories, publishers] = await Promise.all([
     getBook(id),
     getAllAuthors(),
     getAllCategories(),
+    getPublishersDirectly(),
   ]);
 
   if (!bookRaw) notFound();
@@ -49,8 +62,8 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
     id: bookRaw.id,
     title: bookRaw.title,
     isbn: bookRaw.isbn ?? "",
-    authorId: bookRaw.authorId ?? "",
-    publisher: bookRaw.publisher ?? "",
+    authorIds: bookRaw.authorIds ?? [],
+    publisherIds: bookRaw.publisherIds ?? [],
     categoryId: bookRaw.categoryId ?? "",
     price: bookRaw.price,
     audioPrice: bookRaw.audioPrice ?? "",
@@ -60,5 +73,5 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
     imageUrl: bookRaw.imageUrl ?? "",
   };
 
-  return <BookForm book={book} authors={authors as any} categories={categories as any} />;
+  return <BookForm book={book} authors={authors as any} categories={categories as any} publishers={publishers as any} />;
 }

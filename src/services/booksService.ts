@@ -46,3 +46,19 @@ export async function deleteBook(id: number): Promise<void> {
   const res = await authFetch(`${BASE_URL}/api/admin/books/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Xóa sách thất bại.");
 }
+
+// Cập nhật giá sách nói
+export async function updateAudioPrice(id: number, audioPrice: number): Promise<Book> {
+  const formData = new URLSearchParams();
+  formData.append("audioPrice", String(audioPrice));
+  
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${id}/audio-price`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString()
+  });
+  if (!res.ok) throw new Error("Cập nhật giá sách nói thất bại.");
+  return res.json();
+}

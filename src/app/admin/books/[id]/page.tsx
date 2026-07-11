@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
-import { getBookById, Book } from "@/services/booksService";
+import { getBookById, updateAudioPrice, Book } from "@/services/booksService";
 import {
     getChapters,
     createChapter,
@@ -136,6 +136,10 @@ export default function BookDetailPage() {
     const [segmentDuration, setSegmentDuration] = useState(0);
     /** Ref đến thẻ Audio duy nhất — centralized, không bao giờ tạo thêm thẻ khác song song */
     const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    // ── Audio Price Form ──
+    const [audioPriceInput, setAudioPriceInput] = useState("");
+    const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
 
     // Ref to always read latest chapters inside interval without re-creating it
     const chaptersRef = useRef<Chapter[]>(chapters);
@@ -1083,6 +1087,62 @@ export default function BookDetailPage() {
                 {/* ── Tab: Audio ── */}
                 {activeTab === "audio" && (
                     <div className="p-6 sm:p-8 md:p-10 space-y-8">
+                        {!book.audioPrice ? (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 max-w-2xl mx-auto text-center space-y-6">
+                                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <AlertTriangle className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-800">Cần thiết lập Giá sách nói</h3>
+                                    <p className="text-slate-600 mt-2 text-sm">
+                                        Để bắt đầu quản lý các chương sách nói, bạn phải thiết lập giá bán cho định dạng sách nói (Audiobook) trước.
+                                    </p>
+                                </div>
+                                <form 
+                                    className="flex items-center justify-center gap-3 max-w-sm mx-auto"
+                                    onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        if (!audioPriceInput || isNaN(Number(audioPriceInput)) || Number(audioPriceInput) < 0) {
+                                            showToast("Vui lòng nhập giá sách nói hợp lệ", "error");
+                                            return;
+                                        }
+                                        setIsSubmittingPrice(true);
+                                        try {
+                                            const updatedBook = await updateAudioPrice(book.id!, Number(audioPriceInput));
+                                            setBook(updatedBook);
+                                            showToast("Đã cập nhật giá sách nói thành công", "success");
+                                        } catch (err: any) {
+                                            showToast(err.message || "Cập nhật giá sách nói thất bại", "error");
+                                            handleAuthError(err);
+                                        } finally {
+                                            setIsSubmittingPrice(false);
+                                        }
+                                    }}
+                                >
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="number" 
+                                            value={audioPriceInput}
+                                            onChange={(e) => setAudioPriceInput(e.target.value)}
+                                            placeholder="Nhập giá sách nói..."
+                                            className="w-full bg-white border border-slate-300 rounded-lg py-2.5 px-4 text-sm font-bold text-slate-700 focus:border-[#b70011] outline-none"
+                                            min="0"
+                                            step="1000"
+                                            required
+                                        />
+                                        <span className="absolute right-4 top-2.5 text-xs font-bold text-slate-400">VNĐ</span>
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSubmittingPrice}
+                                        className="bg-[#b70011] hover:bg-[#b70011]/90 text-white font-bold text-sm px-6 py-2.5 rounded-lg shadow-md disabled:opacity-50 transition-all"
+                                    >
+                                        {isSubmittingPrice ? "Đang xử lý..." : "Xác nhận"}
+                                    </button>
+                                </form>
+                            </div>
+                        ) : (
+                            <>
                         {/* Stats */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                             {[
@@ -1469,6 +1529,8 @@ export default function BookDetailPage() {
                                 )}
                             </div>
                         </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

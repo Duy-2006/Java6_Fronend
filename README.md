@@ -227,4 +227,23 @@ Nếu bạn muốn dùng điện thoại hoặc thiết bị khác trong cùng m
 
 > [!NOTE]
 > * Backend Spring Boot đã được thiết lập CORS động với mẫu đầu vào (`allowedOriginPatterns`) cho phép mọi IP trong dải `http://192.168.*:3000` kết nối mà không bị chặn.
-> * Hãy đảm bảo tường lửa (Firewall) trên máy tính chạy server không chặn các cổng 3000, 8080 và 8000.
+> * Hãy đảm bảo tường lửa (Firewall) trên máy tính chạy server không chặn các cổng 3000, 8080 và 8000.
+
+---
+
+## Ⅴ. Nhật ký cập nhật (Changelog) & Bản vá hệ thống
+
+### 1. Nâng cấp Giao diện & Trải nghiệm (UI/UX)
+* **Đồng bộ hóa nhãn hiển thị Thanh toán:** Đã thay thế nhãn "Tạm tính" thành **"Tiền sách"** đồng loạt trên 4 trang quan trọng: Giỏ hàng, Thanh toán (Checkout), Hóa đơn thành công và Chi tiết đơn hàng. Điều này giúp ngôn từ hiển thị tự nhiên và chuyên nghiệp hơn đối với một hệ thống bán sách.
+
+### 2. Sửa lỗi Dữ liệu (Bug Fixes)
+* **Sửa lỗi mất tên tác giả ở Tủ Sách Nói:** Đã khắc phục lỗi trang "Sách nói của tôi" không hiển thị tên tác giả (chỉ hiện dấu `—`). 
+  * **Nguyên nhân:** Do hệ thống vừa trải qua đợt nâng cấp kiến trúc Entity từ 1-nhiều (One-to-Many) sang **Nhiều-nhiều (Many-to-Many)** để hỗ trợ việc một cuốn sách có nhiều đồng tác giả (`book.getAuthors()`), làm cho API cũ bị lỗi.
+  * **Giải pháp:** Cập nhật Controller trả về của người dùng (`UserBookChaptersApiController.java`), tích hợp Java Stream để gộp (join) danh sách tên tác giả thành một chuỗi duy nhất để hiển thị ra UI.
+
+### 3. Cập nhật Tính năng Bảo mật (DRM - Chống nghe lậu Sách nói)
+* **Nâng cấp Proxy Streaming Backend:** Trước đây, hệ thống trả thẳng URL công khai của Cloudinary (CDN) cho trình duyệt. Dẫn đến rủi ro khách hàng mua xong có thể F12 lấy link chia sẻ cho người khác nghe chùa. Hệ thống hiện tại đã đóng lỗ hổng này bằng **Proxy Stream**.
+  * **Giấu Link Gốc:** URL của file MP3 thực tế đã bị ẩn đi. Frontend chỉ nhận được URL ảo dưới dạng: `/api/user/books/audio/stream/{audioId}?token=...`
+  * **AuthFilter Dual-Mode:** Do thẻ `<audio>` của HTML5 không hỗ trợ đính kèm header `Authorization` khi gọi file nhạc, nên đã nâng cấp `AuthFilter.java` bổ sung ưu tiên đọc JWT Token từ chuỗi truy vấn (URL Parameter).
+  * **Xác thực luồng Stream (Authorization):** Bất cứ khi nào trình duyệt yêu cầu tải âm thanh (Play/Tua tới lui), Spring Boot sẽ bắt lấy và kiểm tra người dùng. Chương 1 luôn miễn phí (Free Trial), từ Chương 2 bắt buộc phải truy vấn DB xem có đơn hàng (`COMPLETED`) chưa. Nếu hợp lệ, Java mới sử dụng `UrlResource` kéo dữ liệu từ CDN xuống và "Bơm" (Pipe stream) trực tiếp cho người dùng. Kẻ trộm link gửi đi nơi khác sẽ dính lỗi HTTP 403 Forbidden ngay lập tức.
+  * **Hotlink Protection (Chặn chia sẻ link):** Để chặn triệt để hành vi copy URL (dù có chứa JWT Token hợp lệ) đem đi chia sẻ, Backend đã được bổ sung cơ chế kiểm tra `Referer`. Bất kỳ yêu cầu tải nhạc nào không xuất phát từ giao diện Web của hệ thống (Ví dụ: Dán trực tiếp vào tab mới, gọi từ Postman, hoặc nhúng từ trang web khác) đều sẽ bị từ chối phục vụ ngay lập tức.

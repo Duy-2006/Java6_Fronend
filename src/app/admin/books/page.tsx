@@ -93,6 +93,7 @@ function BooksContent() {
   const filteredBooks = books.filter(book =>
     book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (book.isbn && book.isbn.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (book.authorNames && book.authorNames.some((name: string) => name.toLowerCase().includes(searchQuery.toLowerCase()))) ||
     ((book.authorName || book.author?.name) && (book.authorName || book.author?.name).toLowerCase().includes(searchQuery.toLowerCase())) ||
     ((book.categoryName || book.category?.name) && (book.categoryName || book.category?.name).toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -115,7 +116,7 @@ function BooksContent() {
         'Mã Sách': book.id,
         'ISBN': book.isbn || 'N/A',
         'Tên Sách': book.title,
-        'Tác Giả': book.authorName || book.author?.name || '(Chưa cập nhật)',
+        'Tác Giả': (book.authorNames && book.authorNames.length > 0) ? book.authorNames.join(", ") : (book.authorName || book.author?.name || '(Chưa cập nhật)'),
         'Thể Loại': book.categoryName || book.category?.name || '(Chưa cập nhật)',
         'Đơn Giá (đ)': book.price,
         'Số Lượng Tồn': book.quantity,
@@ -344,24 +345,13 @@ function BooksContent() {
                         </span>
                       )}
                     </div>
-                    {book.isbn && (
-                      <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-mono text-slate-700 border border-slate-200/50 shadow-sm">
-                        {book.isbn}
-                      </span>
-                    )}
                   </div>
 
                   <div className="p-4 space-y-2">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-[#b70011] uppercase tracking-wider mb-0.5 truncate">
-                        {book.categoryName || book.category?.name || "Thể loại khác"}
-                      </p>
                       <h3 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-tight" title={book.title}>
                         {book.title}
                       </h3>
-                      <p className="text-xs text-slate-500 truncate mt-1">
-                        Tác giả: <span className="font-semibold text-slate-700">{book.authorName || book.author?.name || "Chưa rõ"}</span>
-                      </p>
                     </div>
                   </div>
                 </Link>
@@ -413,9 +403,8 @@ function BooksContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4 w-[100px]">Bìa</th>
-                  <th className="px-6 py-4">Thông tin sách</th>
-                  <th className="px-6 py-4">Thể loại</th>
-                  <th className="px-6 py-4">Giá bán</th>
+                  <th className="px-6 py-4">Tên sách</th>
+                  <th className="px-6 py-4">Giá</th>
                   <th className="px-6 py-4 text-center">Tồn kho</th>
                   <th className="px-6 py-4">Trạng thái</th>
                   <th className="px-6 py-4 text-right">Thao tác</th>
@@ -439,25 +428,9 @@ function BooksContent() {
                         </Link>
                       </td>
                       <td className="px-6 py-3">
-                        <div className="space-y-1">
-                          <Link href={`/admin/books/${book.id}`} className="hover:text-[#b70011] transition-colors block no-underline hover:no-underline">
-                            <p className="text-sm font-bold text-slate-800 line-clamp-1 cursor-pointer">{book.title}</p>
-                          </Link>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span className="font-semibold text-slate-700">{book.authorName || book.author?.name || "Chưa rõ"}</span>
-                            {book.isbn && (
-                              <>
-                                <span className="text-slate-300">•</span>
-                                <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">ISBN: {book.isbn}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3">
-                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-                          {book.categoryName || book.category?.name || "Chưa rõ"}
-                        </span>
+                        <Link href={`/admin/books/${book.id}`} className="hover:text-[#b70011] transition-colors block no-underline hover:no-underline">
+                          <p className="text-sm font-bold text-slate-800 line-clamp-1 cursor-pointer">{book.title}</p>
+                        </Link>
                       </td>
                       <td className="px-6 py-3 text-sm font-bold text-[#b70011]">
                         {priceFormatted}đ
@@ -512,7 +485,7 @@ function BooksContent() {
                 })}
                 {filteredBooks.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-slate-400 py-12 text-sm">
+                    <td colSpan={6} className="text-center text-slate-400 py-12 text-sm">
                       Không tìm thấy sách nào phù hợp.
                     </td>
                   </tr>

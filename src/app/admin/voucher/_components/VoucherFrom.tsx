@@ -183,10 +183,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
   const formatDiscountVal = () => {
     const val = Number(form.discountValue);
     if (!val) return "Giảm giá";
-    if (form.discountType === "PERCENT") {
-      return `Giảm ${val}%`;
-    }
-    return `Giảm ${val.toLocaleString("vi-VN")}đ`;
+    return `Giảm ${val}%`;
   };
 
   return (
@@ -302,26 +299,10 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
               <h3 className="text-sm font-bold text-[#191c1e]">Cấu hình giảm giá</h3>
             </div>
 
-            {/* Discount Type */}
-            <div>
-              <label htmlFor="discountType" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
-                Loại giảm giá
-              </label>
-              <select
-                id="discountType"
-                value={form.discountType}
-                onChange={(e) => setField("discountType", e.target.value as any)}
-                className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20 cursor-pointer"
-              >
-                <option value="PERCENT">Phần trăm (%)</option>
-                <option value="FIXED">Số tiền cố định (VNĐ)</option>
-              </select>
-            </div>
-
             {/* Discount Value */}
             <div>
               <label htmlFor="discountValue" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
-                Giá trị giảm <span className="text-red-500">*</span>
+                Giá trị giảm (%) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
@@ -330,39 +311,37 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
                   step="any"
                   value={form.discountValue}
                   onChange={(e) => setField("discountValue", e.target.value)}
-                  placeholder={form.discountType === "PERCENT" ? "Ví dụ: 15 (15%)" : "Ví dụ: 50000"}
+                  placeholder="Ví dụ: 15 (15%)"
                   className={`w-full bg-slate-50 border ${errors.discountValue ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
-                  {form.discountType === "PERCENT" ? "%" : "VNĐ"}
+                  %
                 </span>
               </div>
               {errors.discountValue && <p className="mt-1 text-xs text-red-600 font-medium">{errors.discountValue}</p>}
             </div>
 
             {/* Max Discount (Only for PERCENT type) */}
-            {form.discountType === "PERCENT" && (
-              <div>
-                <label htmlFor="maxDiscount" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
-                  Mức giảm tối đa (VNĐ)
-                </label>
-                <div className="relative">
-                  <input
-                    id="maxDiscount"
-                    type="number"
-                    step="any"
-                    value={form.maxDiscount ?? ""}
-                    onChange={(e) => setField("maxDiscount", e.target.value)}
-                    placeholder="Để trống nếu không giới hạn"
-                    className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
-                    VNĐ
-                  </span>
-                </div>
-                <p className="mt-1 text-[10px] text-[#916f6b]">Chỉ áp dụng cho hình thức giảm theo phần trăm</p>
+            <div>
+              <label htmlFor="maxDiscount" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
+                Mức giảm tối đa (VNĐ)
+              </label>
+              <div className="relative">
+                <input
+                  id="maxDiscount"
+                  type="number"
+                  step="any"
+                  value={form.maxDiscount ?? ""}
+                  onChange={(e) => setField("maxDiscount", e.target.value)}
+                  placeholder="Để trống nếu không giới hạn"
+                  className="w-full bg-slate-50 border border-[#e6bdb8]/50 rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
+                  VNĐ
+                </span>
               </div>
-            )}
+              <p className="mt-1 text-[10px] text-[#916f6b]">Giới hạn số tiền giảm tối đa của voucher này</p>
+            </div>
           </div>
 
           {/* Card 3: Conditions */}

@@ -78,6 +78,7 @@ export function validatePromotion(f: PromotionFields): FieldErrors<PromotionFiel
   else if (f.name.trim().length > 100)        e.name          = "Tên không được vượt quá 100 ký tự.";
   if (f.discountValue === "")                 e.discountValue = "Giá trị giảm không được để trống.";
   else if (!isValidPercent(f.discountValue))  e.discountValue = "Giá trị giảm phải từ 1 đến 100.";
+  else if (Number(f.discountValue) > 50)      e.discountValue = "Mức giảm giá tối đa không được vượt quá 50%.";
   if (!isValidDate(f.startDate))             e.startDate     = "Ngày bắt đầu không hợp lệ.";
   if (!isValidDate(f.endDate))               e.endDate       = "Ngày kết thúc không hợp lệ.";
   if (isValidDate(f.startDate) && isValidDate(f.endDate) && new Date(f.endDate) <= new Date(f.startDate))

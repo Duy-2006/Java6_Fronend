@@ -375,7 +375,7 @@ function OrderDetailContent() {
               <h2 className="text-lg font-semibold text-[#191c1e] mb-6">Tổng kết hóa đơn</h2>
               <div className="space-y-4">
                 <div className="flex justify-between text-[14px] text-[#545f73]">
-                  <span>Tạm tính</span>
+                  <span>Tiền sách</span>
                   <span>{fmt(itemsSubtotal)}đ</span>
                 </div>
                 {order.discountAmount && order.discountAmount > 0 ? (

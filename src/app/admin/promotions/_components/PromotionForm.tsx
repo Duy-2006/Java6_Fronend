@@ -58,6 +58,30 @@ export default function PromotionForm({
   const [errors, setErrors] = useState<ReturnType<typeof validatePromotion>>({});
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [activePromoBookIds, setActivePromoBookIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const fetchActivePromoBooks = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const res = await fetch(`${API_URL}/api/books/flash-sale`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const ids = new Set<number>(data.map((b: any) => b.id));
+            // Nếu đang sửa Khuyến mãi, không ẩn các sách thuộc chính Khuyến mãi này
+            if (selectedBookIds && selectedBookIds.length > 0) {
+              selectedBookIds.forEach(id => ids.delete(id));
+            }
+            setActivePromoBookIds(ids);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching flash sale books:", err);
+      }
+    };
+    fetchActivePromoBooks();
+  }, [selectedBookIds]);
 
   const set = (field: string, value: any) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -129,7 +153,7 @@ export default function PromotionForm({
   };
 
   const filteredBooks = books.filter(b =>
-    b.title.toLowerCase().includes(bookSearch.toLowerCase())
+    !activePromoBookIds.has(b.id) && b.title.toLowerCase().includes(bookSearch.toLowerCase())
   );
   const filteredCats = categories.filter(c =>
     c.name.toLowerCase().includes(catSearch.toLowerCase())
@@ -245,7 +269,7 @@ export default function PromotionForm({
                   onChange={e => set("discountValue", e.target.value)}
                   placeholder="VD: 25"
                   min={1}
-                  max={100}
+                  max={50}
                   className={`w-full bg-slate-50 border ${errors.discountValue ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#916f6b]">
