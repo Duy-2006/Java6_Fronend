@@ -10,6 +10,8 @@ export interface PromotionDTO {
   status: boolean;
   applyType: "ALL" | "BOOK" | "CATEGORY";
   computedStatus?: string;        // UPCOMING | ACTIVE | EXPIRED | UNKNOWN
+  usageLimit?: number;
+  usedCount?: number;
   bookIds?: number[];
   bookTitles?: string[];
   categoryIds?: number[];

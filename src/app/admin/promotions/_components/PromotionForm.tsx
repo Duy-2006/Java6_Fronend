@@ -224,6 +224,7 @@ export default function PromotionForm({
                     className={`pf-input ${errors.startDate ? "error" : ""}`}
                     type="date"
                     value={form.startDate}
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={e => set("startDate", e.target.value)}
                   />
                   <FieldError msg={errors.startDate} />
@@ -236,6 +237,7 @@ export default function PromotionForm({
                     className={`pf-input ${errors.endDate ? "error" : ""}`}
                     type="date"
                     value={form.endDate}
+                    min={form.startDate || new Date().toISOString().split("T")[0]}
                     onChange={e => set("endDate", e.target.value)}
                   />
                   <FieldError msg={errors.endDate} />

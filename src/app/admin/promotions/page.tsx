@@ -41,7 +41,21 @@ export default function PromotionsPage() {
         return;
       }
 
-      const data = await getAllPromotions(token);
+      let data = await getAllPromotions(token);
+      
+      // Sort: ACTIVE -> UPCOMING -> EXPIRED, then by startDate descending
+      const statusOrder: Record<string, number> = { ACTIVE: 1, UPCOMING: 2, EXPIRED: 3, UNKNOWN: 4 };
+      data.sort((a, b) => {
+        const statusA = a.computedStatus || "UNKNOWN";
+        const statusB = b.computedStatus || "UNKNOWN";
+        if (statusOrder[statusA] !== statusOrder[statusB]) {
+          return statusOrder[statusA] - statusOrder[statusB];
+        }
+        const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+        return dateB - dateA;
+      });
+      
       setPromotions(data);
     } catch (error: any) {
       setFetchError(error.message || "Không thể tải danh sách khuyến mãi.");
@@ -96,6 +110,7 @@ export default function PromotionsPage() {
                   <th>Tên</th>
                   <th>Giá trị giảm</th>
                   <th>Loại áp dụng</th>
+                  <th>Lượt dùng</th>
                   <th>Ngày bắt đầu</th>
                   <th>Ngày kết thúc</th>
                   <th>Trạng thái</th>
@@ -119,10 +134,14 @@ export default function PromotionsPage() {
                         <td>{p.name}</td>
                         <td>{p.discountValue}%</td>
                         <td><span className={`pbadge ${apply.cls}`}>{apply.label}</span></td>
+                        <td>
+                          {p.usageLimit ? `${p.usedCount || 0} / ${p.usageLimit}` : "Không giới hạn"}
+                        </td>
                         <td>{p.startDate}</td>
                         <td>{p.endDate}</td>
                         <td><span className={`pbadge ${status.cls}`}>{status.label}</span></td>
                         <td className="promo-actions">
+                          <Link href={`/admin/promotions/${p.id}`}>Chi tiết</Link>
                           <Link href={`/admin/promotions/${p.id}/edit`}>Sửa</Link>
                           {/* ✅ Truyền getData làm onDeleted — xóa xong tự cập nhật list ngay */}
                           <DeletePromoButton
