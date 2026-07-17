@@ -23,13 +23,16 @@ import {
   Calendar,
   DollarSign,
   Grid,
-  List
+  List,
+  CheckCircle2
 } from "lucide-react";
 
+// MỤC 4: Bổ sung trạng thái DELIVERED (Giao hàng thành công) vào cấu hình STATUS_MAP
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
   PENDING:   { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-800 border-amber-200",  icon: Hourglass },
   CONFIRMED: { label: "Đã xác nhận",  cls: "bg-blue-50 text-blue-800 border-blue-200",       icon: Check },
   SHIPPING:  { label: "Đang giao",    cls: "bg-indigo-50 text-indigo-800 border-indigo-200", icon: Truck },
+  DELIVERED: { label: "Giao hàng thành công", cls: "bg-teal-50 text-teal-800 border-teal-200", icon: CheckCircle2 },
   COMPLETED: { label: "Hoàn thành",   cls: "bg-green-50 text-green-800 border-green-200",    icon: CheckSquare },
   CANCELLED: { label: "Đã hủy",       cls: "bg-red-50 text-red-800 border-red-200",         icon: Ban },
 };
@@ -91,24 +94,35 @@ function OrdersContent() {
     setCurrentPage(1);
   }, [searchQuery]);
 
+  // Đảm bảo safeOrders luôn luôn là mảng
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
   const filtered = searchQuery
-    ? orders.filter(
+    ? safeOrders.filter(
         (order) =>
-          (order.orderCode || order.id?.toString() || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customerPhone || "").includes(searchQuery)
+          (order && (order.orderCode || order.id?.toString() || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order && (order.customerName || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order && (order.customerPhone || "")).includes(searchQuery)
       )
-    : orders;
+    : safeOrders;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  // Tính toán phân trang
+  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filtered.slice(startIndex, startIndex + itemsPerPage);
+  
+  const paginatedOrders = Array.isArray(filtered) 
+    ? filtered.slice(startIndex, startIndex + itemsPerPage) 
+    : [];
 
-  // Statistics calculation
-  const totalCount = orders.length;
-  const processingCount = orders.filter(o => ['PENDING', 'CONFIRMED', 'SHIPPING'].includes(o.status)).length;
-  const totalRevenue = orders
-    .filter(o => o.status === 'COMPLETED')
+  // Statistics calculation - Cập nhật cho Mục 4
+  const totalCount = safeOrders.length;
+  
+  const processingCount = safeOrders.filter(
+    (o) => o && ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED'].includes(o.status)
+  ).length;
+  
+  const totalRevenue = safeOrders
+    .filter((o) => o && o.status === 'COMPLETED')
     .reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
 
   const handleExportExcel = async () => {
@@ -152,7 +166,7 @@ function OrdersContent() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
       {/* Toast Alert */}
       {toast && (
         <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
@@ -227,7 +241,7 @@ function OrdersContent() {
             <p className="font-bold text-[10px] text-[#916f6b] uppercase tracking-widest mb-1">Đang xử lý</p>
             <h3 className="text-2xl font-bold text-[#191c1e] leading-none">{processingCount}</h3>
             <p className="font-semibold text-xs text-amber-600 mt-1">
-              Đơn hàng cần xử lý vận chuyển
+              Đơn hàng đang trong chu trình xử lý
             </p>
           </div>
         </div>
@@ -305,7 +319,7 @@ function OrdersContent() {
 
       {/* Main Content: Grid or Table */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {paginatedOrders.map((order) => {
             const status = STATUS_MAP[order.status] ?? {
               label: order.status,
@@ -359,7 +373,7 @@ function OrdersContent() {
                   </div>
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center"
+                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center cursor-pointer"
                     title="Chi tiết đơn hàng"
                   >
                     <Eye className="w-4 h-4" />
@@ -534,3 +548,4 @@ export default function OrdersPage() {
     </Suspense>
   );
 }
+

@@ -24,15 +24,24 @@ export async function getDashboardStats(range: string = 'year'): Promise<any> {
     credentials: 'include',
   });
   if (!res.ok) {
-    // Neu backend tra ve 401 thi phien dang nhap da het han, chuyen ve trang login
     if (res.status === 401) {
       if (typeof window !== 'undefined') {
-         localStorage.removeItem('token');
-         window.location.href = '/auth/login';
+        localStorage.removeItem('token');
+        window.location.href = '/auth/login';
       }
       throw new Error('Phiên đăng nhập hết hạn');
     }
-    throw new Error('Không thể tải số liệu thống kê.');
+    
+    // Ghi lỗi ra log thay vì ném lỗi (throw Error) làm sập màn hình
+    console.error("Lỗi tải số liệu thống kê từ Backend.");
+    
+    // Trả về dữ liệu trống mặc định bằng số 0 để giữ giao diện an toàn
+    return {
+      totalOrders: 0,
+      processingOrders: 0,
+      completedRevenue: 0
+    };
   }
+
   return res.json();
 }

@@ -382,7 +382,8 @@ function BannersContent() {
                     type="text" 
                     placeholder="Ví dụ: Banner chương trình Sale Hè 2026..." 
                     className="w-full bg-white border border-[#e6bdb8] rounded px-4 py-3 text-sm focus:ring-1 focus:ring-[#b70011] focus:border-[#b70011] transition-all outline-none"
-                    value={formData.image_url ? getBannerName(formData) : ""}
+                    // THAY ĐỔI: Ưu tiên tên file upload, sau đó mới dùng getBannerName
+                    value={imageFile ? imageFile.name : (formData.image_url ? getBannerName(formData) : "")}
                     disabled
                   />
                   <p className="text-[11px] text-[#545f73] mt-1.5 italic">derived tự động từ tên tệp hình ảnh được chọn</p>
@@ -599,15 +600,34 @@ function BannersContent() {
                     : 'w-44 aspect-[9/16] mx-auto py-4 border-x border-[#e6bdb8]/40'
                 }`}>
                   {formData.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img 
-                      src={getImageUrl(formData.image_url)} 
-                      alt="Banner Preview" 
-                      className="w-full h-full object-cover rounded shadow-sm"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&auto=format&fit=crop&q=60";
-                      }}
-                    />
+                    // THAY ĐỔI: Bọc ảnh trong thẻ <a> nếu có link
+                    formData.link ? (
+                      <a 
+                        href={formData.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="w-full h-full block cursor-pointer"
+                        title={`Click để test thử liên kết: ${formData.link}`}
+                      >
+                        <img 
+                          src={getImageUrl(formData.image_url)} 
+                          alt="Banner Preview" 
+                          className="w-full h-full object-cover rounded shadow-sm hover:opacity-90 transition-opacity"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&auto=format&fit=crop&q=60";
+                          }}
+                        />
+                      </a>
+                    ) : (
+                      <img 
+                        src={getImageUrl(formData.image_url)} 
+                        alt="Banner Preview" 
+                        className="w-full h-full object-cover rounded shadow-sm"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                    )
                   ) : (
                     <div className="text-center p-4">
                       <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-1" />
