@@ -56,6 +56,7 @@ function validate(f: FormState): FormErrors {
 export default function CheckoutPage() {
   const router = useRouter();
   const [rawCartDetails, setRawCartDetails] = useState<CartDetail[]>([]);
+  const [cartDetailIds, setCartDetailIds] = useState<number[]>([]);
   const [shippingFee, setShippingFee] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -158,8 +159,22 @@ export default function CheckoutPage() {
         return;
       }
       try {
+        const idsStr = sessionStorage.getItem("selectedCartDetailIds");
+        if (!idsStr) {
+          router.push("/user/cart");
+          return;
+        }
+        const parsedIds = JSON.parse(idsStr);
+        if (!Array.isArray(parsedIds) || parsedIds.length === 0) {
+          router.push("/user/cart");
+          return;
+        }
+        setCartDetailIds(parsedIds);
+
         const res = await authFetch(`${API_URL}/api/checkout/preview`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartDetailIds: parsedIds }),
         });
         if (!res.ok) throw new Error((await res.json()).error || "Không thể lấy thông tin đơn hàng.");
         const data = await res.json();
@@ -355,6 +370,48 @@ export default function CheckoutPage() {
     return totalAmount + shippingFee - discount - (appliedVoucher?.discountAmount || 0);
   }, [totalAmount, shippingFee, discount, appliedVoucher]);
 
+  const groupedDisplayItems = useMemo(() => {
+    const map = new Map<number, {
+      bookId: number;
+      title: string;
+      imageUrl: string;
+      authorName?: string;
+      isAudiobook?: boolean;
+      price: number;
+      promoPart?: { quantity: number; price: number; total: number };
+      normalPart?: { quantity: number; price: number; total: number };
+    }>();
+
+    displayItems.forEach((item) => {
+      if (!map.has(item.bookId)) {
+        map.set(item.bookId, {
+          bookId: item.bookId,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          authorName: item.authorName,
+          isAudiobook: item.isAudiobook,
+          price: item.price,
+        });
+      }
+      const grouped = map.get(item.bookId)!;
+      if (item.isPromo) {
+        grouped.promoPart = {
+          quantity: item.quantity,
+          price: item.displayPrice,
+          total: item.displayTotal,
+        };
+      } else {
+        grouped.normalPart = {
+          quantity: item.quantity,
+          price: item.displayPrice,
+          total: item.displayTotal,
+        };
+      }
+    });
+
+    return Array.from(map.values());
+  }, [displayItems]);
+
   // 2.5 Tính toán phí vận chuyển GHTK khi thay đổi địa chỉ hoặc tổng tiền
   useEffect(() => {
     if (onlyAudiobooks) {
@@ -506,6 +563,7 @@ export default function CheckoutPage() {
         paymentMethod: form.paymentMethod,
         voucherCode: appliedVoucher?.code || null,
         items: itemsPayload,
+        cartDetailIds,
         saveAddress: useManualAddress && saveAddress,
         provinceId: selectedProvince ? parseInt(selectedProvince) : null,
         districtId: selectedDistrict ? parseInt(selectedDistrict) : null,
@@ -523,6 +581,7 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        sessionStorage.removeItem("selectedCartDetailIds");
         if (form.paymentMethod === "VNPAY") {
           const paymentRes = await authFetch(`${API_URL}/api/payment/create`, {
             method: "POST",
@@ -1131,17 +1190,18 @@ export default function CheckoutPage() {
                       Đơn hàng của bạn
                     </h3>
                     <span className="text-[12px] text-[#545f73] font-semibold font-mono">
-                      {displayItems.length} sản phẩm
+                      {groupedDisplayItems.length} sản phẩm
                     </span>
                   </div>
 
                   {/* Items Scroll Area */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 divide-y divide-[#eceef0] no-scrollbar">
-                    {displayItems.map((item, idx) => (
+                    {groupedDisplayItems.map((item, idx) => (
                       <div
-                        key={idx}
+                        key={item.bookId}
                         className={`flex gap-4 items-start ${idx > 0 ? "pt-4" : ""}`}
                       >
+                        {/* Hiện một ảnh */}
                         <div className="w-[60px] h-[90px] bg-[#eceef0] border border-[#e0e3e5] rounded-[2px] flex-shrink-0 overflow-hidden relative shadow-sm">
                           <img
                             src={getImageUrl(item.imageUrl)}
@@ -1159,32 +1219,31 @@ export default function CheckoutPage() {
                             Tác giả: {item.authorName}
                           </p>
 
-                          <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
-                            <span className="text-[11px] text-[#545f73] font-mono">SL: {item.quantity}</span>
-                            <div className="text-right">
-                              <span className="font-bold text-[13px] font-mono text-[#b70011]">
-                                {fmt(item.displayTotal)}
-                              </span>
-                              {item.displayPrice < item.price && (
-                                <div className="text-[10px] text-gray-400 line-through font-mono">
-                                  {fmt(item.price * item.quantity)}
-                                </div>
-                              )}
-                            </div>
+                          {/* Tách ra sản phẩm không giảm giá và giảm giá ra riêng, chỉ ghi số lượng và giá tiền */}
+                          <div className="mt-2 space-y-1 font-sans text-[11px]">
+                            {item.promoPart && (
+                              <div className="flex justify-between items-center text-[#b70011] font-semibold">
+                                <span>Khuyến mãi (SL: {item.promoPart.quantity})</span>
+                                <span className="font-mono">{fmt(item.promoPart.total)}</span>
+                              </div>
+                            )}
+                            {item.normalPart && (
+                              <div className="flex justify-between items-center text-[#545f73]">
+                                <span>Giá gốc (SL: {item.normalPart.quantity})</span>
+                                <span className="font-mono">{fmt(item.normalPart.total)}</span>
+                              </div>
+                            )}
                           </div>
 
+                          {/* Chỉ ghi chú phía dưới */}
                           <div className="flex items-center gap-1.5 mt-2">
                             {item.isAudiobook ? (
-                              <>
-                                <span className="px-1.5 py-0.5 bg-[#6a7188] text-white text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách nói</span>
-                              </>
+                              <span className="px-1.5 py-0.5 bg-[#6a7188] text-white text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách nói</span>
                             ) : (
-                              <>
-                                <span className="px-1.5 py-0.5 bg-[#d5e0f8] text-[#586377] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách giấy</span>
-                              </>
+                              <span className="px-1.5 py-0.5 bg-[#d5e0f8] text-[#586377] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách giấy</span>
                             )}
-                            {item.isPromo && (
-                              <span className="px-1.5 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Khuyến mãi</span>
+                            {item.promoPart && (
+                              <span className="px-1.5 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Có khuyến mãi</span>
                             )}
                           </div>
                         </div>

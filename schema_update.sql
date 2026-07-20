@@ -30,3 +30,27 @@ BEGIN
     ALTER TABLE AUDIO_BOOK ADD is_outdated BIT NOT NULL DEFAULT 0;
 END
 GO
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = N'title' AND Object_ID = Object_ID(N'banners'))
+BEGIN
+    ALTER TABLE banners ADD title NVARCHAR(255);
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = N'description' AND Object_ID = Object_ID(N'banners'))
+BEGIN
+    ALTER TABLE banners ADD description NVARCHAR(255);
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = N'created_at' AND Object_ID = Object_ID(N'banners'))
+BEGIN
+    ALTER TABLE banners ADD created_at DATETIME2;
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = N'updated_at' AND Object_ID = Object_ID(N'banners'))
+BEGIN
+    ALTER TABLE banners ADD updated_at DATETIME2;
+END
+GO

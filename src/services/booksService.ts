@@ -24,6 +24,10 @@ export interface Book {
   description?: string;  // Mo ta chi tiet ve cuon sach
   imageUrl?: string;     // Duong dan anh bia sach (luu trong thu muc uploads/books/)
   audioPrice?: number;   // Gia ban phien ban sach noi (0 = chua co sach noi)
+  authorIds?: number[];
+  authorNames?: string[];
+  categoryName?: string;
+  soldCount?: number;
 }
 
 // Lay toan bo danh sach sach tu backend (dung cho trang quan ly sach Admin)

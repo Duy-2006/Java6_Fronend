@@ -118,22 +118,6 @@ function AuthorsContent() {
   };
 
 
-  const getAuthorBio = (name: string) => {
-    const lowercaseName = name.toLowerCase();
-    if (lowercaseName.includes("anh")) {
-      return "Nguyễn Nhật Ánh là một trong những nhà văn được yêu thích nhất tại Việt Nam với các tác phẩm dành cho tuổi trẻ.";
-    }
-    if (lowercaseName.includes("rowling")) {
-      return "Tác giả của loạt tiểu thuyết Harry Potter nổi tiếng toàn cầu, người đã thay đổi thế giới văn học thiếu nhi.";
-    }
-    if (lowercaseName.includes("brown")) {
-      return "Chuyên về tiểu thuyết trinh thám và biểu tượng học, nổi tiếng với Mật mã Da Vinci và Thiên thần và Ác quỷ.";
-    }
-    if (lowercaseName.includes("murakami")) {
-      return "Nhà văn người Nhật nổi tiếng thế giới với phong cách hiện thực huyền ảo và các tác phẩm kinh điển.";
-    }
-    return `${name} là nhà văn/tác giả đóng góp nhiều tác phẩm giá trị cho kho tàng văn học hiện đại.`;
-  };
 
   // Tìm tác giả nổi bật nhất
   const popularAuthor = [...authors].sort((a, b) => (b.bookCount || 0) - (a.bookCount || 0))[0] || {
@@ -241,7 +225,7 @@ function AuthorsContent() {
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
-              type="text" 
+              type="search" 
               placeholder="Tìm kiếm tác giả..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
@@ -290,18 +274,23 @@ function AuthorsContent() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {paginatedAuthors.map((item) => (
-            <div key={item.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4">
+            <div 
+              key={item.id} 
+              className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4 cursor-pointer hover:border-[#b70011]/30"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('.action-button')) return;
+                router.push(`/admin/authors/${item.id}`);
+              }}
+            >
               <div className="flex items-center gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 line-clamp-1">{item.name}</h3>
-                  <p className="text-[11px] font-mono text-[#916f6b]">ID: AUTH-{item.id}</p>
+                  <span className="text-sm font-bold text-slate-800 group-hover:text-[#b70011] transition-colors line-clamp-1">
+                    {item.name}
+                  </span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs text-slate-500 line-clamp-2 min-h-[32px]">
-                  {getAuthorBio(item.name)}
-                </p>
                 <div className="flex items-center gap-1.5 text-xs text-slate-400">
                   <Mail className="w-3.5 h-3.5" />
                   <span className="truncate">{item.email || '(Chưa cập nhật email)'}</span>
@@ -313,15 +302,18 @@ function AuthorsContent() {
                   {item.bookCount ?? 0} Sách
                 </span>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 action-button">
                   <Link 
                     href={`/admin/authors/${item.id}/edit`}
                     className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                     title="Chỉnh sửa"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Edit className="w-4.5 h-4.5" />
                   </Link>
-                  <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -349,30 +341,34 @@ function AuthorsContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4">Tác giả</th>
-                  <th className="px-6 py-4">Số lượng sách</th>
-                  <th className="px-6 py-4 hidden lg:table-cell">Tiểu sử</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Số lượng sách</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10">
                 {paginatedAuthors.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                  <tr 
+                    key={item.id} 
+                    className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('.action-button')) return;
+                      router.push(`/admin/authors/${item.id}`);
+                    }}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div>
-                          <p className="text-sm font-bold text-slate-800">{item.name}</p>
-                          <p className="text-[11px] font-mono text-slate-400">ID: AUTH-{item.id}</p>
+                          <span className="text-sm font-bold text-slate-800 group-hover:text-[#b70011] transition-colors">
+                            {item.name}
+                          </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" style={{ textAlign: "center" }}>
                       <span className="text-sm font-semibold text-slate-600">{item.bookCount ?? 0} tác phẩm</span>
                     </td>
-                    <td className="px-6 py-4 hidden lg:table-cell max-w-[300px]">
-                      <p className="text-xs text-slate-500 truncate">{getAuthorBio(item.name)}</p>
-                    </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" style={{ textAlign: "center" }}>
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                         (item.bookCount && item.bookCount > 0)
                           ? 'bg-green-50 text-green-800 border-green-200'
@@ -384,23 +380,26 @@ function AuthorsContent() {
                         {(item.bookCount && item.bookCount > 0) ? 'Đang hoạt động' : 'Tạm ngưng'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end items-center gap-1.5">
+                    <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                      <div className="flex justify-center items-center gap-1.5 action-button">
                         <Link 
                           href={`/admin/authors/${item.id}/edit`}
                           className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                           title="Chỉnh sửa"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="w-4.5 h-4.5" />
                         </Link>
-                        <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                        </div>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {filteredAuthors.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center text-slate-400 py-12 text-sm">
+                    <td colSpan={4} className="text-center text-slate-400 py-12 text-sm">
                       Không tìm thấy tác giả nào phù hợp.
                     </td>
                   </tr>

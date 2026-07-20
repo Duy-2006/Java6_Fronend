@@ -25,7 +25,7 @@ import {
   TrendingUp
 } from "lucide-react";
 
-export function getCustomerClassification(totalSpending: number) {
+function getCustomerClassification(totalSpending: number) {
   if (totalSpending >= 2000000) {
     return {
       rank: "VIP Diamond",
@@ -309,12 +309,13 @@ function CustomersContent() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Search bar */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div style={{ position: "relative" }} className="w-full sm:w-64">
+            <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
             <input 
-              type="text" 
+              type="search" 
+              style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm kiếm khách hàng..."
-              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -361,7 +362,14 @@ function CustomersContent() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedCustomers.map((item) => (
-            <div key={item.username} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4">
+            <div 
+              key={item.username} 
+              className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4 cursor-pointer hover:border-[#b70011]/30"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('.action-button')) return;
+                router.push(`/admin/customers/${item.username}/history`);
+              }}
+            >
               <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 rounded-full border flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-sm overflow-hidden ${getAvatarBgColor(item.username)}`}>
                   {item.avatar ? (
@@ -388,20 +396,12 @@ function CustomersContent() {
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-slate-800 truncate" title={item.fullName}>{item.fullName}</h3>
+                  <h3 className="text-sm font-bold text-slate-800 truncate group-hover:text-[#b70011] transition-colors" title={item.fullName}>{item.fullName}</h3>
                   <p className="text-[11px] font-mono text-[#916f6b]">@{item.username}</p>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs text-slate-500">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                  <span className="truncate" title={item.email}>{item.email || '(Chưa cập nhật email)'}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                  <span>{item.phone || '(Chưa cập nhật SĐT)'}</span>
-                </div>
                 <div className="pt-2 flex justify-between items-center border-t border-slate-100">
                   <span className="text-slate-400 font-medium">Tổng chi tiêu:</span>
                   <span className="font-bold text-[#b70011]">{new Intl.NumberFormat("vi-VN").format(item.totalSpending)} đ</span>
@@ -409,8 +409,6 @@ function CustomersContent() {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <CustomerTypeBadge totalSpending={item.totalSpending} />
-                
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                   item.active 
                     ? "bg-green-50 text-green-800 border-green-200" 
@@ -421,21 +419,24 @@ function CustomersContent() {
                 </span>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 action-button">
                 <Link 
                   href={`/admin/customers/${item.username}/history`} 
                   className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold"
                   title="Xem lịch sử mua hàng"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span>Lịch sử</span>
                 </Link>
-                <ToggleStatusButton 
-                  username={item.username} 
-                  isActive={item.active} 
-                  onToggleSuccess={refreshCustomers} 
-                  onShowToast={(msg, type) => setToast({ msg, type })}
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ToggleStatusButton 
+                    username={item.username} 
+                    isActive={item.active} 
+                    onToggleSuccess={refreshCustomers} 
+                    onShowToast={(msg, type) => setToast({ msg, type })}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -455,16 +456,21 @@ function CustomersContent() {
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4">Khách hàng</th>
                   <th className="px-6 py-4">Username</th>
-                  <th className="px-6 py-4 hidden md:table-cell">Số điện thoại</th>
-                  <th className="px-6 py-4 text-right">Tổng chi tiêu</th>
-                  <th className="px-6 py-4">Phân loại</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Tổng chi tiêu</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
                 {paginatedCustomers.map((item) => (
-                  <tr key={item.username} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                  <tr 
+                    key={item.username} 
+                    className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('.action-button')) return;
+                      router.push(`/admin/customers/${item.username}/history`);
+                    }}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm overflow-hidden ${getAvatarBgColor(item.username)}`}>
@@ -492,27 +498,17 @@ function CustomersContent() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-800">{item.fullName}</p>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {item.email || '(Chưa cập nhật email)'}
-                          </p>
+                          <p className="text-sm font-bold text-slate-800 group-hover:text-[#b70011] transition-colors">{item.fullName}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs text-slate-500">
                       @{item.username}
                     </td>
-                    <td className="px-6 py-4 hidden md:table-cell text-xs text-slate-500">
-                      {item.phone || '(Chưa cập nhật)'}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-[#b70011]">
+                    <td className="px-6 py-4 font-bold text-[#b70011]" style={{ textAlign: "center" }}>
                       {new Intl.NumberFormat("vi-VN").format(item.totalSpending)} đ
                     </td>
-                    <td className="px-6 py-4">
-                      <CustomerTypeBadge totalSpending={item.totalSpending} />
-                    </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" style={{ textAlign: "center" }}>
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                         item.active 
                           ? 'bg-green-50 text-green-800 border-green-200' 
@@ -522,29 +518,32 @@ function CustomersContent() {
                         {item.active ? 'Hoạt động' : 'Đã khóa'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end items-center gap-2">
+                    <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                      <div className="flex justify-center items-center gap-2 action-button">
                         <Link 
                           href={`/admin/customers/${item.username}/history`} 
                           className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold"
                           title="Xem lịch sử mua hàng"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Clock className="w-3.5 h-3.5" />
                           <span>Lịch sử</span>
                         </Link>
-                        <ToggleStatusButton 
-                          username={item.username} 
-                          isActive={item.active} 
-                          onToggleSuccess={refreshCustomers} 
-                          onShowToast={(msg, type) => setToast({ msg, type })}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ToggleStatusButton 
+                            username={item.username} 
+                            isActive={item.active} 
+                            onToggleSuccess={refreshCustomers} 
+                            onShowToast={(msg, type) => setToast({ msg, type })}
+                          />
+                        </div>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-slate-400 py-12 text-sm">
+                    <td colSpan={5} className="text-center text-slate-400 py-12 text-sm">
                       Không tìm thấy khách hàng nào phù hợp.
                     </td>
                   </tr>

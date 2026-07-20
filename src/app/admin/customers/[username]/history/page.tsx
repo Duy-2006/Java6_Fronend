@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { getCustomerHistory, CustomerHistory } from "@/services/customersService";
+import { getCustomerHistory, CustomerHistory, getCustomerClassification } from "@/services/customersService";
+import ToggleStatusButton from "@/app/admin/customers/_components/ToggleStatusButton";
 import {
   ArrowLeft,
   ChevronRight,
@@ -23,7 +24,8 @@ import {
   Calendar,
   ShoppingCart,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Award
 } from "lucide-react";
 
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
@@ -42,6 +44,7 @@ export default function CustomerHistoryPage() {
   const [customer, setCustomer] = useState<CustomerHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const fetchHistory = async () => {
     if (!username) return;
@@ -74,6 +77,12 @@ export default function CustomerHistoryPage() {
       document.title = "Lịch sử mua hàng - Libris Admin";
     }
   }, [customer, username]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   if (loading) {
     return (
@@ -113,9 +122,44 @@ export default function CustomerHistoryPage() {
   const orders = customer.orders ?? [];
   const totalSpendingFormatted = new Intl.NumberFormat("vi-VN").format(customer.totalSpending ?? 0);
   const initial = customer.fullName?.charAt(0)?.toUpperCase() ?? "U";
+  const classification = getCustomerClassification(customer.totalSpending ?? 0);
+
+  const getAvatarBgColor = (username: string) => {
+    const hash = username.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      "bg-red-50 text-[#b70011] border-red-100",
+      "bg-blue-50 text-blue-700 border-blue-100",
+      "bg-emerald-50 text-emerald-700 border-emerald-100",
+      "bg-amber-50 text-amber-700 border-amber-100",
+      "bg-purple-50 text-purple-700 border-purple-100",
+      "bg-indigo-50 text-indigo-700 border-indigo-100",
+    ];
+    return colors[hash % colors.length];
+  };
 
   return (
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
+      {/* Toast Alert */}
+      {toast && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
+          toast.type === 'success' 
+            ? 'bg-green-50 text-green-800 border-green-200' 
+            : 'bg-red-50 text-red-800 border-red-200'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+            <p className="text-sm font-semibold">{toast.msg}</p>
+          </div>
+          <button 
+            type="button" 
+            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer" 
+            onClick={() => setToast(null)}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Navigation Breadcrumb */}
       <div className="flex flex-col gap-2">
         <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
@@ -123,7 +167,7 @@ export default function CustomerHistoryPage() {
           <ChevronRight className="w-3.5 h-3.5" />
           <Link href="/admin/customers" className="hover:text-[#b70011] transition-colors">Khách hàng</Link>
           <ChevronRight className="w-3.5 h-3.5" />
-          <span className="text-[#b70011]">Lịch sử mua hàng</span>
+          <span className="text-[#b70011]">Hồ sơ chi tiết</span>
         </nav>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -145,7 +189,7 @@ export default function CustomerHistoryPage() {
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm p-6 space-y-6">
             <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-24 h-24 rounded-full bg-[#ffdad6] text-[#b70011] border-4 border-white shadow-md flex items-center justify-center text-3xl font-bold font-sans overflow-hidden relative">
+              <div className={`w-24 h-24 rounded-full border-4 border-white shadow-md flex items-center justify-center text-3xl font-bold font-sans overflow-hidden relative ${getAvatarBgColor(customer.username)}`}>
                 {customer.avatar ? (
                   <img
                     src={customer.avatar.startsWith("http") ? customer.avatar : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${customer.avatar}`}
@@ -174,10 +218,10 @@ export default function CustomerHistoryPage() {
                 <p className="text-xs font-mono text-slate-500">@{customer.username}</p>
               </div>
               
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
                 {customer.active ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-green-50 text-green-700 border-green-200">
-                    <ShieldCheck className="w-3 h-3" />
+                    <ShieldCheck className="w-3 h-3 animate-pulse" />
                     Đang hoạt động
                   </span>
                 ) : (
@@ -186,8 +230,10 @@ export default function CustomerHistoryPage() {
                     Bị khóa
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200 uppercase">
-                  {customer.customerType || "Member"}
+                
+                <span className={`inline-flex items-center gap-1 border px-2.5 py-0.5 rounded-full text-[10px] font-bold ${classification.color}`}>
+                  <Award className="w-3 h-3" />
+                  <span>{classification.rank}</span>
                 </span>
               </div>
             </div>
@@ -197,11 +243,11 @@ export default function CustomerHistoryPage() {
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-3">
                   <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  <span className="text-slate-700 truncate">{customer.email || "—"}</span>
+                  <span className="text-slate-700 truncate" title={customer.email}>{customer.email || "Chưa cập nhật email"}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  <span className="text-slate-700 font-mono">{customer.phone || "—"}</span>
+                  <span className="text-slate-700 font-mono">{customer.phone || "Chưa cập nhật số điện thoại"}</span>
                 </div>
               </div>
             </div>
@@ -214,7 +260,20 @@ export default function CustomerHistoryPage() {
               <h2 className="text-2xl font-bold text-[#b70011]">
                 {totalSpendingFormatted} <span className="text-xs font-normal text-slate-500">đ</span>
               </h2>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1">Dựa trên tất cả đơn hàng đã hoàn thành</p>
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#e6bdb8]/20 text-xs text-slate-500">
+                <span>Tổng số đơn đặt:</span>
+                <span className="font-bold text-slate-800">{orders.length} đơn</span>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-6 flex items-center justify-between gap-4">
+              <span className="text-xs text-slate-400 font-medium">Hành động tài khoản:</span>
+              <ToggleStatusButton 
+                username={customer.username} 
+                isActive={customer.active} 
+                onToggleSuccess={fetchHistory} 
+                onShowToast={(msg, type) => setToast({ msg, type })}
+              />
             </div>
           </div>
         </div>

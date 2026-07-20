@@ -276,12 +276,11 @@ export default function VoucherListPage() {
 
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-[#916f6b]" />
-            </span>
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#916f6b] pointer-events-none" />
             <input
-              type="text"
-              className="block w-full pl-9 pr-3 py-2 border border-[#e6bdb8]/50 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all bg-[#f2f4f6]/50 hover:bg-white text-[#191c1e]"
+              type="search"
+              style={{ paddingLeft: "2.5rem" }}
+              className="block w-full pr-3 py-2 border border-[#e6bdb8]/50 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all bg-[#f2f4f6]/50 hover:bg-white text-[#191c1e]"
               placeholder="Tìm kiếm mã voucher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

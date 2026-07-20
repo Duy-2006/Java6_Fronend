@@ -20,8 +20,10 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  Download
+  Download,
+  Database
 } from 'lucide-react';
+import { authFetch } from '@/lib/authFetch';
 import { getDashboardStats } from '@/services/statsService';
 import { getAllOrders } from '@/services/ordersService';
 import { getAllBooks } from '@/services/booksService';
@@ -45,6 +47,7 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('year');
+  const [isRebuilding, setIsRebuilding] = useState(false);
 
   // States
   const [stats, setStats] = useState({
@@ -240,6 +243,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRebuildIndex = async () => {
+    if (!confirm('Bạn có chắc chắn muốn cập nhật lại toàn bộ dữ liệu sách vào hệ thống AI không? Quá trình này có thể mất một lúc.')) {
+      return;
+    }
+    
+    setIsRebuilding(true);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const res = await authFetch(`${apiBase}/api/admin/ai-index/rebuild`, {
+        method: 'POST',
+      });
+      
+      if (!res.ok) {
+        throw new Error('Lỗi khi cập nhật dữ liệu AI');
+      }
+      
+      alert('Đã cập nhật dữ liệu AI thành công! Chatbot hiện đã có thể trả lời các câu hỏi về sách.');
+    } catch (err: any) {
+      console.error('Error rebuilding index:', err);
+      alert('Lỗi: ' + err.message);
+    } finally {
+      setIsRebuilding(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardData(false, timeRange);
   }, [timeRange]);
@@ -273,6 +301,14 @@ export default function AdminDashboard() {
             <option value="month">Tháng này</option>
             <option value="year">Năm nay</option>
           </select>
+          <button 
+            onClick={handleRebuildIndex}
+            disabled={isRebuilding}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRebuilding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            {isRebuilding ? 'Đang cập nhật...' : 'Cập nhật AI'}
+          </button>
           <button 
             onClick={handleExportReport}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer whitespace-nowrap"

@@ -34,6 +34,8 @@ interface OrderFull {
   discountAmount?: number;
   cancelReason?: string;
   shippingFee?: number;
+  requiresManualRefundContact?: boolean;
+  refundContactMessage?: string;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
@@ -152,7 +154,7 @@ function OrderDetailContent() {
       setCancelError("Vui lòng nhập lý do hủy đơn.");
       return;
     }
-    
+
     if (!isLoggedIn() || !userId) return;
 
     setCancelLoading(true);
@@ -240,7 +242,7 @@ function OrderDetailContent() {
   return (
     <div className="bg-[#f7f9fb] text-[#191c1e] min-h-screen flex flex-col font-sans">
       <Navbar />
-      
+
       <main className="max-w-[1440px] mx-auto px-4 md:px-8 py-8 flex-1 w-full">
         {/* Breadcrumbs / Header Actions */}
         <div className="mb-6 flex justify-between items-center">
@@ -254,7 +256,7 @@ function OrderDetailContent() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Main Content Column */}
           <div className="md:col-span-8 space-y-6">
-            
+
             {/* General Order Info Card */}
             <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
@@ -296,15 +298,30 @@ function OrderDetailContent() {
             </div>
 
             {/* Cancel Reason Warning */}
-            {order.status === "CANCELLED" && order.cancelReason && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex gap-4 items-start shadow-sm">
-                <div className="w-10 h-10 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined">warning</span>
-                </div>
-                <div>
-                  <h3 className="text-[14px] font-bold text-[#ba1a1a] uppercase tracking-wide">Đơn hàng đã bị hủy</h3>
-                  <p className="text-[14px] text-[#ba1a1a] mt-1 font-medium">Lý do: {order.cancelReason}</p>
-                </div>
+            {order.status === "CANCELLED" && (
+              <div className="space-y-4">
+                {order.cancelReason && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex gap-4 items-start shadow-sm">
+                    <div className="w-10 h-10 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center flex-shrink-0">
+                      <span className="material-symbols-outlined">warning</span>
+                    </div>
+                    <div>
+                      <h3 className="text-[14px] font-bold text-[#ba1a1a] uppercase tracking-wide">Đơn hàng đã bị hủy</h3>
+                      <p className="text-[14px] text-[#ba1a1a] mt-1 font-medium">Lý do: {order.cancelReason}</p>
+                    </div>
+                  </div>
+                )}
+                {order.requiresManualRefundContact && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 flex gap-4 items-start shadow-sm">
+                    <div className="w-10 h-10 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0">
+                      <span className="material-symbols-outlined">info</span>
+                    </div>
+                    <div>
+                      <h3 className="text-[14px] font-bold text-amber-800 uppercase tracking-wide">Thông báo hoàn tiền</h3>
+                      <p className="text-[14px] text-amber-900 mt-1 font-medium leading-relaxed">{order.refundContactMessage}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -369,7 +386,7 @@ function OrderDetailContent() {
 
           {/* Sidebar Column */}
           <div className="md:col-span-4 space-y-6">
-            
+
             {/* Cost Summary & Actions Card */}
             <div className="bg-white border-t-2 border-[#b70011] border-x border-b border-[#e0e3e5] rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-[#191c1e] mb-6">Tổng kết hóa đơn</h2>

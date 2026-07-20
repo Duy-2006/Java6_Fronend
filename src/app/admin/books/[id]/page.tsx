@@ -557,19 +557,19 @@ export default function BookDetailPage() {
     const handleDeleteLanguageAudio = useCallback(
         async (chapterId: number, langCode: string) => {
             if (!bookId) return;
-            const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn toàn bộ bản dịch tiếng ${langCode.toUpperCase()} của chương này?`);
+            const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa mềm bản dịch tiếng ${langCode.toUpperCase()} của chương này?`);
             if (!confirmed) return;
             
             try {
-                showToast("Đang xóa bản dịch...", "info");
+                showToast("Đang xóa mềm bản dịch...", "info");
                 const updatedChapter = await deleteChapterAudio(bookId, chapterId, langCode);
                 setChapters((prev) =>
                     prev.map((c) => (c.id === chapterId ? updatedChapter : c))
                 );
-                showToast(`Đã xóa vĩnh viễn bản dịch tiếng ${langCode.toUpperCase()} thành công.`, "success");
+                showToast(`Đã xóa mềm bản dịch tiếng ${langCode.toUpperCase()} thành công.`, "success");
             } catch (err: any) {
                 console.error("Failed to delete language audio:", err);
-                showToast(err.message || "Không thể xóa bản dịch.", "error");
+                showToast(err.message || "Không thể xóa mềm bản dịch.", "error");
                 handleAuthError(err);
             }
         },
@@ -987,12 +987,22 @@ export default function BookDetailPage() {
                                     <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
                                         {book.title}
                                     </h3>
-                                    <p className="text-sm font-semibold text-slate-400 mt-1.5 italic">
-                                        Tác giả:{" "}
-                                        <span className="text-[#b70011] font-bold uppercase tracking-wider not-italic">
-                                            {book.publisher || "Đang cập nhật"}
-                                        </span>
-                                    </p>
+                                    <div className="flex flex-col gap-1.5 mt-2 text-xs sm:text-sm text-slate-500 font-medium">
+                                        <p>
+                                            Tác giả:{" "}
+                                            <span className="text-[#b70011] font-bold uppercase tracking-wider">
+                                                {book.authorNames && book.authorNames.length > 0 
+                                                    ? book.authorNames.join(", ") 
+                                                    : (book as any).authorName || "Đang cập nhật"}
+                                            </span>
+                                        </p>
+                                        <p>
+                                            Danh mục:{" "}
+                                            <span className="text-slate-800 font-bold">
+                                                {book.categoryName || "Đang cập nhật"}
+                                            </span>
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1008,6 +1018,14 @@ export default function BookDetailPage() {
                                                 </label>
                                                 <p className="font-mono text-sm font-bold text-slate-800">
                                                     {book.isbn || "—"}
+                                                </p>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50">
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                                    Danh mục / Thể loại
+                                                </label>
+                                                <p className="font-bold text-slate-800 text-sm">
+                                                    {book.categoryName || "—"}
                                                 </p>
                                             </div>
                                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50">
@@ -1424,10 +1442,20 @@ export default function BookDetailPage() {
                                                                                              <button
                                                                                                  onClick={() => handleRegenerateLanguageAudio(chapter.id, languageId, lang)}
                                                                                                  disabled={!languageId || isProcessing}
-                                                                                                 className={`p-1.5 transition-colors ${isOutdated ? 'text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-200' : 'text-slate-600 hover:bg-slate-100'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                                                 className={`p-1.5 transition-colors border-r border-slate-200 ${isOutdated ? 'text-amber-600 bg-amber-50 hover:bg-amber-100' : 'text-slate-600 hover:bg-slate-100'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                                                  title={`Dịch/Cập nhật lại âm thanh tiếng ${lang.toUpperCase()}`}
                                                                                              >
                                                                                                  <RotateCw className={`w-3.5 h-3.5 ${isProcessing ? 'text-indigo-400 animate-spin' : isOutdated ? 'text-amber-600' : 'text-slate-500'}`} />
+                                                                                             </button>
+
+                                                                                             {/* Soft Delete Button */}
+                                                                                             <button
+                                                                                                 onClick={() => handleDeleteLanguageAudio(chapter.id, lang)}
+                                                                                                 disabled={isProcessing}
+                                                                                                 className={`p-1.5 transition-colors text-slate-600 hover:bg-red-50 hover:text-red-600 ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-400' : ''}`}
+                                                                                                 title={`Xóa mềm bản dịch tiếng ${lang.toUpperCase()}`}
+                                                                                             >
+                                                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                                                              </button>
                                                                                          </div>
                                                                                      );

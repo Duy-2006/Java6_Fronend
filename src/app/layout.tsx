@@ -11,6 +11,8 @@ import { Manrope, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
+import Chatbot from "@/components/chatbot/Chatbot";
+
 // Khai bao font Geist (sans-serif) lam font chinh, gan vao bien CSS --font-sans
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -36,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${manrope.className} bg-[#f0f0f0] text-gray-800 antialiased`}>
         {children}
+        <Chatbot />
       </body>
     </html>
   );

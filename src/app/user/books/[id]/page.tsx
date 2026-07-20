@@ -220,9 +220,13 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
               <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-[0_1px_4px_rgba(20,22,26,0.08)] space-y-6">
 
                 {/* Title */}
-                <div className="space-y-3">
+                 <div className="space-y-3">
                   <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight">{book.title}</h1>
-                  <p className="text-xs text-gray-500 font-medium">Tác giả: <span className="text-gray-800 font-bold">{authorName}</span></p>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
+                    <p>Tác giả: <span className="text-gray-800 font-bold">{authorName}</span></p>
+                    <span className="text-gray-300">•</span>
+                    <p>Thể loại: <span className="text-[#C92127] font-bold">{book.category?.name || book.categoryName || "Đang cập nhật"}</span></p>
+                  </div>
 
                   {/* Rating / Review count */}
                   <div className="flex items-center gap-2">

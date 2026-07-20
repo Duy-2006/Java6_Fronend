@@ -302,6 +302,11 @@ export default function CartPage() {
       showToast("Vui lòng chọn ít nhất một sản phẩm để thanh toán", "error");
       return;
     }
+    
+    // Lưu danh sách ID các sản phẩm được chọn để thanh toán
+    const selectedIds = selectedItems.map(item => item.cartDetailId);
+    sessionStorage.setItem("selectedCartDetailIds", JSON.stringify(selectedIds));
+    
     router.push("/user/checkout");
   };
 
@@ -361,6 +366,14 @@ export default function CartPage() {
     }
     return sum + itemTotal;
   }, 0);
+
+  // Tính giá gốc (không áp dụng flash sale) để hiển thị số tiền tiết kiệm
+  const originalTotal = items.reduce((sum, item) => {
+    if (!item.selected) return sum;
+    return sum + item.price * item.quantity;
+  }, 0);
+
+  const savedAmount = originalTotal - subTotal;
 
   const total = subTotal;
 
@@ -497,9 +510,24 @@ export default function CartPage() {
                               </div>
                               
                               <div className="text-right flex-shrink-0">
-                                <span className="font-semibold text-[20px] text-[#191c1e]">{fmt(itemTotal)}</span>
-                                {hasDiscount && (
-                                  <div className="text-[12px] text-gray-400 line-through mt-1 font-mono">{fmt(item.price * item.quantity)}</div>
+                                {hasDiscount ? (
+                                  <div className="text-[13px] space-y-1 text-right font-sans">
+                                    {promoQty > 0 && (
+                                      <div className="text-[#b70011] font-semibold">
+                                        Khuyến mãi: {promoQty} x {fmt(promoPrice)}
+                                      </div>
+                                    )}
+                                    {normalQty > 0 && (
+                                      <div className="text-[#545f73]">
+                                        Giá gốc: {normalQty} x {fmt(item.price)}
+                                      </div>
+                                    )}
+                                    <div className="font-semibold text-[20px] text-[#191c1e] mt-1 border-t border-[#eceef0] pt-1">
+                                      {fmt(itemTotal)}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold text-[20px] text-[#191c1e]">{fmt(itemTotal)}</span>
                                 )}
                               </div>
                             </div>
@@ -562,9 +590,17 @@ export default function CartPage() {
                   
                   <div className="space-y-3 font-sans">
                     <div className="flex justify-between text-[14px] text-[#545f73]">
-                      <span>Tiền sách ({items.length} sản phẩm)</span>
+                      <span>Tiền sách ({items.filter(i => i.selected).length} sản phẩm)</span>
                       <span className="font-semibold text-[#191c1e]">{fmt(subTotal)}</span>
                     </div>
+                    {savedAmount > 0 && (
+                      <div className="flex justify-between text-[14px]">
+                        <span className="text-[#191c1e] flex items-center gap-1">
+                          Tiết kiệm được
+                        </span>
+                        <span className="text-[#191c1e] font-semibold">-{fmt(savedAmount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-[14px] text-[#545f73]">
                       <span>Phí vận chuyển</span>
                       <span className="text-[#166534] font-semibold">Miễn phí</span>

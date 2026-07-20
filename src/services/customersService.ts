@@ -100,3 +100,36 @@ export async function toggleCustomerStatus(username: string): Promise<ToggleStat
   });
   return handleResponse(res);
 }
+
+export function getCustomerClassification(totalSpending: number) {
+  if (totalSpending >= 2000000) {
+    return {
+      rank: "VIP Diamond",
+      color: "bg-purple-50 text-purple-700 border-purple-200",
+      icon: "",
+      isVip: true
+    };
+  }
+  if (totalSpending >= 1000000) {
+    return {
+      rank: "VIP Gold",
+      color: "bg-amber-50 text-amber-700 border-amber-200",
+      icon: "",
+      isVip: true
+    };
+  }
+  if (totalSpending >= 500000) {
+    return {
+      rank: "Thành viên thân thiết",
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: "",
+      isVip: false
+    };
+  }
+  return {
+    rank: "Mới đăng ký",
+    color: "bg-slate-50 text-slate-700 border-slate-200",
+    icon: "",
+    isVip: false
+  };
+}

@@ -253,12 +253,13 @@ function OrdersContent() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Search bar */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div style={{ position: "relative" }} className="w-full sm:w-64">
+            <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
             <input 
-              type="text" 
+              type="search" 
+              style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm mã đơn, khách hàng..."
-              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -322,7 +323,14 @@ function OrdersContent() {
             const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
             return (
-              <div key={order.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-5 space-y-4 flex flex-col justify-between">
+              <div 
+                key={order.id} 
+                className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-5 space-y-4 flex flex-col justify-between cursor-pointer hover:border-[#b70011]/30"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('.action-button')) return;
+                  router.push(`/admin/orders/${order.id}`);
+                }}
+              >
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
@@ -347,6 +355,7 @@ function OrdersContent() {
                       <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span>{orderDate}</span>
                     </p>
+
                   </div>
                 </div>
 
@@ -359,8 +368,9 @@ function OrdersContent() {
                   </div>
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center"
+                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center action-button"
                     title="Chi tiết đơn hàng"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Eye className="w-4 h-4" />
                   </Link>
@@ -382,12 +392,12 @@ function OrdersContent() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
-                  <th className="px-6 py-4 text-center w-[120px]">Mã Đơn</th>
+                  <th className="px-6 py-4 w-[120px]" style={{ textAlign: "center" }}>Mã Đơn</th>
                   <th className="px-6 py-4">Khách hàng</th>
                   <th className="px-6 py-4">Ngày đặt</th>
-                  <th className="px-6 py-4 text-right">Tổng tiền</th>
-                  <th className="px-6 py-4 text-center">Trạng thái</th>
-                  <th className="px-6 py-4 text-right w-[140px]">Thao tác</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Tổng tiền</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
+                  <th className="px-6 py-4 w-[140px]" style={{ textAlign: "center" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
@@ -407,8 +417,15 @@ function OrdersContent() {
                   const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
                   return (
-                    <tr key={order.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
-                      <td className="px-6 py-4 text-center">
+                    <tr 
+                      key={order.id} 
+                      className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('.action-button')) return;
+                        router.push(`/admin/orders/${order.id}`);
+                      }}
+                    >
+                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
                         <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
                           {order.orderCode || order.id}
                         </span>
@@ -428,21 +445,22 @@ function OrdersContent() {
                           <span>{orderDate}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-[#b70011]">
+                      <td className="px-6 py-4 font-bold text-[#b70011]" style={{ textAlign: "center" }}>
                         {amount} <span className="text-xs font-normal text-slate-500">đ</span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${status.cls}`}>
                           <StatusIcon className="w-3.5 h-3.5" />
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end">
+                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                        <div className="flex justify-center action-button">
                           <Link
                             href={`/admin/orders/${order.id}`}
                             className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center cursor-pointer"
                             title="Chi tiết đơn hàng"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Eye className="w-4 h-4" />
                           </Link>

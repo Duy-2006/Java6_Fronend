@@ -52,6 +52,8 @@ export default function OrderSuccessPage() {
   const [shippingFee, setShippingFee] = useState(0);
   const [calculating, setCalculating] = useState(false);
   const [recommendations, setRecommendations] = useState<BookRecommendation[]>([]);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     document.title = "Xác nhận đặt hàng thành công |  Bookstore";
@@ -171,6 +173,37 @@ export default function OrderSuccessPage() {
 
   const labels = ["Mới nhất", "Xu hướng", "Phổ biến", "Gợi ý"];
 
+  const handleCancelOrder = async () => {
+    if (!cancelReason?.trim()) {
+      alert("Bạn chưa nhập lý do hủy. Vui lòng nhập lý do.");
+      return;
+    }
+    
+    const userId = getUserIdFromToken();
+    if (!userId || !order) return;
+    
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+      const res = await authFetch(
+        `${API_URL}/api/orders/cancel/${order.id}?userId=${userId}&cancelReason=${encodeURIComponent(cancelReason)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+      if (res.ok) {
+        setOrder({ ...order, status: "CANCELLED" });
+        setCancelModalVisible(false);
+        setCancelReason("");
+        alert("Đã hủy đơn thành công.");
+      } else {
+        alert(`Hủy đơn thất bại: ${await res.text()}`);
+      }
+    } catch (e) {
+      alert("Lỗi khi hủy đơn hàng.");
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -211,7 +244,28 @@ export default function OrderSuccessPage() {
     return null;
   }
 
-  const orderItems = order.orderDetails || order.details || [];
+  const rawOrderItems = order.orderDetails || order.details || [];
+  
+  // Group items by bookId to combine promo and normal priced items of the same book
+  const groupedOrderItems = Array.from(
+    rawOrderItems.reduce((map, item) => {
+      if (!map.has(item.bookId)) {
+        map.set(item.bookId, {
+          id: item.id, // Just use the first id for key
+          bookId: item.bookId,
+          bookTitle: item.bookTitle,
+          bookImageUrl: item.bookImageUrl,
+          isAudiobook: item.isAudiobook,
+          quantity: 0,
+          totalSubtotal: 0,
+        });
+      }
+      const grouped = map.get(item.bookId)!;
+      grouped.quantity += item.quantity;
+      grouped.totalSubtotal += item.price * item.quantity;
+      return map;
+    }, new Map<number, any>()).values()
+  );
 
   return (
     <div className="bg-[#f7f9fb] text-[#191c1e] min-h-screen flex flex-col font-sans">
@@ -220,11 +274,17 @@ export default function OrderSuccessPage() {
       <main className="max-w-[1440px] mx-auto px-4 md:px-8 py-8 flex-1 w-full">
         {/* Success Header */}
         <div className="flex flex-col items-center text-center mb-12">
-          <div className="w-20 h-20 bg-[#ffdad6] text-[#93000b] rounded-full flex items-center justify-center mb-6 animate-bounce">
-            <span className="material-symbols-outlined text-[48px] icon-semibold">check_circle</span>
+          <div className={`w-20 h-20 ${order.status === "CANCELLED" ? "bg-gray-200 text-gray-500" : "bg-[#ffdad6] text-[#93000b] animate-bounce"} rounded-full flex items-center justify-center mb-6`}>
+            <span className="material-symbols-outlined text-[48px] icon-semibold">
+              {order.status === "CANCELLED" ? "cancel" : "check_circle"}
+            </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#b70011] mb-2">Đặt hàng thành công!</h1>
-          <p className="text-[16px] text-[#545f73] max-w-lg">Cảm ơn bạn đã tin tưởng lựa chọn Bibliora. Đơn hàng của bạn đang được xử lý.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#b70011] mb-2">
+            {order.status === "CANCELLED" ? "Đơn hàng đã hủy" : "Đặt hàng thành công!"}
+          </h1>
+          <p className="text-[16px] text-[#545f73] max-w-lg">
+            {order.status === "CANCELLED" ? "Đơn hàng của bạn đã được hủy thành công." : "Cảm ơn bạn đã tin tưởng lựa chọn Bibliora. Đơn hàng của bạn đang được xử lý."}
+          </p>
         </div>
 
         {/* Bento Layout for Order Details */}
@@ -273,7 +333,7 @@ export default function OrderSuccessPage() {
             <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-[#191c1e] mb-6">Sản phẩm đã mua</h2>
               <div className="space-y-4">
-                {orderItems.map((item, index) => (
+                {groupedOrderItems.map((item: any, index: number) => (
                   <div key={item.id}>
                     <div className="flex items-center gap-4 py-2 hover:bg-[#f7f9fb] transition-colors rounded-lg group px-2">
                       <div className="w-16 h-20 bg-[#eceef0] rounded overflow-hidden flex-shrink-0 border border-[#e0e3e5]">
@@ -293,11 +353,11 @@ export default function OrderSuccessPage() {
                         </span>
                       </div>
                       <div className="text-right">
-                        <p className="text-[14px] font-bold text-[#191c1e]">{item.price.toLocaleString('vi-VN')}đ</p>
+                        <p className="text-[14px] font-bold text-[#191c1e]">{item.totalSubtotal.toLocaleString('vi-VN')}đ</p>
                         <p className="text-[10px] text-[#545f73]">x{item.quantity}</p>
                       </div>
                     </div>
-                    {index < orderItems.length - 1 && (
+                    {index < groupedOrderItems.length - 1 && (
                       <div className="h-px bg-[#e0e3e5]/50 my-2"></div>
                     )}
                   </div>
@@ -352,6 +412,17 @@ export default function OrderSuccessPage() {
                 >
                   Tiếp tục mua sắm
                 </Link>
+                {(order.status === "PENDING" || order.status === "CONFIRMED") && order.paymentStatus !== "PAID" && (
+                  <button
+                    onClick={() => {
+                      setCancelReason("");
+                      setCancelModalVisible(true);
+                    }}
+                    className="w-full py-3 bg-white border border-[#ba1a1a] text-[#ba1a1a] text-center font-bold text-[14px] rounded-lg hover:bg-[#ffdad6] active:scale-[0.98] transition-all"
+                  >
+                    Hủy đơn hàng
+                  </button>
+                )}
               </div>
             </div>
 
@@ -402,6 +473,49 @@ export default function OrderSuccessPage() {
           </div>
         )}
       </main>
+
+      {/* Cancellation Modal */}
+      {cancelModalVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 transition-opacity duration-200">
+          <div className="bg-white rounded-[20px] w-full max-w-[420px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="material-symbols-outlined text-[#b70011] text-[28px]">warning</span>
+              <h3 className="text-[20px] font-bold text-[#191c1e]">Yêu cầu hủy đơn hàng</h3>
+            </div>
+            
+            <p className="text-[14px] text-gray-600 mb-5">
+              Mã đơn: <span className="font-bold text-[#191c1e]">#{order.orderCode}</span>
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-[12px] font-bold text-[#545f73] uppercase tracking-wider mb-2">
+                Lý do hủy đơn <span className="text-[#b70011]">*</span>
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Vui lòng cho biết lý do bạn muốn hủy đơn hàng này..."
+                className="w-full min-h-[120px] border border-[#e0e3e5] rounded-xl p-3.5 text-[14px] text-[#191c1e] placeholder-gray-400 focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all resize-none"
+              ></textarea>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancelModalVisible(false)}
+                className="flex-1 py-3 rounded-[12px] border border-[#e0e3e5] text-[#191c1e] font-bold hover:bg-gray-50 transition-all text-[14px]"
+              >
+                Không, giữ đơn
+              </button>
+              <button
+                onClick={handleCancelOrder}
+                className="flex-1 py-3 rounded-[12px] bg-[#b70011] text-white font-bold hover:bg-[#93000b] transition-all text-[14px]"
+              >
+                Xác nhận hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

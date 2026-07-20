@@ -15,25 +15,15 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-interface Book {
-  id: number;
-  title: string;
-  price: number;
-  quantity: number;
-  imageUrl?: string;
-  authorName?: string;
-  active: boolean;
-  audioPrice?: number;
-  soldCount?: number;
-}
+import { Book } from '@/services/booksService';
 
-interface CategoryBooksListProps {
+interface PublisherBooksListProps {
   books: Book[];
-  categoryName: string;
+  publisherName: string;
   baseUrl: string;
 }
 
-export default function CategoryBooksList({ books = [], categoryName, baseUrl }: CategoryBooksListProps) {
+export default function PublisherBooksList({ books = [], publisherName, baseUrl }: PublisherBooksListProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'price-asc' | 'price-desc' | 'quantity' | 'sold'>('title');
@@ -66,7 +56,7 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
       const q = searchTerm.toLowerCase();
       result = result.filter(b => 
         b.title.toLowerCase().includes(q) || 
-        (b.authorName && b.authorName.toLowerCase().includes(q))
+        (b.categoryName && b.categoryName.toLowerCase().includes(q))
       );
     }
 
@@ -111,7 +101,7 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
             </div>
           </div>
           <p className="text-2xl font-black text-slate-800">{stats.total}</p>
-          <p className="text-xs text-slate-400 mt-1">Tác phẩm lưu trữ</p>
+          <p className="text-xs text-slate-400 mt-1">Ấn phẩm xuất bản</p>
         </div>
 
         <div className="bg-gradient-to-br from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
@@ -164,7 +154,7 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm sách hoặc tác giả..."
+            placeholder="Tìm kiếm sách hoặc thể loại..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-[#f8fafc] border border-slate-200 rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all outline-none"
@@ -216,9 +206,9 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
       {/* Book Grid View */}
       {processedBooks.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
-          {processedBooks.map((book) => (
+          {processedBooks.map((book, index) => (
             <div 
-              key={book.id} 
+              key={book.id ?? index} 
               onClick={() => router.push(`/admin/books/${book.id}`)}
               className="cursor-pointer bg-white border border-slate-100 hover:border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between"
             >
@@ -259,7 +249,7 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
                   <h4 className="text-xs font-bold text-slate-800 line-clamp-2 min-h-[32px] group-hover:text-[#b70011] transition-colors leading-tight" title={book.title}>
                     {book.title}
                   </h4>
-                  <p className="text-[10px] text-slate-400 truncate">{book.authorName || 'Chưa rõ tác giả'}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{book.categoryName || 'Chưa rõ thể loại'}</p>
                 </div>
                 
                 <div className="pt-2 border-t border-slate-100 flex items-end justify-between">
@@ -282,7 +272,7 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
           <AlertCircle className="w-12 h-12 text-slate-400 mb-3" />
           <p className="text-slate-600 font-bold text-base">Không tìm thấy sách nào</p>
           <p className="text-slate-400 text-sm max-w-sm mt-1">
-            Không tìm thấy tựa sách nào khớp với từ khóa tìm kiếm hoặc điều kiện lọc hiện tại.
+            Không tìm thấy tựa sách nào của nhà xuất bản này khớp với từ khóa tìm kiếm hoặc điều kiện lọc hiện tại.
           </p>
           <button 
             onClick={() => { setSearchTerm(''); setFilterActive('all'); }}

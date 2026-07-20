@@ -245,5 +245,75 @@ Nếu bạn muốn dùng điện thoại hoặc thiết bị khác trong cùng m
 * **Nâng cấp Proxy Streaming Backend:** Trước đây, hệ thống trả thẳng URL công khai của Cloudinary (CDN) cho trình duyệt. Dẫn đến rủi ro khách hàng mua xong có thể F12 lấy link chia sẻ cho người khác nghe chùa. Hệ thống hiện tại đã đóng lỗ hổng này bằng **Proxy Stream**.
   * **Giấu Link Gốc:** URL của file MP3 thực tế đã bị ẩn đi. Frontend chỉ nhận được URL ảo dưới dạng: `/api/user/books/audio/stream/{audioId}?token=...`
   * **AuthFilter Dual-Mode:** Do thẻ `<audio>` của HTML5 không hỗ trợ đính kèm header `Authorization` khi gọi file nhạc, nên đã nâng cấp `AuthFilter.java` bổ sung ưu tiên đọc JWT Token từ chuỗi truy vấn (URL Parameter).
-  * **Xác thực luồng Stream (Authorization):** Bất cứ khi nào trình duyệt yêu cầu tải âm thanh (Play/Tua tới lui), Spring Boot sẽ bắt lấy và kiểm tra người dùng. Chương 1 luôn miễn phí (Free Trial), từ Chương 2 bắt buộc phải truy vấn DB xem có đơn hàng (`COMPLETED`) chưa. Nếu hợp lệ, Java mới sử dụng `UrlResource` kéo dữ liệu từ CDN xuống và "Bơm" (Pipe stream) trực tiếp cho người dùng. Kẻ trộm link gửi đi nơi khác sẽ dính lỗi HTTP 403 Forbidden ngay lập tức.
-  * **Hotlink Protection (Chặn chia sẻ link):** Để chặn triệt để hành vi copy URL (dù có chứa JWT Token hợp lệ) đem đi chia sẻ, Backend đã được bổ sung cơ chế kiểm tra `Referer`. Bất kỳ yêu cầu tải nhạc nào không xuất phát từ giao diện Web của hệ thống (Ví dụ: Dán trực tiếp vào tab mới, gọi từ Postman, hoặc nhúng từ trang web khác) đều sẽ bị từ chối phục vụ ngay lập tức.
+  * **Hotlink Protection (Chặn chia sẻ link):** Để chặn triệt để hành vi copy URL (dù có chứa JWT Token hợp lệ) đem đi chia sẻ, Backend đã được bổ sung cơ chế kiểm tra `Referer`. Bất kỳ yêu cầu tải nhạc nào không xuất phát từ giao diện Web của hệ thống (Ví dụ: Dán trực tiếp vào tab mới, gọi từ Postman, hoặc nhúng từ trang web khác) đều sẽ bị từ chối phục vụ ngay lập tức.
+
+---
+
+## Ⅵ. Kiến trúc Sách nói AI (AI Chatbot RAG Architecture)
+
+Chatbot AI của nhà sách được xây dựng dựa trên kiến trúc **Retrieval-Augmented Generation (RAG)** kết hợp hai luồng dữ liệu riêng biệt để đảm bảo tính chính xác và tránh hiện tượng "ảo giác" (Hallucination) của AI.
+
+### 1. Phân chia Trách nhiệm (Vector Store vs SQL Server)
+Kiến trúc sử dụng **2 nguồn dữ liệu** thay vì chỉ một:
+* **Vector Store (Qdrant / InMemory):** Chỉ lưu trữ các thông tin có tính chất Semantic (ngữ nghĩa) và tương đối ổn định (Tiêu đề sách, Tóm tắt, Mô tả, Tác giả, Thể loại, Chính sách nhà sách, FAQs). Vector Store cho phép tìm kiếm mờ (Semantic Search) để hiểu được câu hỏi "Sách cho người mới khởi nghiệp".
+* **SQL Server:** Được truy vấn trực tiếp theo thời gian thực (Real-time) để lấy thông tin luôn thay đổi như: Số lượng tồn kho hiện tại, Giá khuyến mãi mới nhất, Trạng thái đơn hàng, và Quyền truy cập thư viện sách nói.
+
+> [!IMPORTANT]
+> **Tại sao phải phân chia?** AI không được phép suy đoán hay ghi nhớ số lượng hàng tồn kho. Mọi câu hỏi liên quan đến Giá, Tồn kho hoặc Đơn hàng đều phải dùng công cụ (Tool Calling) để query trực tiếp từ SQL Server.
+
+### 2. Sơ đồ Kiến trúc AI (Mermaid)
+
+```mermaid
+graph TD
+    UI[Next.js Chat UI] --> |ChatRequest| Ctrl(Spring Boot Chatbot Controller)
+    Ctrl --> Intent[Intent Detection / ChatIntentService]
+    
+    Intent --> |BOOK_RECOMMENDATION / POLICY_QUERY| Rag[LangChain4j RAG Service]
+    Intent --> |INVENTORY_QUERY / ORDER_QUERY / ...| Rag
+    
+    Rag --> Retriever[EmbeddingStoreContentRetriever]
+    Retriever <--> VectorStore[(Vector Store - Semantic Data)]
+    
+    Rag --> Tools[BookstoreTools]
+    Tools <--> SQL[(SQL Server - Realtime Data)]
+    
+    Rag <--> Gemini[Google Gemini LLM]
+    
+    Gemini -.-> |Function Call| Tools
+    Gemini -.-> |Prompt Context| Retriever
+```
+
+### 3. Biến môi trường yêu cầu (Environment Variables)
+Cần bổ sung các biến sau vào máy chủ Spring Boot:
+* `GOOGLE_API_KEY`: API Key của Gemini. (Bắt buộc)
+* `GEMINI_CHAT_MODEL`: Mô hình chat (Mặc định: gemini-1.5-flash)
+* `VECTOR_STORE_HOST`: Địa chỉ Qdrant (Mặc định: localhost)
+* `VECTOR_STORE_PORT`: Cổng Qdrant (Mặc định: 6334)
+* `VECTOR_STORE_COLLECTION`: Tên collection (Mặc định: bookstore_index)
+
+### 4. Hướng dẫn vận hành Vector Store (Qdrant)
+Nếu sử dụng Qdrant, hãy chạy file docker-compose đã cung cấp:
+```bash
+docker-compose up -d
+```
+Nếu Qdrant không khả dụng, hệ thống tự động fallback về `InMemoryEmbeddingStore` (Chỉ dùng cho Development).
+
+### 5. Hướng dẫn lập chỉ mục (Rebuild Index)
+Admin có thể chủ động cập nhật dữ liệu Vector bằng API (Yêu cầu token JWT của Admin):
+* **Lập chỉ mục toàn bộ sách:** `POST /api/admin/ai-index/rebuild`
+* **Lập chỉ mục 1 sách:** `POST /api/admin/ai-index/books/{bookId}`
+* **Xóa chỉ mục 1 sách:** `DELETE /api/admin/ai-index/books/{bookId}`
+
+### 6. Cách kiểm thử Chatbot
+1. Khởi động Backend (Spring Boot: `mvnw spring-boot:run`).
+2. Khởi động Frontend (Next.js: `npm run dev`).
+3. Click vào biểu tượng bong bóng Chat ở góc dưới màn hình giao diện.
+4. Thử các câu hỏi:
+   - *"Gợi ý cho tôi sách về tạo động lực"* (Tìm bằng Vector)
+   - *"Cuốn Nhà Giả Kim còn hàng không?"* (Sử dụng Inventory Tool truy vấn SQL)
+   - *"Đơn hàng 1 của tôi đang ở đâu?"* (Yêu cầu đăng nhập, gọi Order Tool)
+
+### 7. Các lỗi thường gặp
+* **java.lang.IllegalArgumentException: GOOGLE_API_KEY is not set:** Chưa cấu hình biến môi trường GOOGLE_API_KEY.
+* **Qdrant Connection Failed:** Docker container của Qdrant chưa chạy. Backend sẽ tự báo lỗi nhẹ (WARN) và chuyển sang In-Memory.
+* **Không tìm thấy sách gợi ý:** Cần gọi API `/api/admin/ai-index/rebuild` để index dữ liệu ban đầu vào bộ nhớ.

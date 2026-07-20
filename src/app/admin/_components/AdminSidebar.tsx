@@ -41,10 +41,8 @@ const NAV_GROUPS = [
   {
     heading: "Marketing",
     items: [
-      { href: "/admin/promotions/new", icon: Tag, label: "Tạo khuyến mãi" },
-      { href: "/admin/promotions", icon: Tags, label: "Danh sách khuyến mãi" },
-      { href: "/admin/voucher/new", icon: Ticket, label: "Thêm Voucher" },
-      { href: "/admin/voucher", icon: Ticket, label: "Quản lý Voucher" },
+      { href: "/admin/promotions", icon: Tags, label: "Khuyến mãi" },
+      { href: "/admin/voucher", icon: Ticket, label: "Voucher" },
     ],
   },
 ];

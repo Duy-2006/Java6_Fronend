@@ -15,10 +15,12 @@ const STATUS_CONFIG: Record<string, { label: string; allowedNext: string[] }> = 
 interface Props {
   orderId: number;
   currentStatus: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
   onStatusUpdated?: (newStatus: string) => void;
 }
 
-export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpdated }: Props) {
+export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatus, paymentMethod, onStatusUpdated }: Props) {
   const [status, setStatus] = useState(currentStatus);
   const [cancelReason, setCancelReason] = useState("");
   const [showReasonInput, setShowReasonInput] = useState(false);
@@ -64,8 +66,16 @@ export default function UpdateOrderStatus({ orderId, currentStatus, onStatusUpda
       setMessage({ type: 'error', text: 'Vui lòng nhập lý do hủy đơn hàng.' });
       return;
     }
+    
+    // Check if it is an online paid order
+    if (status === "CANCELLED" && paymentStatus === "PAID" && (paymentMethod === "VNPAY" || paymentMethod === "PAYOS")) {
+      const confirmRefund = window.confirm(
+        "Đơn hàng này đã được thanh toán online.\n\nSau khi hủy, cửa hàng cần liên hệ trực tiếp với khách hàng để xử lý hoàn tiền.\n\nBạn có chắc chắn muốn hủy đơn hàng không?"
+      );
+      if (!confirmRefund) return;
+    }
 
-        if (!isLoggedIn()) {
+    if (!isLoggedIn()) {
       setMessage({ type: 'error', text: "Bạn chưa đăng nhập." });
       return;
     }

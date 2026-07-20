@@ -31,7 +31,7 @@ function CategoriesContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -206,7 +206,7 @@ function CategoriesContent() {
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
+              type="search"
               placeholder="Tìm kiếm thể loại..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
@@ -266,7 +266,14 @@ function CategoriesContent() {
           {filteredCategories.map((item) => {
             const imgSrc = getImageUrl(item.imageUrl);
             return (
-              <div key={item.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
+              <div 
+                key={item.id} 
+                className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between cursor-pointer hover:border-[#b70011]/30"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('.action-button')) return;
+                  router.push(`/admin/categories/${item.id}`);
+                }}
+              >
                 <div>
                   <div className="h-40 relative overflow-hidden bg-slate-100">
                     <img
@@ -288,18 +295,21 @@ function CategoriesContent() {
                   <div className="p-5 space-y-3">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
-                        <h3 className="text-base font-bold text-slate-800 truncate" title={item.name}>{item.name}</h3>
+                        <h3 className="text-base font-bold text-slate-800 group-hover:text-[#b70011] transition-colors truncate" title={item.name}>{item.name}</h3>
                         <p className="text-xs font-mono text-[#916f6b] truncate mt-0.5">{generateSlug(item.name)}</p>
                       </div>
-                      <div className="flex gap-1.5 flex-shrink-0">
+                      <div className="flex gap-1.5 flex-shrink-0 action-button">
                         <Link
                           href={`/admin/categories/${item.id}/edit`}
                           className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                           title="Chỉnh sửa"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="w-4.5 h-4.5" />
                         </Link>
-                        <DeleteCategoryButton categoryId={item.id} />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <DeleteCategoryButton categoryId={item.id} />
+                        </div>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-2">
@@ -309,12 +319,11 @@ function CategoriesContent() {
                 </div>
 
                 <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <Link
-                    href={`/admin/categories/${item.id}`}
-                    className="text-[#b70011] text-xs font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  <span
+                    className="text-[#b70011] text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     Xem chi tiết <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  </span>
                   <div className="flex -space-x-1.5">
                     <div className="w-6 h-6 rounded-full bg-red-100 border-2 border-white flex items-center justify-center text-[9px] font-bold text-[#b70011]">L</div>
                     <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[9px] font-bold text-slate-600">A</div>
@@ -350,17 +359,23 @@ function CategoriesContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4">Thể loại</th>
-                  <th className="px-6 py-4">Đường dẫn</th>
-                  <th className="px-6 py-4 text-center">Số lượng sách</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Số lượng sách</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10">
                 {filteredCategories.map((item) => {
                   const imgSrc = getImageUrl(item.imageUrl);
                   return (
-                    <tr key={item.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('.action-button')) return;
+                        router.push(`/admin/categories/${item.id}`);
+                      }}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
@@ -374,36 +389,33 @@ function CategoriesContent() {
                             />
                           </div>
                           <div>
-                            <Link href={`/admin/categories/${item.id}`} className="hover:underline text-slate-800">
-                              <p className="text-sm font-bold text-inherit">{item.name}</p>
-                            </Link>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-[#b70011] transition-colors">{item.name}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="bg-[#f2f4f6] px-2 py-0.5 rounded text-xs font-mono text-[#5c403c] border border-slate-200/50">
-                          {generateSlug(item.name)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-700">
+
+                      <td className="px-6 py-4 text-sm font-medium text-slate-700" style={{ textAlign: "center" }}>
                         {item.books?.length ?? 0}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
                         <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-800 border border-green-200 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
                           Hoạt động
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end items-center gap-1.5">
+                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                        <div className="flex justify-center items-center gap-1.5 action-button">
                           <Link
                             href={`/admin/categories/${item.id}/edit`}
                             className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                             title="Chỉnh sửa"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Edit className="w-4.5 h-4.5" />
                           </Link>
-                          <DeleteCategoryButton categoryId={item.id} />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <DeleteCategoryButton categoryId={item.id} />
+                          </div>
                         </div>
                       </td>
                     </tr>

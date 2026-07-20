@@ -20,7 +20,8 @@ import {
   Printer,
   ArrowLeft,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Copy
 } from "lucide-react";
 
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
@@ -241,6 +242,39 @@ function OrderDetailContent() {
                   </div>
                 </div>
               )}
+
+              {/* Show Manual Refund Alert */}
+              {order.requiresManualRefundContact && (
+                <div className="mt-5 p-4 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 flex flex-col gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="font-bold text-sm block mb-1">Cần hoàn tiền thủ công</strong>
+                      <p className="text-xs leading-relaxed">
+                        {order.refundContactMessage}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white/60 p-3 rounded-md border border-amber-200/60 text-xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span><strong>SĐT:</strong> <span className="font-mono text-slate-700">{order.customerPhone}</span></span>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(order.customerPhone || "")}
+                        className="text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
+                      >
+                        <Copy className="w-3 h-3" /> Sao chép SĐT
+                      </button>
+                    </div>
+                    {/* Assuming order might have email, if not, omit or just use phone. We don't have order.customerEmail in OrderDTO, so we will just show phone. */}
+                    <div className="flex justify-between items-center">
+                      <span><strong>Số tiền:</strong> <span className="font-bold text-[#b70011]">{new Intl.NumberFormat("vi-VN").format(order.totalAmount ?? 0)} đ</span></span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span><strong>PTTT:</strong> <span className="font-semibold">{order.paymentMethod}</span></span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status Update Column */}
@@ -248,6 +282,8 @@ function OrderDetailContent() {
               <UpdateOrderStatus
                 orderId={order.id}
                 currentStatus={order.status}
+                paymentStatus={order.paymentStatus}
+                paymentMethod={order.paymentMethod}
                 onStatusUpdated={handleStatusUpdate}
               />
             </div>

@@ -114,6 +114,11 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Cancellation Modal State
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<any>(null);
+  const [cancelReason, setCancelReason] = useState("");
+
   // Profile data for sidebar
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -177,9 +182,7 @@ export default function MyOrdersPage() {
 
       const ordersWithDetails = await Promise.all(
         list.map(async (order: any) => {
-          const hasDetails =
-            (order.details && order.details.length > 0) ||
-            (order.orderDetails && order.orderDetails.length > 0);
+          const hasDetails = order.details !== undefined || order.orderDetails !== undefined;
 
           if (hasDetails) return order;
 
@@ -213,20 +216,24 @@ export default function MyOrdersPage() {
 
   useEffect(() => { fetchOrders(); }, [status]);
 
-  const cancelOrder = async (id: number) => {
-        const userId = getUserIdFromToken();
-    if (!isLoggedIn() || !userId) return;
+  const openCancelModal = (order: any) => {
+    setOrderToCancel(order);
+    setCancelReason("");
+    setCancelModalVisible(true);
+  };
 
-    const reason = window.prompt("Vui lòng nhập lý do hủy đơn hàng:");
-    if (!reason?.trim()) {
+  const confirmCancelOrder = async () => {
+    const userId = getUserIdFromToken();
+    if (!isLoggedIn() || !userId || !orderToCancel) return;
+
+    if (!cancelReason?.trim()) {
       alert("Bạn chưa nhập lý do hủy. Vui lòng nhập lý do.");
       return;
     }
-    if (!confirm(`Bạn có chắc muốn hủy đơn hàng này với lý do: "${reason}"?`)) return;
 
     try {
       const res = await authFetch(
-        `${BASE_URL}/api/orders/cancel/${id}?userId=${userId}&cancelReason=${encodeURIComponent(reason)}`,
+        `${BASE_URL}/api/orders/cancel/${orderToCancel.id}?userId=${userId}&cancelReason=${encodeURIComponent(cancelReason)}`,
         {
           method: "POST",
           headers: {  "Content-Type": "application/json" },
@@ -234,7 +241,7 @@ export default function MyOrdersPage() {
       );
       if (res.ok) {
         setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status: "CANCELLED" } : o))
+          prev.map((o) => (o.id === orderToCancel.id ? { ...o, status: "CANCELLED" } : o))
         );
         alert("Đã hủy đơn thành công.");
       } else {
@@ -242,6 +249,9 @@ export default function MyOrdersPage() {
       }
     } catch {
       alert("Lỗi kết nối khi hủy đơn.");
+    } finally {
+      setCancelModalVisible(false);
+      setOrderToCancel(null);
     }
   };
 
@@ -489,7 +499,7 @@ export default function MyOrdersPage() {
                       <div className="flex gap-2 items-center flex-wrap shrink-0">
                         {order.status === "PENDING" && (
                           <button
-                            onClick={() => cancelOrder(order.id)}
+                            onClick={() => openCancelModal(order)}
                             className="inline-flex items-center gap-1 px-3.5 py-2 border border-[#b70011] text-[#b70011] hover:bg-[#ffdad6]/20 rounded-full text-xs font-bold transition active:scale-95 duration-150"
                           >
                             <span className="material-symbols-outlined text-xs">cancel</span>
@@ -526,6 +536,49 @@ export default function MyOrdersPage() {
         </main>
 
       </div>
+      
+      {/* Cancellation Modal */}
+      {cancelModalVisible && orderToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 transition-opacity duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-[420px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="material-symbols-outlined text-[#b70011] text-[28px]">warning</span>
+              <h3 className="text-[20px] font-bold text-[#191c1e]">Yêu cầu hủy đơn hàng</h3>
+            </div>
+            
+            <p className="text-[14px] text-gray-600 mb-5">
+              Mã đơn: <span className="font-bold text-[#191c1e]">#{orderToCancel.orderCode}</span>
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-[12px] font-bold text-[#545f73] uppercase tracking-wider mb-2">
+                Lý do hủy đơn <span className="text-[#b70011]">*</span>
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Vui lòng cho biết lý do bạn muốn hủy đơn hàng này..."
+                className="w-full min-h-[120px] border border-[#e0e3e5] rounded-xl p-3.5 text-[14px] text-[#191c1e] placeholder-gray-400 focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all resize-none"
+              ></textarea>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancelModalVisible(false)}
+                className="flex-1 py-3 rounded-xl border border-[#e0e3e5] text-[#191c1e] font-bold hover:bg-gray-50 transition-all text-[14px]"
+              >
+                Không, giữ đơn
+              </button>
+              <button
+                onClick={confirmCancelOrder}
+                className="flex-1 py-3 rounded-xl bg-[#b70011] text-white font-bold hover:bg-[#93000b] transition-all text-[14px]"
+              >
+                Xác nhận hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

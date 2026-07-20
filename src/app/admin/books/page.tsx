@@ -267,7 +267,7 @@ function BooksContent() {
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
+              type="search"
               placeholder="Tìm kiếm sách, tác giả, thể loại..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
@@ -318,8 +318,15 @@ function BooksContent() {
           {paginatedBooks.map((book) => {
             const priceFormatted = new Intl.NumberFormat("vi-VN").format(book.price);
             return (
-              <div key={book.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
-                <Link href={`/admin/books/${book.id}`} className="block no-underline hover:no-underline text-inherit flex-grow">
+              <div 
+                key={book.id} 
+                className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between cursor-pointer hover:border-[#b70011]/30"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('.action-button')) return;
+                  router.push(`/admin/books/${book.id}`);
+                }}
+              >
+                <div className="block text-inherit flex-grow">
                   <div className="h-56 relative overflow-hidden bg-slate-100 flex items-center justify-center p-3">
                     <img
                       className="max-h-full max-w-full object-contain rounded-md shadow-md group-hover:scale-105 transition-transform duration-500"
@@ -349,12 +356,12 @@ function BooksContent() {
 
                   <div className="p-4 space-y-2">
                     <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-tight" title={book.title}>
+                      <h3 className="text-sm font-bold text-slate-800 group-hover:text-[#b70011] transition-colors line-clamp-2 min-h-[40px] leading-tight" title={book.title}>
                         {book.title}
                       </h3>
                     </div>
                   </div>
-                </Link>
+                </div>
 
                 <div className="px-4 pb-4 pt-2 border-t border-slate-100 flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -362,19 +369,22 @@ function BooksContent() {
                     <p className="text-sm font-bold text-[#b70011]">{priceFormatted}đ</p>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 action-button">
                     <Link
                       href={`/admin/books/${book.id}/edit`}
                       className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                       title="Chỉnh sửa"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
-                    {book.active ? (
-                      <DeleteBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã ẩn sách thành công.", type: 'success' }); loadBooks(true); }} />
-                    ) : (
-                      <RestoreBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã bật sách thành công.", type: 'success' }); loadBooks(true); }} />
-                    )}
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {book.active ? (
+                        <DeleteBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã ẩn sách thành công.", type: 'success' }); loadBooks(true); }} />
+                      ) : (
+                        <RestoreBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã bật sách thành công.", type: 'success' }); loadBooks(true); }} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -404,19 +414,26 @@ function BooksContent() {
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
                   <th className="px-6 py-4 w-[100px]">Bìa</th>
                   <th className="px-6 py-4">Tên sách</th>
-                  <th className="px-6 py-4">Giá</th>
-                  <th className="px-6 py-4 text-center">Tồn kho</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Giá</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Tồn kho</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
+                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10">
                 {paginatedBooks.map((book) => {
                   const priceFormatted = new Intl.NumberFormat("vi-VN").format(book.price);
                   return (
-                    <tr key={book.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                    <tr 
+                      key={book.id} 
+                      className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('.action-button')) return;
+                        router.push(`/admin/books/${book.id}`);
+                      }}
+                    >
                       <td className="px-6 py-3">
-                        <Link href={`/admin/books/${book.id}`} className="block w-12 h-16 rounded-md overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200/50 flex-shrink-0 hover:border-[#b70011] transition-all">
+                        <div className="block w-12 h-16 rounded-md overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200/50 flex-shrink-0 group-hover:border-[#b70011] transition-all">
                           <img
                             className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
                             src={getCorrectImageUrl(book.imageUrl)}
@@ -425,17 +442,15 @@ function BooksContent() {
                               (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&auto=format&fit=crop&q=60";
                             }}
                           />
-                        </Link>
+                        </div>
                       </td>
                       <td className="px-6 py-3">
-                        <Link href={`/admin/books/${book.id}`} className="hover:text-[#b70011] transition-colors block no-underline hover:no-underline">
-                          <p className="text-sm font-bold text-slate-800 line-clamp-1 cursor-pointer">{book.title}</p>
-                        </Link>
+                        <p className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-[#b70011] transition-colors">{book.title}</p>
                       </td>
-                      <td className="px-6 py-3 text-sm font-bold text-[#b70011]">
+                      <td className="px-6 py-3 text-sm font-bold text-[#b70011]" style={{ textAlign: "center" }}>
                         {priceFormatted}đ
                       </td>
-                      <td className="px-6 py-3 text-center">
+                      <td className="px-6 py-3" style={{ textAlign: "center" }}>
                         {book.quantity > 10 ? (
                           <span className="inline-flex items-center justify-center bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded text-xs font-bold min-w-[40px]">
                             {book.quantity}
@@ -451,7 +466,7 @@ function BooksContent() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-3">
+                      <td className="px-6 py-3" style={{ textAlign: "center" }}>
                         {book.active ? (
                           <span className="inline-flex items-center gap-1 bg-green-50 text-green-800 border border-green-200 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
@@ -464,20 +479,23 @@ function BooksContent() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-3">
-                        <div className="flex justify-end items-center gap-1.5">
+                      <td className="px-6 py-3" style={{ textAlign: "center" }}>
+                        <div className="flex justify-center items-center gap-1.5 action-button">
                           <Link
                             href={`/admin/books/${book.id}/edit`}
                             className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60"
                             title="Chỉnh sửa"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Edit className="w-4 h-4" />
                           </Link>
-                          {book.active ? (
-                            <DeleteBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã ẩn sách thành công.", type: 'success' }); loadBooks(true); }} />
-                          ) : (
-                            <RestoreBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã bật sách thành công.", type: 'success' }); loadBooks(true); }} />
-                          )}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            {book.active ? (
+                              <DeleteBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã ẩn sách thành công.", type: 'success' }); loadBooks(true); }} />
+                            ) : (
+                              <RestoreBookButton bookId={book.id} onSuccess={() => { setAlert({ msg: "Đã bật sách thành công.", type: 'success' }); loadBooks(true); }} />
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
