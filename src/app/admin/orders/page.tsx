@@ -23,13 +23,16 @@ import {
   Calendar,
   DollarSign,
   Grid,
-  List
+  List,
+  CheckCircle2
 } from "lucide-react";
 
+// MỤC 4: Bổ sung trạng thái DELIVERED (Giao hàng thành công) vào cấu hình STATUS_MAP
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
   PENDING:   { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-800 border-amber-200",  icon: Hourglass },
   CONFIRMED: { label: "Đã xác nhận",  cls: "bg-blue-50 text-blue-800 border-blue-200",       icon: Check },
   SHIPPING:  { label: "Đang giao",    cls: "bg-indigo-50 text-indigo-800 border-indigo-200", icon: Truck },
+  DELIVERED: { label: "Giao hàng thành công", cls: "bg-teal-50 text-teal-800 border-teal-200", icon: CheckCircle2 },
   COMPLETED: { label: "Hoàn thành",   cls: "bg-green-50 text-green-800 border-green-200",    icon: CheckSquare },
   CANCELLED: { label: "Đã hủy",       cls: "bg-red-50 text-red-800 border-red-200",         icon: Ban },
 };
@@ -91,24 +94,35 @@ function OrdersContent() {
     setCurrentPage(1);
   }, [searchQuery]);
 
+  // Đảm bảo safeOrders luôn luôn là mảng
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
   const filtered = searchQuery
-    ? orders.filter(
+    ? safeOrders.filter(
         (order) =>
-          (order.orderCode || order.id?.toString() || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order.customerPhone || "").includes(searchQuery)
+          (order && (order.orderCode || order.id?.toString() || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order && (order.customerName || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (order && (order.customerPhone || "")).includes(searchQuery)
       )
-    : orders;
+    : safeOrders;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  // Tính toán phân trang
+  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filtered.slice(startIndex, startIndex + itemsPerPage);
+  
+  const paginatedOrders = Array.isArray(filtered) 
+    ? filtered.slice(startIndex, startIndex + itemsPerPage) 
+    : [];
 
-  // Statistics calculation
-  const totalCount = orders.length;
-  const processingCount = orders.filter(o => ['PENDING', 'CONFIRMED', 'SHIPPING'].includes(o.status)).length;
-  const totalRevenue = orders
-    .filter(o => o.status === 'COMPLETED')
+  // Statistics calculation - Cập nhật cho Mục 4
+  const totalCount = safeOrders.length;
+  
+  const processingCount = safeOrders.filter(
+    (o) => o && ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED'].includes(o.status)
+  ).length;
+  
+  const totalRevenue = safeOrders
+    .filter((o) => o && o.status === 'COMPLETED')
     .reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
 
   const handleExportExcel = async () => {
@@ -152,7 +166,7 @@ function OrdersContent() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
       {/* Toast Alert */}
       {toast && (
         <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
@@ -227,7 +241,7 @@ function OrdersContent() {
             <p className="font-bold text-[10px] text-[#916f6b] uppercase tracking-widest mb-1">Đang xử lý</p>
             <h3 className="text-2xl font-bold text-[#191c1e] leading-none">{processingCount}</h3>
             <p className="font-semibold text-xs text-amber-600 mt-1">
-              Đơn hàng cần xử lý vận chuyển
+              Đơn hàng đang trong chu trình xử lý
             </p>
           </div>
         </div>
@@ -253,13 +267,12 @@ function OrdersContent() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Search bar */}
-          <div style={{ position: "relative" }} className="w-full sm:w-64">
-            <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
-              type="search" 
-              style={{ paddingLeft: "2.5rem" }}
+              type="text" 
               placeholder="Tìm mã đơn, khách hàng..."
-              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -306,7 +319,7 @@ function OrdersContent() {
 
       {/* Main Content: Grid or Table */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {paginatedOrders.map((order) => {
             const status = STATUS_MAP[order.status] ?? {
               label: order.status,
@@ -323,14 +336,7 @@ function OrdersContent() {
             const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
             return (
-              <div 
-                key={order.id} 
-                className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-5 space-y-4 flex flex-col justify-between cursor-pointer hover:border-[#b70011]/30"
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('.action-button')) return;
-                  router.push(`/admin/orders/${order.id}`);
-                }}
-              >
+              <div key={order.id} className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-5 space-y-4 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
@@ -355,7 +361,6 @@ function OrdersContent() {
                       <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span>{orderDate}</span>
                     </p>
-
                   </div>
                 </div>
 
@@ -368,9 +373,8 @@ function OrdersContent() {
                   </div>
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center action-button"
+                    className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center cursor-pointer"
                     title="Chi tiết đơn hàng"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <Eye className="w-4 h-4" />
                   </Link>
@@ -392,12 +396,12 @@ function OrdersContent() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
-                  <th className="px-6 py-4 w-[120px]" style={{ textAlign: "center" }}>Mã Đơn</th>
+                  <th className="px-6 py-4 text-center w-[120px]">Mã Đơn</th>
                   <th className="px-6 py-4">Khách hàng</th>
                   <th className="px-6 py-4">Ngày đặt</th>
-                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Tổng tiền</th>
-                  <th className="px-6 py-4" style={{ textAlign: "center" }}>Trạng thái</th>
-                  <th className="px-6 py-4 w-[140px]" style={{ textAlign: "center" }}>Thao tác</th>
+                  <th className="px-6 py-4 text-right">Tổng tiền</th>
+                  <th className="px-6 py-4 text-center">Trạng thái</th>
+                  <th className="px-6 py-4 text-right w-[140px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
@@ -417,15 +421,8 @@ function OrdersContent() {
                   const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
                   return (
-                    <tr 
-                      key={order.id} 
-                      className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
-                      onClick={(e) => {
-                        if ((e.target as HTMLElement).closest('.action-button')) return;
-                        router.push(`/admin/orders/${order.id}`);
-                      }}
-                    >
-                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                    <tr key={order.id} className="hover:bg-[#b70011]/5 transition-colors duration-150 group">
+                      <td className="px-6 py-4 text-center">
                         <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
                           {order.orderCode || order.id}
                         </span>
@@ -445,22 +442,21 @@ function OrdersContent() {
                           <span>{orderDate}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-[#b70011]" style={{ textAlign: "center" }}>
+                      <td className="px-6 py-4 text-right font-bold text-[#b70011]">
                         {amount} <span className="text-xs font-normal text-slate-500">đ</span>
                       </td>
-                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                      <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${status.cls}`}>
                           <StatusIcon className="w-3.5 h-3.5" />
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4" style={{ textAlign: "center" }}>
-                        <div className="flex justify-center action-button">
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end">
                           <Link
                             href={`/admin/orders/${order.id}`}
                             className="p-2 bg-slate-50 hover:bg-[#b70011] hover:text-white text-slate-700 rounded-lg border border-slate-200/60 transition-all flex items-center justify-center cursor-pointer"
                             title="Chi tiết đơn hàng"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <Eye className="w-4 h-4" />
                           </Link>
@@ -552,3 +548,4 @@ export default function OrdersPage() {
     </Suspense>
   );
 }
+
