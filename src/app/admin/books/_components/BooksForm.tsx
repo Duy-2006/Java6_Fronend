@@ -52,12 +52,19 @@ export default function BookForm({ book, authors, publishers, categories }: Book
     return `${API_BASE}/uploads/books/${imageUrl}`;
   };
 
+  // Client-side state for dropdowns
+  const [clientAuthors, setClientAuthors] = useState<Author[]>(authors || []);
+  const [clientPublishers, setClientPublishers] = useState<Publisher[]>(publishers || []);
+  const [clientCategories, setClientCategories] = useState<Category[]>(categories || []);
+
   const [form, setForm] = useState<Book>({
     id: book?.id ?? null,
     title: book?.title ?? "",
     isbn: book?.isbn ?? (!book?.id ? generateISBN() : ""),
     authorIds: book?.authorIds ?? (book?.authors ? book.authors.map((a: any) => a.id) : (book?.authorId ? [Number(book.authorId)] : [])),
-    publisherIds: book?.publisherIds ?? (book?.publishers ? book.publishers.map((p: any) => p.id) : []),
+    publisherIds: book?.publisherIds && book.publisherIds.length > 0 
+      ? [book.publisherIds[0]] 
+      : (book?.publishers && book.publishers.length > 0 ? [book.publishers[0].id] : []),
     categoryId: book?.categoryId ?? "",
     price: book?.price ?? "",
 
@@ -71,11 +78,6 @@ export default function BookForm({ book, authors, publishers, categories }: Book
   const [preview, setPreview] = useState<string>(getFullImageUrl(book?.imageUrl));
   const [loading, setLoading] = useState(false);
 
-  // Client-side state for dropdowns (fixes Server Component auth issue)
-  const [clientAuthors, setClientAuthors] = useState<Author[]>(authors || []);
-  const [clientPublishers, setClientPublishers] = useState<Publisher[]>(publishers || []);
-  const [clientCategories, setClientCategories] = useState<Category[]>(categories || []);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -85,14 +87,20 @@ export default function BookForm({ book, authors, publishers, categories }: Book
           authFetch(`${API_BASE}/api/admin/categories`)
         ]);
         if (aRes.ok) setClientAuthors(await aRes.json());
-        if (pRes.ok) setClientPublishers(await pRes.json());
+        if (pRes.ok) {
+          const fetchedPubs: Publisher[] = await pRes.json();
+          setClientPublishers(fetchedPubs);
+          // Nếu chưa chọn NXB nào thì tự động chọn NXB đầu tiên trong danh sách
+          if (fetchedPubs.length > 0 && form.publisherIds.length === 0) {
+            setForm(f => ({ ...f, publisherIds: [fetchedPubs[0].id] }));
+          }
+        }
         if (cRes.ok) setClientCategories(await cRes.json());
       } catch (error) {
         console.error("Lỗi fetch dữ liệu form:", error);
       }
     };
     
-    // Fetch if any are missing (usually due to Server Component lacking localStorage token)
     if (clientAuthors.length === 0 || clientPublishers.length === 0 || clientCategories.length === 0) {
       fetchData();
     }
@@ -101,16 +109,6 @@ export default function BookForm({ book, authors, publishers, categories }: Book
   const setField = (field: string, value: any) => {
     setForm(f => ({ ...f, [field]: value }));
     setErrors(e => ({ ...e, [field]: undefined }));
-  };
-
-  const handleMultipleSelect = (field: "authorIds" | "publisherIds", options: HTMLOptionsCollection) => {
-    const selectedValues: number[] = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selectedValues.push(Number(options[i].value));
-      }
-    }
-    setField(field, selectedValues);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +124,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
     const tempErrors: { [key: string]: string | undefined } = {};
     if (!form.title.trim()) tempErrors.title = "Tên sách không được để trống.";
     if (form.authorIds.length === 0) tempErrors.authorIds = "Vui lòng chọn ít nhất một tác giả.";
-    if (form.publisherIds.length === 0) tempErrors.publisherIds = "Vui lòng chọn ít nhất một nhà xuất bản.";
+    if (form.publisherIds.length === 0 || !form.publisherIds[0]) tempErrors.publisherIds = "Vui lòng chọn nhà xuất bản.";
     if (!String(form.price).trim() || Number(form.price) < 0) tempErrors.price = "Giá bán hợp lệ và không được để trống.";
     if (!String(form.quantity).trim() || Number(form.quantity) < 0) tempErrors.quantity = "Số lượng tồn kho phải từ 0 trở lên.";
     
@@ -145,7 +143,12 @@ export default function BookForm({ book, authors, publishers, categories }: Book
       fd.append("title", form.title);
       fd.append("isbn", form.isbn ?? "");
       form.authorIds.forEach(id => fd.append("authorIds", String(id)));
-      form.publisherIds.forEach(id => fd.append("publisherIds", String(id)));
+      
+      // Gửi duy nhất 1 ID Nhà xuất bản được chọn
+      const singlePublisherId = form.publisherIds[0];
+      fd.append("publisherIds", String(singlePublisherId));
+      fd.append("publisherId", String(singlePublisherId));
+
       fd.append("categoryId", String(form.categoryId ?? ""));
       fd.append("price", String(form.price));
 
@@ -172,6 +175,8 @@ export default function BookForm({ book, authors, publishers, categories }: Book
     }
   };
 
+  const selectedPublisherId = form.publisherIds.length > 0 ? form.publisherIds[0] : "";
+
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
       <div className="row justify-content-center">
@@ -190,7 +195,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                 <h6 className="text-primary fw-bold mb-3 text-uppercase border-bottom pb-2">Thông tin chung</h6>
                 
                 <div className="row">
-                  {/* Tên sách (Đã xóa input-group dư thừa) */}
+                  {/* Tên sách */}
                   <div className="col-md-8 mb-3">
                     <label className="form-label" htmlFor="title">Tên sách <span className="text-danger">*</span></label>
                     <input
@@ -206,7 +211,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                     <div className="d-flex justify-content-end"><small className="text-muted">{form.title.length}/200</small></div>
                   </div>
 
-                  {/* Mã ISBN (Chỉ giữ lại input-group cho nút bấm "Tạo mã") */}
+                  {/* Mã ISBN */}
                   <div className="col-md-4 mb-3">
                     <label className="form-label" htmlFor="isbn">Mã ISBN</label>
                     <div className="input-group">
@@ -236,7 +241,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                   <div className="col-md-4 mb-3">
                     <label className="form-label font-bold text-gray-700">Tác giả <span className="text-danger">*</span></label>
                     
-                    {/* Danh sách đã chọn (Phía trên) */}
+                    {/* Danh sách đã chọn */}
                     <div className="border rounded-lg p-2 mb-2 bg-gray-50 min-h-[45px] flex flex-wrap gap-1.5 align-items-center">
                       {form.authorIds.length === 0 ? (
                         <span className="text-gray-400 text-xs ps-1">Chưa chọn tác giả nào...</span>
@@ -253,7 +258,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                                   const updated = form.authorIds.filter(aid => aid !== id);
                                   setField("authorIds", updated);
                                 }}
-                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#b70011]/20 border-0 bg-transparent text-[#b70011] font-bold text-[10px] p-0"
+                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#b70011]/20 border-0 bg-transparent text-[#b70011] font-bold text-[10px] p-0 cursor-pointer"
                                 aria-label="Xóa"
                               >
                                 &times;
@@ -264,7 +269,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                       )}
                     </div>
 
-                    {/* Danh sách lựa chọn (Phía dưới) */}
+                    {/* Danh sách lựa chọn */}
                     <div className="border rounded-lg overflow-y-auto max-h-[140px] bg-white divide-y divide-gray-100 shadow-inner">
                       {clientAuthors.filter(a => !form.authorIds.includes(a.id)).length === 0 ? (
                         <div className="text-gray-400 text-xs p-3 text-center">Đã chọn tất cả tác giả</div>
@@ -286,61 +291,31 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                     <FieldError msg={errors.authorIds} />
                   </div>
 
-                  {/* Nhà xuất bản */}
+                  {/* CHỌN DUY NHẤT 1 NHÀ XUẤT BẢN */}
                   <div className="col-md-4 mb-3">
-                    <label className="form-label font-bold text-gray-700">Nhà xuất bản <span className="text-danger">*</span></label>
-                    
-                    {/* Danh sách đã chọn (Phía trên) */}
-                    <div className="border rounded-lg p-2 mb-2 bg-gray-50 min-h-[45px] flex flex-wrap gap-1.5 align-items-center">
-                      {form.publisherIds.length === 0 ? (
-                        <span className="text-gray-400 text-xs ps-1">Chưa chọn nhà xuất bản nào...</span>
-                      ) : (
-                        form.publisherIds.map(id => {
-                          const publisher = clientPublishers.find(p => p.id === id);
-                          if (!publisher) return null;
-                          return (
-                            <span key={id} className="inline-flex items-center gap-1 bg-[#b70011]/10 text-[#b70011] border border-[#b70011]/20 px-2.5 py-1 rounded-full text-xs font-bold transition-all hover:bg-[#b70011]/15">
-                              {publisher.name}
-                              <button 
-                                type="button" 
-                                onClick={() => {
-                                  const updated = form.publisherIds.filter(pid => pid !== id);
-                                  setField("publisherIds", updated);
-                                }}
-                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#b70011]/20 border-0 bg-transparent text-[#b70011] font-bold text-[10px] p-0"
-                                aria-label="Xóa"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Danh sách lựa chọn (Phía dưới) */}
-                    <div className="border rounded-lg overflow-y-auto max-h-[140px] bg-white divide-y divide-gray-100 shadow-inner">
-                      {clientPublishers.filter(p => !form.publisherIds.includes(p.id)).length === 0 ? (
-                        <div className="text-gray-400 text-xs p-3 text-center">Đã chọn tất cả nhà xuất bản</div>
-                      ) : (
-                        clientPublishers.filter(p => !form.publisherIds.includes(p.id)).map(publisher => (
-                          <div 
-                            key={publisher.id}
-                            onClick={() => {
-                              setField("publisherIds", [...form.publisherIds, publisher.id]);
-                            }}
-                            className="p-2 cursor-pointer hover:bg-gray-50 text-xs transition-colors text-gray-700 flex items-center gap-1.5"
-                          >
-                            <span className="text-green-600 font-bold text-sm">+</span>
-                            <span>{publisher.name}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    <label className="form-label font-bold text-gray-700" htmlFor="publisherSelect">
+                      Nhà xuất bản <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      id="publisherSelect"
+                      className={`form-select ${errors.publisherIds ? "border-danger" : ""}`}
+                      value={selectedPublisherId}
+                      onChange={e => {
+                        const val = Number(e.target.value);
+                        setField("publisherIds", val ? [val] : []);
+                      }}
+                    >
+                      <option value="">-- Chọn 1 Nhà xuất bản --</option>
+                      {clientPublishers.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                     <FieldError msg={errors.publisherIds} />
                   </div>
 
-                  {/* Thể loại (Đã xóa input-group dư thừa) */}
+                  {/* Thể loại */}
                   <div className="col-md-4 mb-3">
                     <label className="form-label" htmlFor="categoryId">Thể loại</label>
                     <select id="categoryId" className="form-select" value={form.categoryId} onChange={e => setField("categoryId", e.target.value)}>
@@ -353,7 +328,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                 {/* DỮ LIỆU KINH DOANH */}
                 <h6 className="text-primary fw-bold mb-3 mt-4 text-uppercase border-bottom pb-2">Dữ liệu Kinh doanh</h6>
                 <div className="row">
-                  {/* Giá bán (Giữ lại input-group để chứa chữ VNĐ ở cuối) */}
+                  {/* Giá bán */}
                   <div className="col-md-3 mb-3">
                     <label className="form-label" htmlFor="price">Giá bán <span className="text-danger">*</span></label>
                     <div className="input-group">
@@ -371,9 +346,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                     <FieldError msg={errors.price} />
                   </div>
 
-
-
-                  {/* Số lượng tồn kho (Đã xóa input-group dư thừa) */}
+                  {/* Số lượng tồn kho */}
                   <div className="col-md-3 mb-3">
                     <label className="form-label" htmlFor="quantity">Số lượng tồn kho <span className="text-danger">*</span></label>
                     <input
@@ -435,7 +408,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
                 {/* Nút hành động */}
                 <div className="d-flex gap-2 justify-content-end pt-3 border-top">
                   <a href="/admin/books" className="btn btn-light border fw-bold px-4">Hủy bỏ</a>
-                  <button type="submit" disabled={loading} className="btn btn-primary fw-bold px-4 shadow-sm">
+                  <button type="submit" disabled={loading} className="btn btn-primary fw-bold px-4 shadow-sm cursor-pointer">
                     {loading ? "Đang lưu..." : "Lưu Sách"}
                   </button>
                 </div>
