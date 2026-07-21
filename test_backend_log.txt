@@ -1,0 +1,650 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.example:DuAnBanSach >-----------------------
+[INFO] Building DuAnBanSach 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ war ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.2.5:run (default-cli) > test-compile @ DuAnBanSach >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ DuAnBanSach ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 63 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ DuAnBanSach ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 189 source files with javac [debug release 17] to target\classes
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/UserLibrary.java:[34,20] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/UserLibrary.java:[37,27] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/UserVoucher.java:[27,29] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/Promotion.java:[60,29] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/Promotion.java:[80,43] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Entity/CartDetail.java:[40,29] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[INFO] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Service/CheckoutService.java: C:\Users\ACER\Java6\src\main\java\com\poly\java5\Service\CheckoutService.java uses or overrides a deprecated API.
+[INFO] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Service/CheckoutService.java: Recompile with -Xlint:deprecation for details.
+[INFO] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Service/UserService.java: Some input files use unchecked or unsafe operations.
+[INFO] /C:/Users/ACER/Java6/src/main/java/com/poly/java5/Service/UserService.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ DuAnBanSach ---
+[INFO] skip non existing resourceDirectory C:\Users\ACER\Java6\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ DuAnBanSach ---
+[INFO] Changes detected - recompiling the module! :dependency
+[INFO] Compiling 3 source files with javac [debug release 17] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:3.2.5:run (default-cli) < test-compile @ DuAnBanSach <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.2.5:run (default-cli) @ DuAnBanSach ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-07-20T09:25:19.987+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] c.p.java5.WebBanSachOnlikeApplication    : Starting WebBanSachOnlikeApplication using Java 17.0.12 with PID 22340 (C:\Users\ACER\Java6\target\classes started by ACER in C:\Users\ACER\Java6)
+2026-07-20T09:25:19.989+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] c.p.java5.WebBanSachOnlikeApplication    : No active profile set, falling back to 1 default profile: "default"
+2026-07-20T09:25:20.025+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-20T09:25:20.026+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-20T09:25:20.733+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T09:25:20.913+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 173 ms. Found 23 JPA repository interfaces.
+2026-07-20T09:25:21.592+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-07-20T09:25:21.604+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T09:25:21.605+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-07-20T09:25:21.749+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] org.apache.jasper.servlet.TldScanner     : At least one JAR was scanned for TLDs yet contained no TLDs. Enable debug logging for this logger for a complete list of JARs that were scanned but no TLDs were found in them. Skipping unneeded JARs during scanning can improve startup time and JSP compilation time.
+2026-07-20T09:25:21.752+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T09:25:21.754+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1726 ms
+2026-07-20T09:25:22.162+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T09:25:22.185+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-20T09:25:22.772+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection ConnectionID:1 ClientConnectionId: d8dabd75-8225-45fe-84b1-20114d98fc10
+2026-07-20T09:25:22.773+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-20T09:25:24.253+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table AUDIO_BOOK 
+       alter column id bigint
+Hibernate: 
+    alter table AUDIO_BOOK 
+       alter column id bigint
+2026-07-20T09:25:24.259+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table AUDIO_BOOK 
+       alter column chapter_id bigint
+Hibernate: 
+    alter table AUDIO_BOOK 
+       alter column chapter_id bigint
+2026-07-20T09:25:24.262+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table AUDIO_BOOK 
+       alter column language_id bigint
+Hibernate: 
+    alter table AUDIO_BOOK 
+       alter column language_id bigint
+2026-07-20T09:25:24.265+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table Book_Chapter 
+       alter column id bigint
+Hibernate: 
+    alter table Book_Chapter 
+       alter column id bigint
+2026-07-20T09:25:24.266+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table Books 
+       alter column category_id int
+Hibernate: 
+    alter table Books 
+       alter column category_id int
+2026-07-20T09:25:24.269+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table Categories 
+       alter column id int
+Hibernate: 
+    alter table Categories 
+       alter column id int
+2026-07-20T09:25:24.270+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table promotion_details 
+       alter column category_id int
+Hibernate: 
+    alter table promotion_details 
+       alter column category_id int
+2026-07-20T09:25:24.273+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table promotion_details 
+       alter column promotion_id int
+Hibernate: 
+    alter table promotion_details 
+       alter column promotion_id int
+2026-07-20T09:25:24.276+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table promotions 
+       alter column id int
+Hibernate: 
+    alter table promotions 
+       alter column id int
+2026-07-20T09:25:24.277+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table System_Language 
+       alter column id bigint
+Hibernate: 
+    alter table System_Language 
+       alter column id bigint
+2026-07-20T09:25:24.279+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table TTS_Voice 
+       alter column id bigint
+Hibernate: 
+    alter table TTS_Voice 
+       alter column id bigint
+2026-07-20T09:25:24.281+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table TTS_Voice 
+       alter column language_id bigint
+Hibernate: 
+    alter table TTS_Voice 
+       alter column language_id bigint
+2026-07-20T09:25:24.285+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    create table User_Vouchers (
+        id int identity not null,
+        isUsed bit not null,
+        usedDate datetime2(6),
+        user_id int not null,
+        voucher_id int not null,
+        primary key (id)
+    )
+Hibernate: 
+    create table User_Vouchers (
+        id int identity not null,
+        isUsed bit not null,
+        usedDate datetime2(6),
+        user_id int not null,
+        voucher_id int not null,
+        primary key (id)
+    )
+2026-07-20T09:25:24.462+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table User_Vouchers 
+       add constraint FKi24wxuw0884s0nnkrwoqs9l15 
+       foreign key (user_id) 
+       references Users
+Hibernate: 
+    alter table User_Vouchers 
+       add constraint FKi24wxuw0884s0nnkrwoqs9l15 
+       foreign key (user_id) 
+       references Users
+2026-07-20T09:25:24.465+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    alter table User_Vouchers 
+       add constraint FKrp4h7h1hvwbgjb36vsxdutnwp 
+       foreign key (voucher_id) 
+       references vouchers
+Hibernate: 
+    alter table User_Vouchers 
+       add constraint FKrp4h7h1hvwbgjb36vsxdutnwp 
+       foreign key (voucher_id) 
+       references vouchers
+2026-07-20T09:25:24.477+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T09:25:24.758+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-20T09:25:25.348+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] c.p.java5.ai.config.VectorStoreConfig    : Qdrant is running. Initializing Qdrant Vector Store at localhost:6334 collection bookstore_index
+2026-07-20T09:25:26.735+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] ai.djl.util.Platform                     : Found matching platform from: jar:file:/C:/Users/ACER/.m2/repository/ai/djl/huggingface/tokenizers/0.30.0/tokenizers-0.30.0.jar!/native/lib/tokenizers.properties
+2026-07-20T09:25:27.415+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    select
+        count_big(*) 
+    from
+        TTS_Voice tv1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        TTS_Voice tv1_0
+2026-07-20T09:25:27.572+07:00 DEBUG 22340 --- [BookStoreOnline] [  restartedMain] org.hibernate.SQL                        : 
+    select
+        count_big(*) 
+    from
+        System_Language sl1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        System_Language sl1_0
+2026-07-20T09:25:27.926+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@7af3a55, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@6a8338cb, org.springframework.security.web.context.SecurityContextHolderFilter@70bf0fd2, org.springframework.security.web.header.HeaderWriterFilter@3a64a140, org.springframework.web.filter.CorsFilter@13123ebb, org.springframework.security.web.authentication.logout.LogoutFilter@4133bd9c, org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter@d294080, org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter@2d580328, com.poly.java5.Config.AuthFilter$$SpringCGLIB$$0@fd447d7, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@2038d8b5, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@2293a6ad, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@2548f47a, org.springframework.security.web.session.SessionManagementFilter@6f1588b8, org.springframework.security.web.access.ExceptionTranslationFilter@4f3e36de, org.springframework.security.web.access.intercept.AuthorizationFilter@5e334410]
+2026-07-20T09:25:28.046+07:00  WARN 22340 --- [BookStoreOnline] [  restartedMain] ion$DefaultTemplateResolverConfiguration : Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2026-07-20T09:25:28.168+07:00  WARN 22340 --- [BookStoreOnline] [  restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : Unable to start LiveReload server
+2026-07-20T09:25:28.208+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path ''
+2026-07-20T09:25:28.215+07:00  INFO 22340 --- [BookStoreOnline] [  restartedMain] c.p.java5.WebBanSachOnlikeApplication    : Started WebBanSachOnlikeApplication in 8.515 seconds (process running for 8.934)
+2026-07-20T09:25:35.677+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-2] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T09:25:35.678+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T09:25:35.678+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+=== AUTH FILTER CALLED ===
+Path: /api/chatbot
+No token found (header or cookie)
+2026-07-20T09:25:37.056+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-2] c.poly.java5.ai.service.ChatbotService   : Detected intent: INVENTORY_QUERY
+2026-07-20T09:25:39.078+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-2] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:39.116+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-2] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:39.122+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-2] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:39.129+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-2] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+=== AUTH FILTER CALLED ===
+Path: /api/chatbot
+No token found (header or cookie)
+2026-07-20T09:25:47.687+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-3] c.poly.java5.ai.service.ChatbotService   : Detected intent: INVENTORY_QUERY
+2026-07-20T09:25:48.928+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-3] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:48.934+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-3] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:48.936+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-3] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:25:48.941+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-3] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+=== AUTH FILTER CALLED ===
+Path: /api/chatbot
+No token found (header or cookie)
+2026-07-20T09:25:59.984+07:00  INFO 22340 --- [BookStoreOnline] [nio-8081-exec-6] c.poly.java5.ai.service.ChatbotService   : Detected intent: INVENTORY_QUERY
+2026-07-20T09:26:01.464+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-6] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:26:01.485+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-6] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:26:01.494+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-6] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+2026-07-20T09:26:01.502+07:00 DEBUG 22340 --- [BookStoreOnline] [nio-8081-exec-6] org.hibernate.SQL                        : 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
+Hibernate: 
+    select
+        b1_0.id,
+        b1_0.active,
+        b1_0.category_id,
+        b1_0.created_date,
+        b1_0.deleted,
+        b1_0.description,
+        b1_0.image_url,
+        b1_0.isbn,
+        b1_0.price,
+        b1_0.stock_quantity,
+        b1_0.seller_id,
+        b1_0.title 
+    from
+        Books b1_0 
+    where
+        b1_0.id=?
