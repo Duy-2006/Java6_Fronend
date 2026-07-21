@@ -1,83 +1,102 @@
-/*
- * ordersService.ts
- * Lop service xu ly cac thao tac CRUD doi voi don hang (Order) trong trang Admin.
- * Bao gom: xem danh sach, xem chi tiet, tao moi, cap nhat, doi trang thai, xoa don hang.
- */
+// src/services/ordersService.ts
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-import { authFetch } from "@/lib/authFetch";
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('token');
+  }
+  return null;
+};
 
-// Dia chi goc cua backend Spring Boot
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+const logoutAndRedirect = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('token');
+    window.location.href = '/auth/login';
+  }
+};
 
-// Kieu du lieu cua mot don hang, tuong ung voi OrderDTO ben backend
+export const isLoggedIn = () => {
+  if (typeof window !== 'undefined') {
+    return !!localStorage.getItem('token');
+  }
+  return false;
+};
+
+export const authFetch = async (url: string, options: RequestInit = {}) => {
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    logoutAndRedirect();
+    throw new Error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
+  }
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Lỗi ${res.status}: ${errorText || res.statusText}`);
+  }
+  return res.json();
+};
+
 export interface Order {
-  id: number;                  // Ma don hang (tu dong tang)
-  orderCode?: string;          // Ma don hang hien thi (vi du: DH20240101001)
-  customerName?: string;       // Ten khach hang dat don
-  customerPhone?: string;      // So dien thoai khach hang
-  orderDate?: string;          // Ngay dat hang (ISO format)
-  shippingFee?: number;        // Phi van chuyen (VND)
-  discountAmount?: number;     // So tien giam gia (VND)
-  totalAmount?: number;        // Tong tien thanh toan (VND)
-  status: string;              // Trang thai don hang (PENDING, CONFIRMED, SHIPPING, DELIVERED, CANCELLED)
+  id: number;
+  orderCode?: string;
+  customerName?: string;
+  customerPhone?: string;
+  orderDate?: string;
+  totalAmount?: number;
+  shippingFee?: number | null;
+  status: string;
 }
 
-// Lay toan bo danh sach don hang (dung cho trang Admin > Quan ly don hang)
 export async function getAllOrders(): Promise<Order[]> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders`, { cache: "no-store" });
-  return res.json();
+  return authFetch(`${BASE_URL}/api/admin/orders`, { cache: 'no-store' });
 }
 
-// Lay chi tiet 1 don hang theo ma ID
 export async function getOrderById(id: number | string): Promise<Order> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, { cache: "no-store" });
-  return res.json();
+  return authFetch(`${BASE_URL}/api/admin/orders/${id}`, { cache: 'no-store' });
 }
 
-// Tao moi don hang (gui thong tin don hang len backend)
 export async function createOrder(data: Partial<Order>): Promise<Order> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  return authFetch(`${BASE_URL}/api/admin/orders`, {
+    method: 'POST',
     body: JSON.stringify(data),
   });
-  return res.json();
 }
 
-// Cap nhat thong tin don hang theo ma ID (sua toan bo)
 export async function updateOrder(id: number | string, data: Partial<Order>): Promise<Order> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+  return authFetch(`${BASE_URL}/api/admin/orders/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
-  return res.json();
 }
 
-// Doi trang thai don hang (vi du: PENDING -> CONFIRMED -> SHIPPING -> DELIVERED)
 export async function updateOrderStatus(id: number | string, status: string): Promise<Order> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}/status`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
+  return authFetch(`${BASE_URL}/api/admin/orders/${id}/status`, {
+    method: 'PUT',
     body: JSON.stringify({ status }),
   });
-  return res.json();
 }
 
-// Xoa don hang khoi database theo ma ID
 export async function deleteOrder(id: number | string): Promise<void> {
-  const res = await authFetch(`${BASE_URL}/api/admin/orders/${id}`, {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/admin/orders/${id}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
     },
-    credentials: 'include',
   });
-  
+  if (res.status === 401) {
+    logoutAndRedirect();
+    throw new Error('Token hết hạn');
+  }
   if (!res.ok) throw new Error('Xóa đơn hàng thất bại');
 }
 
-// Doi tuong gom nhom tat ca cac ham de import nhanh: ordersService.getAll(), ordersService.create()...
 export const ordersService = {
   getAll: getAllOrders,
   getById: getOrderById,

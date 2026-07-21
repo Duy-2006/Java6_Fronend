@@ -1,48 +1,46 @@
-/*
- * promotionServices.ts
- * Lop service xu ly cac thao tac CRUD doi voi chuong trinh khuyen mai (Promotion).
- * Admin co the tao khuyen mai ap dung cho toan bo sach, theo tung cuon sach, hoac theo the loai.
- */
+const API_URL = process.env.API_URL || "http://localhost:8080";
 
-import { authFetch } from "@/lib/authFetch";
-
-// Dia chi goc cua backend
-const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
-
-// Kieu du lieu cua mot chuong trinh khuyen mai
+// ==================== INTERFACES ====================
 export interface PromotionDTO {
-  id?: number;                              // Ma khuyen mai
-  name: string;                             // Ten chuong trinh khuyen mai
-  discountValue: number;                    // Phan tram giam gia (0-100)
-  startDate?: string;                       // Ngay bat dau (YYYY-MM-DD)
-  endDate?: string;                         // Ngay ket thuc (YYYY-MM-DD)
-  status: boolean;                          // Trang thai kich hoat (true/false)
-  applyType: "ALL" | "BOOK" | "CATEGORY";  // Pham vi ap dung: toan bo, theo sach, theo the loai
-  computedStatus?: string;                  // Trang thai tinh toan: UPCOMING (sap dien ra), ACTIVE (dang chay), EXPIRED (het han)
-  bookIds?: number[];                       // Danh sach ma sach duoc ap dung (khi applyType = BOOK)
-  bookTitles?: string[];                    // Ten cac sach duoc ap dung (dung de hien thi)
-  categoryIds?: number[];                   // Danh sach ma the loai (khi applyType = CATEGORY)
-  categoryNames?: string[];                 // Ten cac the loai (dung de hien thi)
+  id?: number;
+  name: string;
+  discountValue: number;          // % giảm giá (0-100)
+  startDate?: string;             // YYYY-MM-DD
+  endDate?: string;               // YYYY-MM-DD
+  status: boolean;
+  applyType: "ALL" | "BOOK" | "CATEGORY";
+  computedStatus?: string;        // UPCOMING | ACTIVE | EXPIRED | UNKNOWN
+  usageLimit?: number;
+  usedCount?: number;
+  bookIds?: number[];
+  bookTitles?: string[];
+  categoryIds?: number[];
+  categoryNames?: string[];
 }
 
-// Kieu du lieu cho form tao/sua khuyen mai (danh sach sach va the loai de chon)
 export interface FormData {
   books:      { id: number; title: string }[];
   categories: { id: number; name: string  }[];
 }
 
-// Ham tao header xac thuc - hien tai dung Cookie-Only nen khong can Authorization header
-function authHeader(): Record<string, string> {
-  return {};
+// ==================== HELPER ====================
+/**
+ * Trả về header Authorization chỉ khi token hợp lệ.
+ * Tránh gửi "Bearer null" / "Bearer undefined" → 401.
+ */
+function authHeader(token: string): Record<string, string> {
+  return token && token !== "null" && token !== "undefined"
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 }
 
-// Lay toan bo danh sach khuyen mai tu backend
-export async function getAllPromotions(): Promise<PromotionDTO[]> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
+// ==================== GET ALL PROMOTIONS ====================
+export async function getAllPromotions(token: string): Promise<PromotionDTO[]> {
+  const res = await fetch(`${API_URL}/api/admin/promotions`, {
     method: "GET",
     cache: "no-store",
     headers: {
-      
+      ...authHeader(token),
     },
   });
 
@@ -50,17 +48,20 @@ export async function getAllPromotions(): Promise<PromotionDTO[]> {
     throw new Error(`Lỗi tải danh sách khuyến mãi (${res.status})`);
   }
 
-  // Backend tra ve truc tiep mang PromotionDTO (khong co wrapper object)
+  // BE trả thẳng List<PromotionDTO> — không có wrapper object
   const data: PromotionDTO[] = await res.json();
   return data;
 }
 
-// Lay chi tiet 1 chuong trinh khuyen mai theo ma ID
-export async function getPromotionById(id: number): Promise<PromotionDTO> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
+// ==================== GET PROMOTION BY ID ====================
+export async function getPromotionById(
+  id: number,
+  token: string
+): Promise<PromotionDTO> {
+  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
     cache: "no-store",
     headers: {
-      
+      ...authHeader(token),
     },
   });
 
@@ -72,12 +73,12 @@ export async function getPromotionById(id: number): Promise<PromotionDTO> {
   return res.json();
 }
 
-// Lay du lieu phuc vu form tao/sua khuyen mai (danh sach sach va the loai)
-export async function getPromotionFormData(): Promise<FormData> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions/form-data`, {
+// ==================== GET FORM DATA (books + categories) ====================
+export async function getPromotionFormData(token: string): Promise<FormData> {
+  const res = await fetch(`${API_URL}/api/admin/promotions/form-data`, {
     cache: "no-store",
     headers: {
-      
+      ...authHeader(token),
     },
   });
 
@@ -85,14 +86,16 @@ export async function getPromotionFormData(): Promise<FormData> {
   return res.json();
 }
 
-// Tao moi mot chuong trinh khuyen mai
+// ==================== CREATE PROMOTION ====================
 export async function createPromotion(
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
+  token: string
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/admin/promotions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      
+      ...authHeader(token),
     },
     body: JSON.stringify(payload),
   });
@@ -102,19 +105,20 @@ export async function createPromotion(
     throw new Error(errorText || "Tạo khuyến mãi thất bại.");
   }
 
-  // Backend tra ve chuoi thong bao dang text (khong phai JSON)
-  return res.text();
+  return res.text(); // BE trả về string "Tạo khuyến mãi thành công"
 }
 
-// Cap nhat chuong trinh khuyen mai theo ma ID
+// ==================== UPDATE PROMOTION ====================
 export async function updatePromotion(
   id: number,
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
+  token: string
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      
+      ...authHeader(token),
     },
     body: JSON.stringify(payload),
   });
@@ -124,15 +128,15 @@ export async function updatePromotion(
     throw new Error(errorText || "Cập nhật khuyến mãi thất bại.");
   }
 
-  return res.text();
+  return res.text(); // BE trả về string "Cập nhật thành công"
 }
 
-// Xoa chuong trinh khuyen mai theo ma ID
-export async function deletePromotion(id: number): Promise<void> {
-  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
+// ==================== DELETE PROMOTION ====================
+export async function deletePromotion(id: number, token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "DELETE",
     headers: {
-      
+      ...authHeader(token),
     },
   });
 
