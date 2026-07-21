@@ -135,7 +135,7 @@ export default function BannerList() {
       if (b.end_date) data.append("end_date", b.end_date);
 
       const res = await authFetch(url, {
-        method: "PUT",
+        method: "POST",
         body: data,
       });
 
@@ -548,7 +548,7 @@ export default function BannerList() {
 
                   <div className="p-4 space-y-3">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-[#916f6b] uppercase tracking-wider">Tên Banner / Tệp:</p>
+                      <p className="text-[10px] font-bold text-[#916f6b] uppercase tracking-wider">Tên banner:</p>
                       <p className="text-xs font-semibold text-[#191c1e] truncate" title={getBannerName(b)}>{getBannerName(b)}</p>
                     </div>
 

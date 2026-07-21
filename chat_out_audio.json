@@ -1,1 +1,35 @@
-{"answer":"Dạ, hiện tại hệ thống thông tin của cửa hàng không ghi nhận đầu sách nào có định dạng sách nói ạ.","intent":"AUDIOBOOK_QUERY","sources":[{"bookId":9,"title":"Tuổi Trẻ Đáng Giá Bao Nhiêu","reason":"Tìm thấy từ ngữ cảnh semantic","relevanceScore":null,"imageUrl":"5c68f175-d8b3-4fc4-a154-314f9d32089c_tuoitre.jpg","price":85000.00,"stockQuantity":28},{"bookId":1009,"title":"Nhà Giả Kim","reason":"Tìm thấy từ ngữ cảnh semantic","relevanceScore":null,"imageUrl":"19bed50b-cb84-4d0b-b590-0bd5abfea14a_nhagiakim1.jpg","price":79000.00,"stockQuantity":17},{"bookId":1012,"title":"Cây Cam Ngọt Của Tôi","reason":"Tìm thấy từ ngữ cảnh semantic","relevanceScore":null,"imageUrl":"0bc78c0f-4863-4bed-a37c-4c399134906e_camngot.jpg","price":95000.00,"stockQuantity":7}],"conversationId":"88a2f7f7-8507-479b-b5df-14318434ada4","fallback":false}
+{
+    "answer": "Dạ, hiện tại hệ thống thông tin của cửa hàng không ghi nhận đầu sách nào có định dạng sách nói ạ.",
+    "intent": "AUDIOBOOK_QUERY",
+    "sources": [
+        {
+            "bookId": 9,
+            "title": "Tuổi Trẻ Đáng Giá Bao Nhiêu",
+            "reason": "Tìm thấy từ ngữ cảnh semantic",
+            "relevanceScore": null,
+            "imageUrl": "5c68f175-d8b3-4fc4-a154-314f9d32089c_tuoitre.jpg",
+            "price": 85000.00,
+            "stockQuantity": 28
+        },
+        {
+            "bookId": 1009,
+            "title": "Nhà Giả Kim",
+            "reason": "Tìm thấy từ ngữ cảnh semantic",
+            "relevanceScore": null,
+            "imageUrl": "19bed50b-cb84-4d0b-b590-0bd5abfea14a_nhagiakim1.jpg",
+            "price": 79000.00,
+            "stockQuantity": 17
+        },
+        {
+            "bookId": 1012,
+            "title": "Cây Cam Ngọt Của Tôi",
+            "reason": "Tìm thấy từ ngữ cảnh semantic",
+            "relevanceScore": null,
+            "imageUrl": "0bc78c0f-4863-4bed-a37c-4c399134906e_camngot.jpg",
+            "price": 95000.00,
+            "stockQuantity": 7
+        }
+    ],
+    "conversationId": "88a2f7f7-8507-479b-b5df-14318434ada4",
+    "fallback": false
+}

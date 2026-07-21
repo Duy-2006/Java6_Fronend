@@ -88,7 +88,7 @@ export default function BannerForm({ id }: BannerFormProps) {
       return;
     }
 
-    const method = isEditing ? "PUT" : "POST";
+    const method = "POST";
     const url = isEditing ? `${API_URL}/api/banners/${id}` : `${API_URL}/api/banners`;
 
     try {

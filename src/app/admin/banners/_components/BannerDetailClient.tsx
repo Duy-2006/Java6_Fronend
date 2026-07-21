@@ -41,6 +41,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
   const [banner, setBanner] = useState<Banner | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [imageMeta, setImageMeta] = useState<{ width: number, height: number, sizeKB: number | string, format: string } | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
@@ -71,6 +72,53 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
     return () => clearTimeout(timer);
   }, [alert]);
 
+  const getImageUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("blob:")) return url;
+    return `${API_URL}${url}`;
+  };
+
+  useEffect(() => {
+    if (!banner || !banner.image_url) return;
+    
+    const url = getImageUrl(banner.image_url);
+    
+    // Extract format
+    const extMatch = url.match(/\.([^#?]+)(?:[#?]|$)/);
+    const format = extMatch ? extMatch[1].toUpperCase() : "Không rõ";
+
+    // Load image to get dimensions
+    const img = new globalThis.Image();
+    img.onload = () => {
+      let sizeKB: string | number = "Không rõ";
+      
+      // Try to get file size via fetch HEAD
+      fetch(url, { method: 'HEAD' })
+        .then(res => {
+          const length = res.headers.get('content-length');
+          if (length) {
+            sizeKB = Math.round(parseInt(length, 10) / 1024);
+          }
+          setImageMeta({
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            sizeKB,
+            format
+          });
+        })
+        .catch(() => {
+          // If CORS fails for HEAD, at least show dimensions
+          setImageMeta({
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            sizeKB,
+            format
+          });
+        });
+    };
+    img.src = url;
+  }, [banner, API_URL]);
+
   const handleDelete = async () => {
     if (!confirm("Bạn có chắc chắn muốn xóa banner này?")) return;
 
@@ -91,11 +139,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
     }
   };
 
-  const getImageUrl = (url: string) => {
-    if (!url) return "";
-    if (url.startsWith("http") || url.startsWith("blob:")) return url;
-    return `${API_URL}${url}`;
-  };
+
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "Không giới hạn";
@@ -256,6 +300,30 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
               <ImageIcon className="w-12 h-12 stroke-[1.5] mb-2" />
               <span>Không tìm thấy ảnh banner</span>
             </div>
+          )}
+        </div>
+
+        {/* Image Metadata Info */}
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="font-bold text-slate-800 text-sm mb-1">1. Hình ảnh banner</h3>
+            <p className="text-xs text-slate-500 mb-2">Ảnh banner kích thước lớn hiển thị trên trang chủ.</p>
+            <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+              <li>Kích thước ảnh thực tế: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">{imageMeta ? `${imageMeta.width} × ${imageMeta.height} px` : 'Đang tính toán...'}</code></li>
+              <li>Dung lượng ảnh thực tế: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">{imageMeta ? `${imageMeta.sizeKB} KB` : 'Đang tính toán...'}</code></li>
+              <li>Định dạng: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">{imageMeta ? imageMeta.format : 'Đang tải...'}</code></li>
+            </ul>
+          </div>
+          {banner.image_url && (
+            <a 
+              href={getImageUrl(banner.image_url)} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-white border border-slate-200 text-[#b70011] font-semibold text-xs rounded-lg hover:bg-slate-50 hover:text-[#b70011] transition-all flex items-center gap-2 shadow-sm text-decoration-none whitespace-nowrap"
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Xem ảnh đầy đủ</span>
+            </a>
           )}
         </div>
 
