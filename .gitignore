@@ -61,3 +61,15 @@ node_modules/
 dist/
 .env
 .env.local
+
+# =====================
+# Python / Virtual Env
+# =====================
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
