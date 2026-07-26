@@ -60,23 +60,37 @@ public class OrderController {
 	}
 
 	@GetMapping("/my-orders")
-	public String myOrders(@RequestParam(required = false) String status, HttpSession session, Model model) {
-		Integer userId = (Integer) session.getAttribute("USER_ID");
-		if (userId == null)
-			return "redirect:/login";
+	public String myOrders(
+	        @RequestParam(defaultValue = "physical") String type,
+	        @RequestParam(required = false) String status,
+	        HttpSession session,
+	        Model model) {
 
-		List<Order> orders = orderService.findOrdersByUser(userId, status);
+	    Integer userId = (Integer) session.getAttribute("USER_ID");
 
-		model.addAttribute("orders", orders);
-		model.addAttribute("currentStatus", status);
+	    if (userId == null) {
+	        return "redirect:/login";
+	    }
 
-		return "order-list";
+	    List<Order> orders =
+	    		orderService.findOrdersByUser(
+	    		        userId,
+	    		        status,
+	    		        type
+	    		);
+
+	    model.addAttribute("orders", orders);
+	    model.addAttribute("currentStatus", status);
+	    model.addAttribute("currentType", type);
+
+	    return "order-list";
 	}
 
 	 //code sua
 	@PostMapping("/orders/cancel/{id}")
 	public String cancelOrder(@PathVariable("id") Integer id,
-	                          HttpSession session) {
+	                          HttpSession session,
+	                          RedirectAttributes redirectAttributes) {
 
 	    Integer userId = (Integer) session.getAttribute("USER_ID");
 	    if (userId == null)
@@ -84,42 +98,16 @@ public class OrderController {
 
 	    orderService.cancelOrder(id, userId);
 
+	    redirectAttributes.addFlashAttribute(
+	            "success",
+	            "Đơn hàng đã được hủy thành công!"
+	    );
+
 	    return "redirect:/my-orders";
 	}
-
 	    // =========================
     // CHECKOUT - TẠO ĐƠN HÀNG (có áp dụng khuyến mãi)
     // =========================
-    @PostMapping("/checkout")
-    public String checkout(
-            @RequestParam String customerName,
-            @RequestParam String customerPhone,
-            @RequestParam String customerAddress,
-            @RequestParam(defaultValue = "COD") String paymentMethod,
-            HttpSession session,
-            RedirectAttributes redirectAttributes) {
-
-        Integer userId = (Integer) session.getAttribute("USER_ID");
-        if (userId == null) {
-            return "redirect:/login";
-        }
-
-        try {
-            Order order = orderService.createOrderFromCart(
-                    userId, 
-                    paymentMethod, 
-                    customerName, 
-                    customerPhone, 
-                    customerAddress
-            );
-
-            redirectAttributes.addAttribute("code", order.getOrderCode());
-            return "redirect:/order-success";
-
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/checkout";   // quay lại trang thanh toán nếu lỗi
-        }
-    }
+    
 
 }

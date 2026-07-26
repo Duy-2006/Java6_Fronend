@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
 <head th:replace="head :: head"></head>
 
 
 <body class="bg-gray-100 min-h-screen">
-<div th:replace="menu :: menu"></div>
+	<div th:replace="menu :: menu"></div>
 
 	<div class="max-w-6xl mx-auto px-4 py-10">
 
@@ -17,8 +18,7 @@
 					hàng của bạn</p>
 			</div>
 
-			<a th:href="@{/home}"
-				class="px-5 py-2 bg-black text-white rounded-xl font-semibold hover:opacity-90">
+			<a th:href="@{/home}" class="px-5 py-2 bg-black text-white rounded-xl font-semibold hover:opacity-90">
 				← Tiếp tục mua sắm </a>
 		</div>
 
@@ -35,31 +35,25 @@
 				<option value="PENDING" th:selected="${currentStatus == 'PENDING'}">
 					Chờ xác nhận</option>
 
-				<option value="CONFIRMED"
-					th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận
+				<option value="CONFIRMED" th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận
 				</option>
 
-				<option value="SHIPPING"
-					th:selected="${currentStatus == 'SHIPPING'}">Đang giao</option>
+				<option value="SHIPPING" th:selected="${currentStatus == 'SHIPPING'}">Đang giao</option>
 
-				<option value="COMPLETED"
-					th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
+				<option value="COMPLETED" th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
 
-				<option value="CANCELLED"
-					th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
+				<option value="CANCELLED" th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
 
 			</select>
 
-			<button type="submit"
-				class="bg-black text-white px-6 py-2 rounded-xl font-bold hover:opacity-90">
+			<button type="submit" class="bg-black text-white px-6 py-2 rounded-xl font-bold hover:opacity-90">
 				Lọc</button>
 		</form>
 
 		<!-- ORDER LIST -->
 		<div class="space-y-6">
 
-			<div th:each="order : ${orders}"
-				class="bg-white rounded-2xl border p-6 card-hover">
+			<div th:each="order : ${orders}" class="bg-white rounded-2xl border p-6 card-hover">
 
 				<!-- TOP -->
 				<div class="flex flex-wrap justify-between items-start gap-4">
@@ -94,20 +88,18 @@
 				</div>
 
 				<!-- BOTTOM -->
-				<div
-					class="flex flex-wrap justify-between items-center mt-6 pt-4 border-t">
+				<div class="flex flex-wrap justify-between items-center mt-6 pt-4 border-t">
 
 					<p class="text-xl font-extrabold text-red-600">
-						<span
-							th:text="${#numbers.formatDecimal(order.totalAmount,0,'COMMA',0,'POINT')}"></span>
+						<span th:text="${#numbers.formatDecimal(order.totalAmount,0,'COMMA',0,'POINT')}"></span>
 						đ
 					</p>
 
 					<div class="flex gap-4 items-center">
 
 						<!-- Nút hủy đơn -->
-						<form th:if="${order.status == 'PENDING'}"
-							th:action="@{/orders/cancel/{id}(id=${order.id})}" method="post">
+						<form th:if="${order.status == 'PENDING'}" th:action="@{/orders/cancel/{id}(id=${order.id})}"
+							method="post">
 
 							<button type="submit"
 								class="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
@@ -130,8 +122,7 @@
 
 				<p class="text-xl font-semibold mb-2">Bạn chưa có đơn hàng nào</p>
 
-				<a th:href="@{/home}"
-					class="text-blue-600 font-bold hover:underline"> Bắt đầu mua
+				<a th:href="@{/home}" class="text-blue-600 font-bold hover:underline"> Bắt đầu mua
 					sắm → </a>
 
 			</div>
@@ -141,4 +132,5 @@
 	</div>
 
 </body>
+
 </html>

@@ -69,7 +69,7 @@ public class OrderService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<Order> findOrdersByUser(Integer userId, String status) {
+	public List<Order> findOrdersByUser(Integer userId, String status, String type) {
 
 	    if (status == null || status.isBlank()) {
 	        return orderRepository.findByUserIdOrderByOrderDateDesc(userId);

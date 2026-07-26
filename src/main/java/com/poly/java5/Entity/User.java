@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import java.math.BigDecimal;
 
 @Data
 @Entity
@@ -44,13 +45,18 @@ public class User implements Serializable {
     @Column(name = "created_date")
     private LocalDateTime createdDate;
 
-    // ===== RELATIONSHIP (QUAN HỆ) =====
-    // mappedBy = "user" phải khớp với tên biến 'user' trong class Order
+ // ===== RELATIONSHIP (QUAN HỆ) =====
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    @ToString.Exclude          // Lombok: Tránh vòng lặp vô hạn khi in log
-    @EqualsAndHashCode.Exclude // Lombok: Tránh lỗi so sánh object
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Order> orders;
 
+    // ===== Xếp hạng khách hàng =====
+    @Column(name = "lifetime_value", precision = 12, scale = 2)
+    private BigDecimal lifetimeValue = BigDecimal.ZERO;
+
+    @Column(name = "customer_rank", length = 20)
+    private String customerRank = "BRONZE";
     // Tự động gán ngày tạo khi lưu mới
     @PrePersist
     protected void onCreate() {
@@ -67,23 +73,40 @@ public class User implements Serializable {
         return role == UserRole.USER;
     }
 
-    // ===== BUSINESS LOGIC (THỐNG KÊ CHI TIÊU) =====
-    public Double getTotalSpending() {
-        if (orders == null || orders.isEmpty()) return 0.0;
-        
-        // Tính tổng tiền các đơn hàng đã hoàn thành
-        return orders.stream()
-                .filter(o -> o.getStatus() != null && "COMPLETED".equalsIgnoreCase(o.getStatus()))
-                .filter(o -> o.getTotalAmount() != null) // Tránh lỗi null pointer
-                .mapToDouble(o -> o.getTotalAmount().doubleValue())
-                .sum();
+    public String calculateRank() {
+
+        if (lifetimeValue == null) {
+            return "BRONZE";
+        }
+
+        if (lifetimeValue.compareTo(new BigDecimal("10000000")) >= 0)
+            return "PLATINUM";
+
+        if (lifetimeValue.compareTo(new BigDecimal("5000000")) >= 0)
+            return "GOLD";
+
+        if (lifetimeValue.compareTo(new BigDecimal("2000000")) >= 0)
+            return "SILVER";
+
+        return "BRONZE";
     }
 
-    public String getCustomerType() {
-        double spent = getTotalSpending();
-        if (spent >= 5_000_000) return "VIP (Thân thiết)";
-        if (spent > 0) return "Tiềm năng";
-        return "Khách mới";
+    public int getDiscountPercent() {
+
+        switch (customerRank) {
+
+            case "PLATINUM":
+                return 15;
+
+            case "GOLD":
+                return 10;
+
+            case "SILVER":
+                return 5;
+
+            default:
+                return 0;
+        }
     }
 
 	
