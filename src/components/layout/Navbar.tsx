@@ -185,14 +185,10 @@ export default function Navbar() {
         }
       `}</style>
 
-      {/* Top Banner */}
-      <div className="bg-[#b70011] text-white py-2 px-6 text-center text-xs font-semibold tracking-wide sticky top-0 z-[70] uppercase">
-        SĂN DEAL HÈ RỰC RỠ - GIẢM ĐẾN 50% TOÀN BỘ SÁCH NÓI.{" "}
-        <a className="underline font-bold ml-2 hover:opacity-80 transition-all duration-300" href="#">XEM NGAY</a>
-      </div>
+
 
       {/* Header / Navigation */}
-      <nav className="bg-white/95 backdrop-blur-xl sticky top-8 w-full z-[60] border-b border-[#eceef0] shadow-sm">
+      <nav className="bg-white/95 backdrop-blur-xl sticky top-0 w-full z-[60] border-b border-[#eceef0] shadow-sm">
         <div className="flex items-center justify-between px-6 h-20 w-full max-w-7xl mx-auto gap-8">
           {/* Logo & Catalog */}
           <div className="flex items-center gap-8 flex-shrink-0">

@@ -34,6 +34,7 @@ interface OrderFull {
   discountAmount?: number;
   cancelReason?: string;
   shippingFee?: number;
+  memberDiscount?: number;
   requiresManualRefundContact?: boolean;
   refundContactMessage?: string;
 }
@@ -395,10 +396,19 @@ function OrderDetailContent() {
                   <span>Tiền sách</span>
                   <span>{fmt(itemsSubtotal)}đ</span>
                 </div>
-                {order.discountAmount && order.discountAmount > 0 ? (
+                {(order.memberDiscount ?? 0) > 0 && (
+                  <div className="flex justify-between text-[14px] text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
+                      Ưu đãi Hạng thành viên
+                    </span>
+                    <span>-{fmt(order.memberDiscount ?? 0)}đ</span>
+                  </div>
+                )}
+                {((order.discountAmount ?? 0) - (order.memberDiscount ?? 0)) > 0 ? (
                   <div className="flex justify-between text-[14px] text-[#545f73]">
                     <span>Giảm giá voucher</span>
-                    <span className="text-[#ba1a1a] font-semibold">-{fmt(order.discountAmount)}đ</span>
+                    <span className="text-[#ba1a1a] font-semibold">-{fmt((order.discountAmount ?? 0) - (order.memberDiscount ?? 0))}đ</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between text-[14px] text-[#545f73]">
@@ -429,13 +439,13 @@ function OrderDetailContent() {
                     Yêu cầu hủy đơn
                   </button>
                 )}
-                {order.status === "SHIPPING" && (
+                {order.status === "DELIVERED" && (
                   <button
                     onClick={() => setShowReceivedModal(true)}
                     className="w-full py-3 bg-emerald-700 text-white text-center font-bold text-[14px] rounded-lg hover:bg-emerald-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    Đã nhận được hàng
+                    Hoàn thành đơn hàng
                   </button>
                 )}
                 <Link
@@ -447,18 +457,8 @@ function OrderDetailContent() {
               </div>
             </div>
 
-            {/* Delivery Timeline / Estimate Note */}
-            <div className="bg-[#f2f4f6] border border-[#e0e3e5] rounded-xl p-6 flex gap-4 items-start shadow-sm text-[13px]">
-              <div className="w-10 h-10 rounded-full bg-[#d5e0f8] flex items-center justify-center flex-shrink-0 text-[#586377]">
-                <span className="material-symbols-outlined">info</span>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-[#545f73] uppercase tracking-wider">Hỗ trợ & Bảo hành</p>
-                <p className="text-[13px] font-medium text-[#191c1e] mt-1 leading-relaxed">
-                  Đơn hàng được áp dụng chính sách đổi trả trong vòng 7 ngày kể từ ngày nhận hàng thành công nếu lỗi do nhà sản xuất.
-                </p>
-              </div>
-            </div>
+
+
 
           </div>
         </div>
@@ -516,7 +516,7 @@ function OrderDetailContent() {
           <div className="bg-white border border-[#e0e3e5] rounded-xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center gap-3 mb-3">
               <span className="material-symbols-outlined text-[32px] text-emerald-700">check_circle</span>
-              <h2 className="text-[18px] font-bold text-[#191c1e]">Xác nhận nhận hàng thành công</h2>
+              <h2 className="text-[18px] font-bold text-[#191c1e]">Xác nhận hoàn thành đơn hàng</h2>
             </div>
             <p className="text-[13px] text-[#545f73] mb-2">
               Mã đơn: <span className="font-mono font-semibold text-[#191c1e]">#{order.orderCode}</span>
@@ -538,7 +538,7 @@ function OrderDetailContent() {
                 disabled={receivedLoading}
                 className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-[13px] font-bold hover:bg-emerald-800 transition-colors disabled:opacity-50"
               >
-                {receivedLoading ? "Đang xử lý..." : "Đã nhận hàng"}
+                {receivedLoading ? "Đang xử lý..." : "Hoàn thành đơn hàng"}
               </button>
             </div>
           </div>

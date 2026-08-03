@@ -16,15 +16,17 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   SHIPPING: { label: "Đang giao", cls: "bg-purple-50 text-purple-700 border border-purple-200" },
   COMPLETED: { label: "Hoàn thành", cls: "bg-green-50 text-green-700 border border-green-200" },
   CANCELLED: { label: "Đã hủy", cls: "bg-red-50 text-red-700 border border-red-200" },
+  DELIVERED: { label: "Giao thành công", cls: "bg-teal-50 text-teal-700 border border-teal-200" },
 };
 
-const STATUS_OPTIONS = ["", "PENDING", "CONFIRMED", "SHIPPING", "COMPLETED", "CANCELLED"];
+const STATUS_OPTIONS = ["", "PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "COMPLETED", "CANCELLED"];
 
 const STATUS_LABELS: Record<string, string> = {
   "": "Tất cả",
   PENDING: "Chờ xác nhận",
   CONFIRMED: "Đã xác nhận",
   SHIPPING: "Đang giao",
+  DELIVERED: "Giao thành công",
   COMPLETED: "Hoàn thành",
   CANCELLED: "Đã hủy",
 };
@@ -111,6 +113,7 @@ export default function MyOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
   const [status, setStatus] = useState("");
+  const [activeTab, setActiveTab] = useState<'physical' | 'audio'>('physical');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,7 +166,12 @@ export default function MyOrdersPage() {
 
     try {
       const params = new URLSearchParams({ userId: userId.toString() });
-      if (status) params.append("status", status);
+      if (activeTab === 'physical' && status) {
+        params.append("status", status);
+      } else if (activeTab === 'audio') {
+        params.append("status", "COMPLETED"); // Chỉ hiển thị sách nói đã thanh toán thành công
+      }
+      params.append("bookType", activeTab);
 
       const res = await authFetch(`${BASE_URL}/api/orders?${params}`, {
         headers: { },
@@ -176,32 +184,36 @@ export default function MyOrdersPage() {
       }
 
       if (!res.ok) throw new Error("Không thể tải đơn hàng");
-
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
 
       const ordersWithDetails = await Promise.all(
         list.map(async (order: any) => {
-          const hasDetails = order.details !== undefined || order.orderDetails !== undefined;
+          let detailData = order;
+          const hasDetails = (order.details && order.details.length > 0) || (order.orderDetails && order.orderDetails.length > 0);
 
-          if (hasDetails) return order;
-
-          try {
-            const detailRes = await authFetch(
-              `${BASE_URL}/api/orders/${order.id}?userId=${userId}`,
-              { headers: { } }
-            );
-            if (!detailRes.ok) return order;
-            const detailData = await detailRes.json();
-            return {
-              ...order,
-              ...detailData,
-              details: detailData.details || [],
-              orderDetails: detailData.orderDetails || [],
-            };
-          } catch {
-            return order;
+          if (!hasDetails) {
+            try {
+              const detailRes = await authFetch(
+                `${BASE_URL}/api/orders/${order.id}?userId=${userId}`,
+                { headers: { } }
+              );
+              if (detailRes.ok) {
+                detailData = await detailRes.json();
+              }
+            } catch {
+              // fallback to original order
+            }
           }
+          
+          let fetchedDetails = detailData.details || detailData.orderDetails || [];
+
+          return {
+            ...order,
+            ...detailData,
+            details: fetchedDetails,
+            orderDetails: fetchedDetails
+          };
         })
       );
 
@@ -214,7 +226,7 @@ export default function MyOrdersPage() {
     }
   };
 
-  useEffect(() => { fetchOrders(); }, [status]);
+  useEffect(() => { fetchOrders(); }, [status, activeTab]);
 
   const openCancelModal = (order: any) => {
     setOrderToCancel(order);
@@ -363,12 +375,46 @@ export default function MyOrdersPage() {
             </Link>
           </div>
 
-          {/* Status filter bar */}
-          <div className="bg-white rounded-2xl border border-[#e0e3e5] p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-2 shrink-0 text-gray-500">
-              <span className="material-symbols-outlined text-base">filter_alt</span>
-              <span className="font-bold text-xs uppercase tracking-wider">Lọc:</span>
+          {/* Tabs and Status Filter */}
+          <div className="flex flex-col gap-4">
+            {/* Tabs chọn Loại sách */}
+            <div className="bg-white rounded-2xl border border-[#e0e3e5] p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-2 shrink-0 text-gray-500">
+                <span className="material-symbols-outlined text-base">filter_alt</span>
+                <span className="font-bold text-xs uppercase tracking-wider">Lọc theo:</span>
+              </div>
+              <div className="flex space-x-6 border-b border-gray-200 w-full sm:w-auto">
+                <button
+                  onClick={() => setActiveTab('physical')}
+                  className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${
+                    activeTab === 'physical'
+                      ? 'border-[#b70011] text-[#b70011]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Sách Vật Lý
+                </button>
+                <button
+                  onClick={() => setActiveTab('audio')}
+                  className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${
+                    activeTab === 'audio'
+                      ? 'border-[#b70011] text-[#b70011]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Sách Nói
+                </button>
+              </div>
             </div>
+
+            {/* Status filter bar (Only for Physical Books) */}
+            {activeTab === 'physical' && (
+              <div className="bg-white rounded-2xl border border-[#e0e3e5] p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-2 shrink-0 text-gray-500">
+                <span className="material-symbols-outlined text-base">list_alt</span>
+                <span className="font-bold text-xs uppercase tracking-wider">Trạng thái:</span>
+              </div>
+
             <div className="flex flex-wrap gap-2">
               {STATUS_OPTIONS.map((s) => {
                 const isActive = status === s;
@@ -386,6 +432,8 @@ export default function MyOrdersPage() {
                 );
               })}
             </div>
+            </div>
+            )}
           </div>
 
           {/* Orders list wrapper */}
@@ -413,9 +461,17 @@ export default function MyOrdersPage() {
 
             {!loading && !error && orders.length === 0 && (
               <div className="bg-white rounded-2xl border border-[#e0e3e5] p-16 text-center max-w-xl mx-auto shadow-sm">
-                <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">shopping_bag</span>
-                <p className="text-base font-bold text-[#191c1e] mb-1">Bạn chưa có đơn hàng nào</p>
-                <p className="text-gray-500 text-xs mb-5">Hãy khám phá tủ sách của chúng tôi để chọn ngay cuốn sách yêu thích nhé.</p>
+                <span className="material-symbols-outlined text-5xl text-gray-300 mb-3">
+                  {activeTab === 'audio' ? 'headphones' : 'shopping_bag'}
+                </span>
+                <p className="text-base font-bold text-[#191c1e] mb-1">
+                  {activeTab === 'audio' ? 'Tủ sách nói của bạn đang trống' : 'Bạn chưa có đơn hàng nào'}
+                </p>
+                <p className="text-gray-500 text-xs mb-5">
+                  {activeTab === 'audio' 
+                    ? 'Bạn chưa sở hữu cuốn sách nói nào. Hãy mua ngay để trải nghiệm nhé!' 
+                    : 'Hãy khám phá tủ sách của chúng tôi để chọn ngay cuốn sách yêu thích nhé.'}
+                </p>
                 <Link
                   href="/"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-[#b70011] text-white rounded-full font-bold text-xs hover:bg-[#93000b] transition active:scale-95 shadow-sm"
@@ -480,13 +536,28 @@ export default function MyOrdersPage() {
                       {/* Pricing block */}
                       <div className="space-y-0.5 text-xs text-gray-500">
                         <div className="flex items-center gap-2">
-                          <span className="w-20 shrink-0">Tiền sách:</span>
+                          <span className="w-28 shrink-0">Tiền sách:</span>
                           <span className="text-[#191c1e] font-bold">{fmt(order.totalAmount ?? 0)} đ</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="w-20 shrink-0">Phí ship:</span>
+                          <span className="w-28 shrink-0">Phí ship:</span>
                           <span className="text-[#191c1e] font-bold">{fmt(shipFee)} đ</span>
                         </div>
+                        {(order.memberDiscount ?? 0) > 0 && (
+                          <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                            <span className="w-28 shrink-0 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[11px]">workspace_premium</span>
+                              Hạng thành viên:
+                            </span>
+                            <span>-{fmt(order.memberDiscount ?? 0)} đ</span>
+                          </div>
+                        )}
+                        {((order.discountAmount ?? 0) - (order.memberDiscount ?? 0)) > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className="w-28 shrink-0">Voucher:</span>
+                            <span className="text-[#b70011] font-semibold">-{fmt((order.discountAmount ?? 0) - (order.memberDiscount ?? 0))} đ</span>
+                          </div>
+                        )}
                         <div className="flex items-baseline gap-2 pt-1">
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tổng cộng:</span>
                           <span className="text-lg font-extrabold text-[#b70011] tracking-tight">
@@ -506,13 +577,13 @@ export default function MyOrdersPage() {
                             Hủy đơn
                           </button>
                         )}
-                        {order.status === "SHIPPING" && (
+                        {order.status === "DELIVERED" && (
                           <button
                             onClick={() => confirmReceived(order.id)}
-                            className="inline-flex items-center gap-1 px-3.5 py-2 bg-[#34c759] text-white hover:bg-green-600 rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
+                            className="inline-flex items-center gap-1 px-3.5 py-2 bg-emerald-700 text-white hover:bg-emerald-800 rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
                           >
-                            <span className="material-symbols-outlined text-xs">local_shipping</span>
-                            Đã nhận hàng
+                            <span className="material-symbols-outlined text-xs">check_circle</span>
+                            Hoàn thành đơn hàng
                           </button>
                         )}
                         <Link
@@ -522,6 +593,16 @@ export default function MyOrdersPage() {
                           Chi tiết
                           <span className="material-symbols-outlined text-xs">arrow_forward</span>
                         </Link>
+                        
+                        {activeTab === 'audio' && order.status === 'COMPLETED' && order.details && order.details.length > 0 && (
+                          <Link
+                            href={`/user/books/${order.details[0].bookId}/audiobook`}
+                            className="inline-flex items-center gap-1 px-4 py-2 bg-[#b70011] text-white hover:bg-[#93000b] rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
+                          >
+                            <span className="material-symbols-outlined text-xs">headphones</span>
+                            Nghe ngay
+                          </Link>
+                        )}
                       </div>
 
                     </div>

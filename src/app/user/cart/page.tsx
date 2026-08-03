@@ -12,7 +12,7 @@
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -36,6 +36,8 @@ interface FlashSaleBook {
   discountPrice?: number;
   price?: number;
   usageLimit?: number | null;
+  usedCount?: number;
+  promotionId?: number;
 }
 
 interface BookRecommendation {
@@ -75,7 +77,7 @@ const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " ₫";
 export default function CartPage() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
-  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number, limit: number | null }>>(new Map());
+  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number, limit: number | null, usedCount: number, promotionId: number }>>(new Map());
   const [recommendedBooks, setRecommendedBooks] = useState<BookRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,8 +109,8 @@ export default function CartPage() {
             finalPrice = original * (100 - discount) / 100;
           }
         }
-        if (finalPrice !== null && !isNaN(finalPrice) && finalPrice > 0) {
-          map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null });
+        if (finalPrice !== null && !isNaN(finalPrice) && finalPrice > 0 && book.promotionId) {
+          map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null, usedCount: book.usedCount ?? 0, promotionId: book.promotionId });
         }
       });
       setFlashSaleMap(map);
@@ -354,13 +356,38 @@ export default function CartPage() {
     return `${API_BASE_URL}/uploads/books/${cleanUrl}`;
   };
 
+  // Tính toán số lượng khuyến mãi cho từng item để đảm bảo 1 promotionId chỉ được áp dụng 1 lần duy nhất trong toàn giỏ hàng
+  const promoQtyMap = useMemo(() => {
+    const map = new Map<number, number>();
+    const appliedPromos = new Set<number>();
+    
+    // Ưu tiên các item được chọn trước (nếu không chọn thì không tính là đã dùng khuyến mãi)
+    items.forEach(item => {
+      const promoInfo = flashSaleMap.get(item.bookId);
+      if (!item.selected || !promoInfo || promoInfo.price >= item.price) {
+        map.set(item.cartDetailId, 0);
+        return;
+      }
+      
+      const isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
+      if (!isExhausted && !appliedPromos.has(promoInfo.promotionId)) {
+        map.set(item.cartDetailId, 1);
+        appliedPromos.add(promoInfo.promotionId);
+      } else {
+        map.set(item.cartDetailId, 0);
+      }
+    });
+    return map;
+  }, [items, flashSaleMap]);
+
   // Tính tổng tiền chỉ dựa trên item đã được chọn (item.selected)
   const subTotal = items.reduce((sum, item) => {
     if (!item.selected) return sum;
     const promoInfo = flashSaleMap.get(item.bookId);
     let itemTotal = item.price * item.quantity;
-    if (promoInfo && promoInfo.price < item.price) {
-      const promoQty = promoInfo.limit !== null ? Math.min(item.quantity, promoInfo.limit) : item.quantity;
+    const promoQty = promoQtyMap.get(item.cartDetailId) || 0;
+    
+    if (promoInfo && promoQty > 0) {
       const normalQty = item.quantity - promoQty;
       itemTotal = (promoQty * promoInfo.price) + (normalQty * item.price);
     }
@@ -455,12 +482,18 @@ export default function CartPage() {
                     let normalQty = item.quantity;
                     let promoPrice = item.price;
 
+                    let isExhausted = false;
+
                     if (promoInfo && promoInfo.price < item.price) {
-                      hasDiscount = true;
-                      promoPrice = promoInfo.price;
-                      promoQty = promoInfo.limit !== null ? Math.min(item.quantity, promoInfo.limit) : item.quantity;
-                      normalQty = item.quantity - promoQty;
-                      itemTotal = (promoQty * promoPrice) + (normalQty * item.price);
+                      isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
+                      promoQty = promoQtyMap.get(item.cartDetailId) || 0;
+                      
+                      if (promoQty > 0) {
+                        hasDiscount = true;
+                        promoPrice = promoInfo.price;
+                        normalQty = item.quantity - promoQty;
+                        itemTotal = (promoQty * promoPrice) + (normalQty * item.price);
+                      }
                     }
 
                     return (
@@ -529,12 +562,22 @@ export default function CartPage() {
                                 ) : (
                                   <span className="font-semibold text-[20px] text-[#191c1e]">{fmt(itemTotal)}</span>
                                 )}
+                                {isExhausted && (
+                                  <div className="text-[12px] text-[#ba1a1a] font-medium mt-1">
+                                    Ưu đãi đã hết lượt
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
-                            {hasDiscount && promoInfo && promoInfo.limit !== null && item.quantity > promoInfo.limit && (
+                            {hasDiscount && item.quantity > 1 && (
                               <p className="text-[11px] text-[#ba1a1a] font-mono mt-2">
-                                * Áp dụng ưu đãi cho {promoInfo.limit} sản phẩm. {normalQty} sản phẩm còn lại tính giá gốc.
+                                * Khuyến mãi chỉ áp dụng cho 1 sản phẩm duy nhất/tài khoản. {normalQty} sản phẩm còn lại tính giá gốc.
+                              </p>
+                            )}
+                            {!hasDiscount && promoInfo && !isExhausted && promoInfo.price < item.price && item.selected && (
+                              <p className="text-[11px] text-[#ba1a1a] font-mono mt-2">
+                                * Khuyến mãi này đã được áp dụng cho một cuốn sách khác trong giỏ hàng.
                               </p>
                             )}
                           </div>

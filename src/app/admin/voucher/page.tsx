@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { 
   Ticket, Plus, Search, Edit, Trash2, 
   Tag, AlertCircle, CheckCircle2, XCircle, Clock,
-  TrendingUp, Download, RefreshCw, ChevronRight, FileSpreadsheet
+  TrendingUp, Download, RefreshCw, ChevronRight, FileSpreadsheet, Eye
 } from "lucide-react";
 
 interface Voucher {
@@ -25,6 +25,26 @@ interface Voucher {
   active: boolean;
   status: string;
 }
+
+const formatDateRange = (startStr: string, endStr: string) => {
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  
+  const startDay = pad(start.getDate());
+  const startMonth = pad(start.getMonth() + 1);
+  const startYear = start.getFullYear();
+
+  const endDay = pad(end.getDate());
+  const endMonth = pad(end.getMonth() + 1);
+  const endYear = end.getFullYear();
+
+  if (startYear === endYear) {
+    return `${startDay}/${startMonth} - ${endDay}/${endMonth}/${endYear}`;
+  }
+  return `${startDay}/${startMonth}/${startYear} - ${endDay}/${endMonth}/${endYear}`;
+};
 
 export default function VoucherListPage() {
   const router = useRouter();
@@ -123,11 +143,31 @@ export default function VoucherListPage() {
     );
   };
 
-  const filteredVouchers = vouchers.filter(v => {
-    const matchesSearch = v.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "ALL" || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const getStatusPriority = (status: string) => {
+    switch (status) {
+      case "ACTIVE": return 1;
+      case "UPCOMING": return 2;
+      case "EXPIRED": return 3;
+      case "EXHAUSTED": return 4;
+      case "INACTIVE": return 5;
+      default: return 6;
+    }
+  };
+
+  const filteredVouchers = vouchers
+    .filter(v => {
+      const matchesSearch = v.code.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "ALL" || v.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const pA = getStatusPriority(a.status);
+      const pB = getStatusPriority(b.status);
+      if (pA !== pB) return pA - pB;
+      
+      // Nếu cùng trạng thái, ưu tiên thời gian gần nhất lên trước (mới nhất lên trên)
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
 
   // Calculate stats dynamically
   const totalVouchers = vouchers.length;
@@ -319,7 +359,15 @@ export default function VoucherListPage() {
             </thead>
             <tbody className="divide-y divide-[#e6bdb8]/10">
               {filteredVouchers.map((v) => (
-                <tr key={v.id} className="hover:bg-[#b70011]/5 transition-colors group">
+                <tr 
+                  key={v.id} 
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('.action-btn')) return;
+                    router.push(`/admin/voucher/${v.id}`);
+                  }}
+                  className="hover:bg-[#b70011]/5 transition-colors group cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[#ffdad6]/40 flex items-center justify-center text-[#b70011] font-bold">
@@ -327,7 +375,6 @@ export default function VoucherListPage() {
                       </div>
                       <div>
                         <div className="font-bold text-[#191c1e] uppercase tracking-wide">{v.code}</div>
-                        <div className="text-[11px] text-[#916f6b]">ID: {v.id}</div>
                       </div>
                     </div>
                   </td>
@@ -335,9 +382,6 @@ export default function VoucherListPage() {
                     <div className="text-sm font-bold text-[#b70011]">
                       {v.discountType === "PERCENT" ? `${v.discountValue}%` : `${v.discountValue.toLocaleString()}đ`}
                     </div>
-                    {v.maxDiscount && v.discountType === "PERCENT" && (
-                      <div className="text-[11px] text-[#5c403c] mt-0.5">Tối đa: {v.maxDiscount.toLocaleString()}đ</div>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-[#191c1e]">
@@ -365,16 +409,9 @@ export default function VoucherListPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col text-[11px] text-[#5c403c] gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span>{new Date(v.startDate).toLocaleDateString('vi-VN')}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                        <span>{new Date(v.endDate).toLocaleDateString('vi-VN')}</span>
-                      </div>
-                    </div>
+                    <span className="inline-block px-2.5 py-1 rounded bg-[#f2f4f6] text-[#5c403c] text-[11px] font-bold font-mono">
+                      {formatDateRange(v.startDate, v.endDate)}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(v.status)}
@@ -383,14 +420,14 @@ export default function VoucherListPage() {
                     <div className="flex items-center justify-end gap-1.5">
                       <Link
                         href={`/admin/voucher/${v.id}/edit`}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors action-btn"
                         title="Chỉnh sửa"
                       >
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button
                         onClick={() => handleDelete(v.id, v.code)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors action-btn"
                         title="Xóa"
                       >
                         <Trash2 className="w-4 h-4" />

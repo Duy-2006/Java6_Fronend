@@ -24,15 +24,16 @@ import {
   DollarSign,
   Grid,
   List,
-  CheckCircle2
+  CheckCircle2,
+  PackageCheck
 } from "lucide-react";
 
 // MỤC 4: Bổ sung trạng thái DELIVERED (Giao hàng thành công) vào cấu hình STATUS_MAP
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
   PENDING:   { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-800 border-amber-200",  icon: Hourglass },
-  CONFIRMED: { label: "Đã xác nhận",  cls: "bg-blue-50 text-blue-800 border-blue-200",       icon: Check },
-  SHIPPING:  { label: "Đang giao",    cls: "bg-indigo-50 text-indigo-800 border-indigo-200", icon: Truck },
-  DELIVERED: { label: "Giao hàng thành công", cls: "bg-teal-50 text-teal-800 border-teal-200", icon: CheckCircle2 },
+  CONFIRMED: { label: "Đã xác nhận", cls: "bg-blue-50 text-blue-800 border-blue-200",   icon: PackageCheck },
+  SHIPPING: { label: "Đang giao",   cls: "bg-purple-50 text-purple-800 border-purple-200", icon: Truck },
+  DELIVERED: { label: "Giao thành công", cls: "bg-teal-50 text-teal-800 border-teal-200", icon: CheckSquare },
   COMPLETED: { label: "Hoàn thành",   cls: "bg-green-50 text-green-800 border-green-200",    icon: CheckSquare },
   CANCELLED: { label: "Đã hủy",       cls: "bg-red-50 text-red-800 border-red-200",         icon: Ban },
 };
@@ -43,7 +44,9 @@ function OrdersContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [activeTab, setActiveTab] = useState<'physical' | 'audio'>('physical');
   const [currentPage, setCurrentPage] = useState(1);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   
@@ -54,7 +57,7 @@ function OrdersContent() {
     if (silent) setRefreshing(true);
     else setLoading(true);
     try {
-      const data = await getAllOrders();
+      const data = await getAllOrders(activeTab);
       setOrders(data || []);
       setError("");
     } catch (err: any) {
@@ -77,7 +80,7 @@ function OrdersContent() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     document.title = "Danh sách Đơn Hàng - Libris Admin";
@@ -97,21 +100,60 @@ function OrdersContent() {
   // Đảm bảo safeOrders luôn luôn là mảng
   const safeOrders = Array.isArray(orders) ? orders : [];
 
-  const filtered = searchQuery
+  let filtered = searchQuery
     ? safeOrders.filter(
         (order) =>
           (order && (order.orderCode || order.id?.toString() || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
           (order && (order.customerName || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
           (order && (order.customerPhone || "")).includes(searchQuery)
       )
-    : safeOrders;
+    : [...safeOrders]; // Clone to avoid mutating original
+
+  if (statusFilter !== "ALL") {
+    filtered = filtered.filter((order) => order.status === statusFilter);
+  }
+
+  // MỤC 5: Sắp xếp đơn hàng theo trạng thái (ưu tiên xử lý) và ngày cũ nhất
+  const statusPriority: Record<string, number> = {
+    PENDING: 1,
+    CONFIRMED: 2,
+    SHIPPING: 3,
+    DELIVERED: 4,
+    COMPLETED: 5,
+    CANCELLED: 6
+  };
+
+  const sortedFiltered = filtered.sort((a, b) => {
+    const dateA = new Date(a.orderDate).getTime();
+    const dateB = new Date(b.orderDate).getTime();
+
+    if (activeTab === 'audio') {
+      // Sách nói: Mới nhất lên đầu (không phân biệt trạng thái)
+      return dateB - dateA;
+    }
+
+    // Sách giấy: Sắp xếp theo ưu tiên trạng thái
+    const priorityA = statusPriority[a.status] || 99;
+    const priorityB = statusPriority[b.status] || 99;
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // PENDING: Cũ nhất -> mới nhất (Ascending)
+    if (a.status === 'PENDING') {
+      return dateA - dateB;
+    }
+    
+    // Các trạng thái khác: Mới nhất -> cũ nhất (Descending)
+    return dateB - dateA;
+  });
 
   // Tính toán phân trang
-  const totalPages = Math.max(1, Math.ceil((filtered?.length || 0) / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil((sortedFiltered?.length || 0) / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   
-  const paginatedOrders = Array.isArray(filtered) 
-    ? filtered.slice(startIndex, startIndex + itemsPerPage) 
+  const paginatedOrders = Array.isArray(sortedFiltered) 
+    ? sortedFiltered.slice(startIndex, startIndex + itemsPerPage) 
     : [];
 
   // Statistics calculation - Cập nhật cho Mục 4
@@ -215,6 +257,30 @@ function OrdersContent() {
         </div>
       </section>
 
+      {/* Tabs Phân Loại */}
+      <div className="flex space-x-4 mb-2 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('physical')}
+          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'physical'
+              ? 'border-[#b70011] text-[#b70011]'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Sách Vật Lý
+        </button>
+        <button
+          onClick={() => setActiveTab('audio')}
+          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'audio'
+              ? 'border-[#b70011] text-[#b70011]'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Sách Nói
+        </button>
+      </div>
+
       {/* Bento Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Orders */}
@@ -272,7 +338,7 @@ function OrdersContent() {
             <input 
               type="text" 
               placeholder="Tìm mã đơn, khách hàng..."
-              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -314,6 +380,36 @@ function OrdersContent() {
               <List className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Status Filter Container on the Right */}
+        <div className="flex items-center gap-2 mt-3 sm:mt-0">
+          <label htmlFor="status-filter" className="text-sm font-semibold text-slate-500 whitespace-nowrap">
+            Lọc:
+          </label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1); // Reset page on filter change
+            }}
+            className="bg-[#f2f4f6]/80 border-none rounded-lg py-1.5 pl-3 pr-8 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none text-slate-700 font-medium appearance-none cursor-pointer"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.5rem center',
+              backgroundSize: '1em'
+            }}
+          >
+            <option value="ALL">Tất cả</option>
+            <option value="PENDING">Chờ xác nhận</option>
+            <option value="CONFIRMED">Đã xác nhận</option>
+            <option value="SHIPPING">Đang giao</option>
+            <option value="DELIVERED">Giao thành công</option>
+            <option value="COMPLETED">Hoàn thành</option>
+            <option value="CANCELLED">Đã hủy</option>
+          </select>
         </div>
       </div>
 

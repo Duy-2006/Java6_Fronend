@@ -562,6 +562,13 @@ export default function HomePage() {
   const m = String(Math.floor((timeLeft % 3600) / 60)).padStart(2, "0");
   const s = String(timeLeft % 60).padStart(2, "0");
 
+  const scrollAudio = (direction: "left" | "right") => {
+    if (audioScrollRef.current) {
+      const scrollAmount = direction === "left" ? -400 : 400;
+      audioScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
   const handleLoadMoreNew = () => {
     if (newBooksPage + 1 < newBooksTotalPages) {
       fetchNewBooks(newBooksPage + 1, true);
@@ -812,6 +819,48 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* 4.5. Audio Books Section */}
+        {audioBooksList.length > 0 && (
+          <section className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="bg-gradient-to-br from-[#191c1e] to-[#2c3e50] rounded-[28px] border border-[#191c1e]/5 p-6 md:p-8 shadow-lg relative overflow-hidden">
+              <div className="flex items-center justify-between mb-8 pb-5 border-b border-white/10 relative z-10">
+                <div>
+                  <h2 className="font-extrabold text-2xl md:text-3xl text-white font-headline-lg flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[#ffc107] text-[32px] fill-1" style={{fontVariationSettings: "'FILL' 1"}}>headphones</span>
+                    Sách Nói Mới Nhất
+                  </h2>
+                  <div className="w-12 h-1 bg-[#b70011] mt-2 rounded-full"></div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => scrollAudio('left')}
+                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-[#b70011] text-white flex items-center justify-center backdrop-blur-md transition-all duration-300 border border-white/20 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  <button 
+                    onClick={() => scrollAudio('right')}
+                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-[#b70011] text-white flex items-center justify-center backdrop-blur-md transition-all duration-300 border border-white/20 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+
+              <div 
+                ref={audioScrollRef}
+                className="flex overflow-x-auto gap-3 md:gap-4 relative z-10 scroll-smooth no-scrollbar pb-2 snap-x snap-mandatory"
+              >
+                {audioBooksList.map((book) => (
+                  <div key={book.id} className="min-w-[160px] w-[calc(50%-6px)] md:min-w-[200px] md:w-[calc(25%-12px)] lg:min-w-[220px] lg:w-[calc(20%-13px)] shrink-0 snap-start">
+                    <BookCard b={book} onAddToCart={addToCart} />
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}

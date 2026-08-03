@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
@@ -44,7 +44,7 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number; limit: number | null }>>(new Map());
+  const [flashSaleMap, setFlashSaleMap] = useState<Map<number, { price: number; limit: number | null, usedCount: number, promotionId: number }>>(new Map());
 
   const [form, setForm] = useState<FormState>({
     customerName: "",
@@ -98,7 +98,7 @@ export default function CheckoutPage() {
         if (!res.ok) return;
         const data: any[] = await res.json();
         console.log("🔍 [DEBUG] Flash sale data from API:", data);
-        const map = new Map<number, { price: number; limit: number | null }>();
+        const map = new Map<number, { price: number; limit: number | null, usedCount: number, promotionId: number }>();
         data.forEach((book) => {
           let finalPrice: number | null = null;
           if (book.discountPrice != null) finalPrice = Number(book.discountPrice);
@@ -107,8 +107,8 @@ export default function CheckoutPage() {
             const original = Number(book.price);
             if (discount > 0 && discount <= 100) finalPrice = (original * (100 - discount)) / 100;
           }
-          if (finalPrice && finalPrice > 0) {
-            map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null });
+          if (finalPrice && finalPrice > 0 && book.promotionId) {
+            map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null, usedCount: book.usedCount ?? 0, promotionId: book.promotionId });
             console.log(`  - Mapped bookId ${book.id} -> discountPrice ${finalPrice}`);
           }
         });
@@ -257,35 +257,44 @@ export default function CheckoutPage() {
     let total = 0;
     const items: any[] = [];
     let isAllAudiobooks = true;
+    const appliedPromos = new Set<number>();
 
     rawCartDetails.forEach((item) => {
       if (!(item as any).isAudiobook) isAllAudiobooks = false;
       const promoInfo = flashSaleMap.get(item.bookId);
       if (promoInfo && promoInfo.price < item.price) {
-        const promoQty =
-          promoInfo.limit !== null ? Math.min(item.quantity, promoInfo.limit) : item.quantity;
-        const normalQty = item.quantity - promoQty;
-        if (promoQty > 0) {
-          const itemTotal = promoInfo.price * promoQty;
+        const isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
+        if (!isExhausted && !appliedPromos.has(promoInfo.promotionId)) {
+          appliedPromos.add(promoInfo.promotionId);
+          const promoQty = Math.min(item.quantity, 1);
+          const normalQty = item.quantity - promoQty;
+
+          if (promoQty > 0) {
+            const itemTotal = promoInfo.price * promoQty;
+            total += itemTotal;
+            items.push({
+              ...item,
+              quantity: promoQty,
+              displayPrice: promoInfo.price,
+              displayTotal: itemTotal,
+              isPromo: true,
+            });
+          }
+          if (normalQty > 0) {
+            const itemTotal = item.price * normalQty;
+            total += itemTotal;
+            items.push({
+              ...item,
+              quantity: normalQty,
+              displayPrice: item.price,
+              displayTotal: itemTotal,
+              isNormal: true,
+            });
+          }
+        } else {
+          const itemTotal = item.price * item.quantity;
           total += itemTotal;
-          items.push({
-            ...item,
-            quantity: promoQty,
-            displayPrice: promoInfo.price,
-            displayTotal: itemTotal,
-            isPromo: true,
-          });
-        }
-        if (normalQty > 0) {
-          const itemTotal = item.price * normalQty;
-          total += itemTotal;
-          items.push({
-            ...item,
-            quantity: normalQty,
-            displayPrice: item.price,
-            displayTotal: itemTotal,
-            isNormal: true,
-          });
+          items.push({ ...item, displayPrice: item.price, displayTotal: itemTotal });
         }
       } else {
         const itemTotal = item.price * item.quantity;
@@ -1223,7 +1232,7 @@ export default function CheckoutPage() {
                     )}
                     {discount > 0 && (
                       <div className="flex justify-between items-center text-[#166534] font-medium">
-                        <span>Giảm giá sách</span>
+                        <span>Giảm giá hạng thành viên</span>
                         <span className="font-mono">-{fmt(discount)}</span>
                       </div>
                     )}

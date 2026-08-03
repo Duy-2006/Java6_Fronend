@@ -463,6 +463,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
               <input
                 id="startDate"
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={form.startDate}
                 onChange={(e) => setField("startDate", e.target.value)}
                 className={`w-full bg-slate-50 border ${errors.startDate ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
@@ -478,6 +479,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
               <input
                 id="endDate"
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={form.endDate}
                 onChange={(e) => setField("endDate", e.target.value)}
                 className={`w-full bg-slate-50 border ${errors.endDate ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}

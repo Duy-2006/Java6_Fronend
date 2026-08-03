@@ -52,8 +52,9 @@ export interface Order {
   status: string;
 }
 
-export async function getAllOrders(): Promise<Order[]> {
-  return authFetch(`${BASE_URL}/api/admin/orders`, { cache: 'no-store' });
+// Lay toan bo danh sach don hang (dung cho trang Admin > Quan ly don hang)
+export async function getAllOrders(bookType: string = 'physical'): Promise<Order[]> {
+  return authFetch(`${BASE_URL}/api/admin/orders?bookType=${bookType}`, { cache: 'no-store' });
 }
 
 export async function getOrderById(id: number | string): Promise<Order> {

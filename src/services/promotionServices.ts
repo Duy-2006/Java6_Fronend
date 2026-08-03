@@ -2,20 +2,20 @@ const API_URL = process.env.API_URL || "http://localhost:8080";
 
 // ==================== INTERFACES ====================
 export interface PromotionDTO {
-  id?: number;
-  name: string;
-  discountValue: number;          // % giảm giá (0-100)
-  startDate?: string;             // YYYY-MM-DD
-  endDate?: string;               // YYYY-MM-DD
-  status: boolean;
-  applyType: "ALL" | "BOOK" | "CATEGORY";
-  computedStatus?: string;        // UPCOMING | ACTIVE | EXPIRED | UNKNOWN
-  usageLimit?: number;
-  usedCount?: number;
-  bookIds?: number[];
-  bookTitles?: string[];
-  categoryIds?: number[];
-  categoryNames?: string[];
+  id?: number;                              // Ma khuyen mai
+  name: string;                             // Ten chuong trinh khuyen mai
+  discountValue: number;                    // Phan tram giam gia (0-100)
+  startDate?: string;                       // Ngay bat dau (YYYY-MM-DD)
+  endDate?: string;                         // Ngay ket thuc (YYYY-MM-DD)
+  status: boolean;                          // Trang thai kich hoat (true/false)
+  applyType: "ALL" | "BOOK" | "CATEGORY";  // Pham vi ap dung: toan bo, theo sach, theo the loai
+  computedStatus?: string;                  // Trang thai tinh toan: UPCOMING (sap dien ra), ACTIVE (dang chay), EXPIRED (het han)
+  bookIds?: number[];                       // Danh sach ma sach duoc ap dung (khi applyType = BOOK)
+  bookTitles?: string[];                    // Ten cac sach duoc ap dung (dung de hien thi)
+  categoryIds?: number[];                   // Danh sach ma the loai (khi applyType = CATEGORY)
+  categoryNames?: string[];                 // Ten cac the loai (dung de hien thi)
+  usageLimit?: number;                      // Gioi han luot dung
+  usedCount?: number;                       // So luot da dung
 }
 
 export interface FormData {

@@ -543,8 +543,6 @@ export default function UserAudiobookPlayer() {
           amount: checkoutData.finalAmount,
           orderId: checkoutData.orderId,
           description: `Thanh toan don ${checkoutData.orderId}`.substring(0, 25),
-          returnUrl: `${window.location.origin}/user/books/${bookId}/audiobook?payment=success`,
-          cancelUrl: `${window.location.origin}/user/books/${bookId}/audiobook?payment=failure`,
         }),
       });
 

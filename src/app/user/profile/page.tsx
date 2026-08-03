@@ -22,6 +22,15 @@ interface ProfileResponse {
   email: string;
   phone: string;
   avatar?: string;
+  customerRank?: string;
+  lifetimeValue?: number;
+  discountPercent?: number;
+  recentBooks?: Array<{
+    id: number;
+    title: string;
+    imageUrl?: string;
+    purchasedDaysAgo: number;
+  }>;
 }
 
 interface ProfileUpdateRequest {
@@ -44,6 +53,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
 
   useEffect(() => {
         if (!isLoggedIn()) {
@@ -80,6 +90,7 @@ export default function ProfilePage() {
       })
       .then((data: ProfileResponse | null) => {
         if (data) {
+          setProfileData(data);
           setForm({
             name: data.name ?? "",
             email: data.email ?? "",
@@ -352,9 +363,20 @@ export default function ProfilePage() {
             <div className="text-center md:text-left flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-2 mb-1.5">
                 <h1 className="text-xl font-bold text-[#191c1e] truncate max-w-full">{form.name || "Người dùng"}</h1>
-                <span className="px-2.5 py-0.5 bg-[#b70011] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">Premium Member</span>
+                {profileData?.customerRank && (
+                  <span className={`px-2.5 py-0.5 text-white text-[10px] font-bold rounded-full uppercase tracking-wider ${
+                    profileData.customerRank === 'PLATINUM' ? 'bg-purple-600' :
+                    profileData.customerRank === 'GOLD' ? 'bg-yellow-500' :
+                    profileData.customerRank === 'SILVER' ? 'bg-gray-400' :
+                    'bg-[#b70011]'
+                  }`}>
+                    {profileData.customerRank}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-gray-500 font-medium">Tài khoản chính thức hoạt động • Hệ thống Crimson Books</p>
+              <p className="text-xs text-gray-500 font-medium">
+                Chi tiêu tích lũy: <span className="font-bold text-[#b70011]">{(profileData?.lifetimeValue || 0).toLocaleString('vi-VN')}đ</span>
+              </p>
             </div>
           </section>
 
@@ -454,12 +476,20 @@ export default function ProfilePage() {
               <div className="bg-[#b70011] text-white p-5 rounded-2xl shadow-sm relative overflow-hidden">
                 <div className="relative z-10 flex flex-col justify-between h-full">
                   <div>
-                    <h4 className="font-bold text-base mb-1.5">Gói Thành Viên</h4>
-                    <p className="text-xs opacity-90 leading-relaxed">Thời hạn thành viên của bạn sẽ được tự động gia hạn khi có ưu đãi mới nhất.</p>
+                    <h4 className="font-bold text-base mb-1.5">Ưu Đãi Hạng Thành Viên</h4>
+                    <p className="text-xs opacity-90 leading-relaxed">
+                      Bạn đang là thành viên hạng <span className="font-bold">{profileData?.customerRank || 'STANDARD'}</span>.
+                      <br/>
+                      {profileData?.discountPercent && profileData.discountPercent > 0 ? (
+                        <>Được giảm giá <strong>{profileData.discountPercent}%</strong> cho mọi đơn hàng.</>
+                      ) : (
+                        <>Hãy mua sắm thêm để nâng hạng và nhận chiết khấu!</>
+                      )}
+                    </p>
                   </div>
-                  <button className="mt-4 bg-white text-[#b70011] hover:bg-gray-100 transition-all font-bold text-xs py-2 px-4 rounded-xl self-start shadow-sm">
-                    Gia hạn ngay
-                  </button>
+                  <Link href="/" className="mt-4 bg-white text-[#b70011] hover:bg-gray-100 transition-all font-bold text-xs py-2 px-4 rounded-xl self-start shadow-sm text-center">
+                    Mua sắm ngay
+                  </Link>
                 </div>
                 {/* Background Decor */}
                 <div className="absolute -right-4 -bottom-4 opacity-10">
@@ -471,24 +501,37 @@ export default function ProfilePage() {
               <div className="bg-white p-5 rounded-2xl border border-[#e0e3e5] shadow-sm">
                 <h4 className="font-bold text-sm text-[#191c1e] mb-4">Sách gần đây</h4>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-14 bg-gray-200 rounded border border-[#e0e3e5] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-gray-400 text-lg">book</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-xs text-[#191c1e] truncate">The Crimson Legacy</p>
-                      <p className="text-[10px] text-gray-500">Đã mua 2 ngày trước</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-14 bg-gray-200 rounded border border-[#e0e3e5] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-gray-400 text-lg">book</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-xs text-[#191c1e] truncate">Minimalist Wisdom</p>
-                      <p className="text-[10px] text-gray-500">Đã mua 12 ngày trước</p>
-                    </div>
-                  </div>
+                  {profileData?.recentBooks && profileData.recentBooks.length > 0 ? (
+                    profileData.recentBooks.map((book) => {
+                      let cleanUrl = book.imageUrl || "";
+                      if (cleanUrl.startsWith("books/")) {
+                        cleanUrl = cleanUrl.substring(6);
+                      }
+                      const finalImageUrl = cleanUrl
+                        ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/uploads/books/${cleanUrl}`
+                        : "";
+                      
+                      return (
+                        <div key={book.id} className="flex items-center gap-3">
+                          <div className="w-10 h-14 bg-gray-200 rounded border border-[#e0e3e5] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {finalImageUrl ? (
+                              <img src={finalImageUrl} alt={book.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="material-symbols-outlined text-gray-400 text-lg">book</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-xs text-[#191c1e] truncate">{book.title}</p>
+                            <p className="text-[10px] text-gray-500">
+                              Đã mua {book.purchasedDaysAgo === 0 ? "hôm nay" : `${book.purchasedDaysAgo} ngày trước`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-gray-500 italic">Chưa có sách nào gần đây.</p>
+                  )}
                 </div>
                 <Link href="/user/my-orders" className="block text-center mt-5 text-xs font-bold text-[#b70011] hover:underline">
                   Xem tất cả đơn hàng

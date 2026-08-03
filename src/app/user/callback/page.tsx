@@ -23,11 +23,14 @@ export default function AuthCallback() {
     if (userParam) {
       try {
         const userData = JSON.parse(decodeURIComponent(userParam));
-        // Token đã được backend gắn vào HTTP-Only cookie trong OAuth handler
-        // Chỉ lưu metadata hiển thị (tên, role, id) vào localStorage
+        // Lưu metadata hiển thị vào localStorage
         localStorage.setItem("user", JSON.stringify(userData));
         if (userData.id) {
           localStorage.setItem("userId", userData.id.toString());
+        }
+        // LƯU Ý QUAN TRỌNG: Lưu token vào localStorage để authFetch có thể gắn vào Authorization header
+        if (token) {
+          localStorage.setItem("token", token);
         }
         
         // Reload trang để cập nhật Navbar

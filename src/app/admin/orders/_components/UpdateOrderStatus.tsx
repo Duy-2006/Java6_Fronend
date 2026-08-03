@@ -7,7 +7,8 @@ import { Edit, Save, AlertCircle, Check, X } from "lucide-react";
 const STATUS_CONFIG: Record<string, { label: string; allowedNext: string[] }> = {
   PENDING:   { label: "Chờ xác nhận", allowedNext: ["CONFIRMED", "CANCELLED"] },
   CONFIRMED: { label: "Đã xác nhận", allowedNext: ["SHIPPING", "CANCELLED"] },
-  SHIPPING:  { label: "Đang giao hàng", allowedNext: ["COMPLETED"] },
+  SHIPPING:  { label: "Đang giao hàng", allowedNext: ["DELIVERED"] },
+  DELIVERED: { label: "Giao hàng thành công", allowedNext: [] },
   COMPLETED: { label: "Hoàn thành", allowedNext: [] },
   CANCELLED: { label: "Hủy đơn", allowedNext: [] },
 };

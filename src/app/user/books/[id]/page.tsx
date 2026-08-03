@@ -19,7 +19,7 @@ const toNumber = (val: any): number => {
 // Lấy thông tin sách + flash sale
 async function getBook(id: string) {
   try {
-    const res = await authFetch(`${API_URL}/api/admin/books/${id}`, { next: { revalidate: 60 } });
+    const res = await authFetch(`${API_URL}/api/admin/books/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     const book = await res.json();
 

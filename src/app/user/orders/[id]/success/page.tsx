@@ -33,6 +33,7 @@ interface OrderFull {
   orderDetails: OrderDetail[];
   discountAmount?: number;
   shippingFee?: number;
+  memberDiscount?: number;
 }
 
 interface BookRecommendation {
@@ -375,10 +376,19 @@ export default function OrderSuccessPage() {
                   <span>Tiền sách</span>
                   <span>{((order.totalAmount || 0) + (order.discountAmount || 0)).toLocaleString('vi-VN')}đ</span>
                 </div>
-                {order.discountAmount && order.discountAmount > 0 ? (
+                {(order.memberDiscount ?? 0) > 0 && (
+                  <div className="flex justify-between text-[14px] text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
+                      Ưu đãi Hạng thành viên
+                    </span>
+                    <span>-{((order.memberDiscount ?? 0)).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                )}
+                {((order.discountAmount ?? 0) - (order.memberDiscount ?? 0)) > 0 ? (
                   <div className="flex justify-between text-[14px] text-[#545f73]">
                     <span>Giảm giá voucher</span>
-                    <span className="text-[#ba1a1a] font-semibold">-{order.discountAmount.toLocaleString('vi-VN')}đ</span>
+                    <span className="text-[#ba1a1a] font-semibold">-{((order.discountAmount ?? 0) - (order.memberDiscount ?? 0)).toLocaleString('vi-VN')}đ</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between text-[14px] text-[#545f73]">
@@ -393,7 +403,7 @@ export default function OrderSuccessPage() {
                 <div className="pt-4 border-t border-[#e0e3e5] flex justify-between items-end">
                   <span className="text-[16px] font-bold text-[#191c1e]">Tổng cộng</span>
                   <span className="text-lg font-bold text-[#b70011]">
-                    {(order.totalAmount + shippingFee).toLocaleString('vi-VN')}đ
+                    {((order.totalAmount || 0) + shippingFee).toLocaleString('vi-VN')}đ
                   </span>
                 </div>
               </div>
