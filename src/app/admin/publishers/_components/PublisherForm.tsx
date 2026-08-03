@@ -27,10 +27,7 @@ const PublisherForm: React.FC<PublisherFormProps> = ({ id }) => {
     const isEdit = id !== undefined;
     const [formData, setFormData] = useState<Publisher>({ name: '', address: '', phone: '', active: true });
     const [errors, setErrors] = useState<FormErrors>({});
-    const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
     const API_URL = `${BASE_URL}/api/admin/publishers`;
@@ -132,33 +129,7 @@ const PublisherForm: React.FC<PublisherFormProps> = ({ id }) => {
         }
     };
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setLogoFile(file);
-            setLogoPreview(URL.createObjectURL(file));
-        }
-    };
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            setLogoFile(file);
-            setLogoPreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-    };
-
-    const removeLogo = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setLogoFile(null);
-        setLogoPreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-    };
 
     if (loading) {
         return (
@@ -169,7 +140,7 @@ const PublisherForm: React.FC<PublisherFormProps> = ({ id }) => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 font-sans">
             {/* Breadcrumb & Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -192,7 +163,7 @@ const PublisherForm: React.FC<PublisherFormProps> = ({ id }) => {
                             </li>
                         </ol>
                     </nav>
-                    <h1 className="text-2xl font-bold text-gray-900 font-headline">
+                    <h1 className="text-2xl font-bold text-gray-900 font-sans">
                         {isEdit ? "Cập Nhật Nhà Xuất Bản" : "Thêm Nhà Xuất Bản Mới"}
                     </h1>
                 </div>
@@ -259,46 +230,7 @@ const PublisherForm: React.FC<PublisherFormProps> = ({ id }) => {
                         </div>
                     </div>
 
-                    {/* Logo Picker */}
-                    <div className="space-y-2">
-                        <label htmlFor="logoInput" className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Logo Nhà xuất bản</label>
-                        <div 
-                            className="border-2 border-dashed border-gray-250 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group relative overflow-hidden min-h-[140px]"
-                            onClick={() => fileInputRef.current?.click()}
-                            onDrop={handleDrop}
-                            onDragOver={handleDragOver}
-                        >
-                            <input 
-                                id="logoInput"
-                                type="file" 
-                                className="hidden" 
-                                accept="image/png, image/jpeg" 
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                title="Tải lên logo nhà xuất bản"
-                                aria-label="Tải lên logo nhà xuất bản"
-                            />
-                            {logoPreview ? (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white p-2">
-                                    <img src={logoPreview} alt="Logo Preview" className="h-full w-auto object-contain max-h-[120px]" />
-                                    <button 
-                                        type="button"
-                                        onClick={removeLogo}
-                                        className="absolute top-2 right-2 bg-white hover:bg-red-50 text-red-500 rounded-full w-8 h-8 flex items-center justify-center shadow-md transition-colors border border-gray-100"
-                                        title="Xóa ảnh"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">close</span>
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <span className="material-symbols-outlined text-3xl text-gray-400 group-hover:text-[#b70011] transition-colors mb-2">cloud_upload</span>
-                                    <p className="text-sm text-gray-500">Kéo thả hoặc <span className="text-[#b70011] font-bold">tải lên</span> logo</p>
-                                    <p className="text-[10px] text-gray-400 uppercase mt-1">PNG, JPG (Tối đa 2MB)</p>
-                                </>
-                            )}
-                        </div>
-                    </div>
+
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                         <Link 

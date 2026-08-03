@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronRight,
+  ChevronLeft,
   Layout,
   X
 } from "lucide-react";
@@ -281,21 +282,21 @@ export default function BannerList() {
 
       {/* Breadcrumbs & Header */}
       <div>
-        <nav className="flex items-center gap-2 text-xs text-[#545f73] mb-2 font-medium">
-          <Link className="hover:text-[#b70011] transition-colors text-decoration-none" href="/admin/dashboard">Marketing</Link>
-          <ChevronRight className="w-3.5 h-3.5 text-[#545f73]" />
-          <span className="text-[#191c1e] font-semibold">Quản lý Banner</span>
+        <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <Link className="hover:text-[#b70011] transition-colors text-decoration-none" href="/admin/dashboard">Dashboard</Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[#b70011]">Banner</span>
         </nav>
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] font-headline-lg">Quản lý Banner</h2>
-            <p className="text-sm text-[#545f73] mt-1">Cài đặt, cập nhật các banner và lập lịch chương trình quảng cáo.</p>
+            <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Banner</h2>
+            <p className="text-sm text-[#5c403c] font-sans mt-1">Cài đặt, cập nhật các banner và lập lịch chương trình quảng cáo.</p>
           </div>
           
           <Link 
             href="/admin/banners/new" 
-            className="px-6 py-2.5 bg-[#dc2626] text-white font-semibold text-xs rounded hover:bg-[#b70011] transition-all active:scale-95 flex items-center gap-2 shadow-sm text-decoration-none border-0"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer border-0 text-decoration-none"
           >
             <Plus className="w-4 h-4" />
             <span>Thêm Banner Mới</span>
@@ -339,78 +340,61 @@ export default function BannerList() {
         </div>
       </div>
 
-      {/* Banner List Section Card */}
-      <div className="bg-white border border-[#e6bdb8] rounded-xl overflow-hidden shadow-sm">
-        
-        {/* List Header */}
-        <div className="px-6 py-5 border-b border-[#e6bdb8]/30 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h3 className="text-lg font-bold text-[#191c1e] flex items-center gap-2">
-            <svg className="w-5 h-5 text-[#b70011]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
-            <span>Danh sách Banner</span>
-          </h3>
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {/* Search bar */}
+          <div style={{ position: "relative" }} className="w-full sm:w-64">
+            <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
+            <input 
+              type="search" 
+              style={{ paddingLeft: "2.5rem" }}
+              placeholder="Tìm kiếm banner..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+            />
+          </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="search" 
-                placeholder="Tìm kiếm banner..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#f2f4f6]/80 border-none rounded-full py-2 pl-9 pr-4 text-xs focus:bg-white focus:ring-1 focus:ring-[#b70011] transition-all outline-none"
-              />
-            </div>
+          {/* Export */}
+          <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Xuất File</span>
+          </button>
 
-            {/* Export */}
+          {/* View Toggles */}
+          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
             <button 
-              onClick={handleExportExcel}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-[#545f73] rounded-lg font-semibold text-xs hover:bg-[#b70011]/5 transition-colors border border-slate-200 cursor-pointer"
+              className={`p-1.5 rounded transition-colors cursor-pointer border-0 bg-transparent ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setViewMode('grid')}
+              title="Dạng lưới"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Xuất Excel</span>
+              <Grid className="w-4 h-4" />
             </button>
-
-            {/* Refresh */}
-            <button
-              onClick={() => fetchBanners(true)}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-[#545f73] rounded-lg font-semibold text-xs hover:bg-[#b70011]/5 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
+            <button 
+              className={`p-1.5 rounded transition-colors cursor-pointer border-0 bg-transparent ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setViewMode('table')}
+              title="Dạng bảng"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>Tải lại</span>
+              <List className="w-4 h-4" />
             </button>
-
-            {/* View Toggles */}
-            <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
-              <button 
-                className={`p-1.5 rounded transition-colors cursor-pointer border-0 bg-transparent ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                onClick={() => setViewMode('table')}
-                title="Dạng bảng"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button 
-                className={`p-1.5 rounded transition-colors cursor-pointer border-0 bg-transparent ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                onClick={() => setViewMode('grid')}
-                title="Dạng lưới"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
+      </div>
 
-        {/* List Content */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[30vh] py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#b70011]"></div>
-            <p className="mt-3 text-slate-500 font-medium text-sm">Đang tải danh sách banner...</p>
-          </div>
-        ) : viewMode === 'table' ? (
-          
-          /* TABLE VIEW */
-          <div className="overflow-x-auto">
+      {/* Grid or Table View */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center min-h-[30vh] py-12 bg-white border border-[#e6bdb8]/30 rounded-xl shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#b70011]"></div>
+          <p className="mt-3 text-slate-500 font-medium text-sm font-sans">Đang tải danh sách banner...</p>
+        </div>
+      ) : viewMode === 'table' ? (
+        /* TABLE VIEW */
+        <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto font-sans">
             <table className="w-full text-left border-collapse table">
               <thead>
                 <tr className="bg-slate-50 border-b border-[#e6bdb8]/20 text-xs font-bold text-[#916f6b] uppercase tracking-wider">
@@ -483,7 +467,7 @@ export default function BannerList() {
                       <div className="flex items-center gap-1.5 text-xs">
                         <Link 
                           href={`/admin/banners/${b.id}/edit`}
-                          className="text-[#545f73] hover:text-[#b70011] hover:underline font-semibold transition-colors"
+                          className="text-[#545f73] hover:text-[#b70011] hover:underline font-semibold transition-colors text-decoration-none"
                           title="Chỉnh sửa"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -515,10 +499,21 @@ export default function BannerList() {
               </tbody>
             </table>
           </div>
-        ) : (
-          
-          /* GRID VIEW */
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          {/* Pagination Info */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-[#e6bdb8]/20 flex justify-between items-center text-xs text-[#545f73] font-semibold">
+            <span>Hiển thị 1 - {filteredBanners.length} trong tổng số {filteredBanners.length} banner</span>
+            <div className="flex gap-1">
+              <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Trước</button>
+              <button className="px-3 py-1.5 rounded border border-[#b70011] bg-[#b70011] text-white">1</button>
+              <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Sau</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* GRID VIEW */
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBanners.map((b) => (
               <div key={b.id} className="bg-white border border-[#e6bdb8]/40 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group">
                 <div>
@@ -559,7 +554,7 @@ export default function BannerList() {
                           href={b.link} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="text-xs text-[#b70011] hover:underline font-medium inline-flex items-center gap-1 truncate w-full"
+                          className="text-xs text-[#b70011] hover:underline font-medium inline-flex items-center gap-1 truncate w-full text-decoration-none"
                         >
                           <LinkIcon className="w-3.5 h-3.5 flex-shrink-0" />
                           <span className="truncate">{b.link}</span>
@@ -592,7 +587,7 @@ export default function BannerList() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleToggleActive(b)}
-                      className={`p-1.5 rounded-lg border transition-all ${
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                         b.active 
                           ? 'border-green-200 bg-green-50/50 text-green-700' 
                           : 'border-slate-200 bg-slate-50 text-slate-500'
@@ -610,7 +605,7 @@ export default function BannerList() {
                     </Link>
                     <button 
                       onClick={() => b.id && handleDelete(b.id)}
-                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors border border-red-100 bg-transparent"
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors border border-red-100 bg-transparent cursor-pointer"
                       title="Xóa"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -627,19 +622,18 @@ export default function BannerList() {
               </div>
             )}
           </div>
-        )}
 
-        {/* Pagination Info */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-[#e6bdb8]/20 flex justify-between items-center text-xs text-[#545f73] font-semibold">
-          <span>Hiển thị 1 - {filteredBanners.length} trong tổng số {filteredBanners.length} banner</span>
-          <div className="flex gap-1">
-            <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Trước</button>
-            <button className="px-3 py-1.5 rounded border border-[#b70011] bg-[#b70011] text-white">1</button>
-            <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Sau</button>
+          {/* Pagination Info */}
+          <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm px-6 py-4 flex justify-between items-center text-xs text-[#545f73] font-semibold">
+            <span>Hiển thị 1 - {filteredBanners.length} trong tổng số {filteredBanners.length} banner</span>
+            <div className="flex gap-1">
+              <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Trước</button>
+              <button className="px-3 py-1.5 rounded border border-[#b70011] bg-[#b70011] text-white">1</button>
+              <button className="px-2.5 py-1.5 rounded border border-slate-200 bg-white opacity-50 cursor-not-allowed">Sau</button>
+            </div>
           </div>
         </div>
-
-      </div>
+      )}
 
       {/* Footer */}
       <footer className="py-6 text-center border-t border-slate-200">

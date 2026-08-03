@@ -55,8 +55,10 @@ export default function BookCard({ b, onAddToCart, showFormatBadges = true }: Bo
   const formattedPrice = new Intl.NumberFormat("vi-VN").format(finalPrice);
   const formattedOriginal = hasDiscount ? new Intl.NumberFormat("vi-VN").format(price) : null;
 
-  const audioPrice = b.audioPrice ? Number(b.audioPrice) : 0;
-  const formattedAudioPrice = new Intl.NumberFormat("vi-VN").format(audioPrice);
+  // Kiểm tra điều kiện thực sự khả dụng của Audio Book
+  const audioPriceNum = Number(b?.audioPrice) || 0;
+  const isAudioAvailable = audioPriceNum > 0 && (b?.audioUrl || b?.hasChapters || b?.audioPrice);
+  const formattedAudioPrice = new Intl.NumberFormat("vi-VN").format(audioPriceNum);
 
   const handleImageError = () => { if (!imgError) setImgError(true); };
 
@@ -67,46 +69,38 @@ export default function BookCard({ b, onAddToCart, showFormatBadges = true }: Bo
   };
 
   return (
-    <div className="bg-white rounded-2xl p-4 transition-all duration-300 hover:-translate-y-2 group book-card-shadow border border-[#191c1e]/5 flex flex-col relative overflow-hidden text-left">
-      {/* Book Cover Area */}
-      <Link href={`/user/books/${b.id}`} className="relative aspect-[3/4] mb-4 overflow-hidden rounded-xl bg-[#f2f4f6] flex items-center justify-center p-3 cursor-pointer block group/cover">
+    <div className="bg-white rounded-2xl p-3 md:p-4 transition-all duration-300 hover:-translate-y-2 group book-card-shadow border border-[#191c1e]/5 flex flex-col relative overflow-hidden">
+      {/* KHÔNG CÓ DIV BỌC ẢNH XÁM: Bìa sách hiển thị trực tiếp to đẹp chuẩn Fahasa */}
+      <Link href={`/user/books/${b.id}`} className="relative aspect-[3/4] mb-3 md:mb-4 overflow-hidden flex items-center justify-center cursor-pointer block group/cover">
         <img
           src={getImageSrc()}
           alt={b.title}
-          className="w-full h-full object-contain transition-transform duration-500 group-hover/cover:scale-110"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover/cover:scale-105 drop-shadow-md"
           onError={handleImageError}
         />
 
-        {/* Floating Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
-          {hasDiscount && (
-            <span className="px-2 py-0.5 bg-[#b70011] text-white text-[10px] font-bold rounded shadow-sm w-fit">
+        {/* Badge Giảm Giá */}
+        {hasDiscount && (
+          <div className="absolute top-1 left-1 z-10">
+            <span className="px-2 py-0.5 bg-[#b70011] text-white text-[10px] font-bold rounded-md shadow-md w-fit">
               -{discountPercent}%
             </span>
-          )}
-          {showFormatBadges && (
-            <>
-              <span className="px-2 py-0.5 bg-white/90 text-[#b70011] text-[9px] font-bold rounded flex items-center gap-1 shadow-sm w-fit border border-[#b70011]/10">
-                <span className="material-symbols-outlined text-[10px] fill-1">book</span> Sách giấy
-              </span>
-              <span className="px-2 py-0.5 bg-[#b70011]/10 text-[#b70011] text-[9px] font-bold rounded flex items-center gap-1 backdrop-blur-sm shadow-sm w-fit border border-[#b70011]/10">
-                <span className="material-symbols-outlined text-[10px] fill-1">headphones</span> Sách nói
-              </span>
-            </>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Hover Listen Overlay Button */}
-        <button
-          onClick={handlePlayAudio}
-          className="absolute bottom-3 right-3 w-9 h-9 bg-[#b70011]/90 hover:bg-[#b70011] text-white rounded-full flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity duration-300 shadow-md transform hover:scale-105 z-20"
-          title="Nghe sách nói ngay"
-        >
-          <span className="material-symbols-outlined text-base fill-1">play_arrow</span>
-        </button>
+        {isAudioAvailable && (
+          <button
+            onClick={handlePlayAudio}
+            className="absolute bottom-1 right-1 w-9 h-9 bg-[#b70011]/90 hover:bg-[#b70011] text-white rounded-full flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity duration-300 shadow-lg transform hover:scale-105 z-20 backdrop-blur-sm cursor-pointer"
+            title="Nghe sách nói ngay"
+          >
+            <span className="material-symbols-outlined text-[16px] fill-1">play_arrow</span>
+          </button>
+        )}
 
         {b.quantity <= 0 && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-10">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none z-10 rounded-lg">
             <span className="bg-[#191c1e] text-white font-bold text-xs uppercase px-3 py-1.5 rounded-full shadow-md tracking-wider">
               Hết hàng
             </span>
@@ -147,16 +141,18 @@ export default function BookCard({ b, onAddToCart, showFormatBadges = true }: Bo
         </div>
 
         <div>
-          {/* Format Pricing Grid */}
-          <div className="space-y-0.5 mb-4 border-t border-[#f2f4f6] pt-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-gray-500">Sách giấy:</span>
-              <span className="font-bold text-[#191c1e]">{formattedPrice} ₫</span>
+          {/* MỤC 3: Hiển thị giá tiền rõ ràng minh bạch */}
+          <div className="space-y-0.5 mb-3 border-t border-[#f2f4f6] pt-2 font-medium text-sm">
+            <div className="text-[#191c1e] font-bold">
+              {formattedPrice} ₫
             </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-gray-500">Sách nói:</span>
-              <span className="font-bold text-[#b70011]">{formattedAudioPrice} ₫</span>
-            </div>
+            
+            {/* CHỈ HIỂN THỊ GIÁ AUDIO KHI SẢN PHẨM THỰC SỰ KHẢ DỤNG AUDIO */}
+            {isAudioAvailable && (
+              <div className="text-[#b70011] text-xs font-semibold">
+                Giá Audio: {formattedAudioPrice} ₫
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-[#f2f4f6]">

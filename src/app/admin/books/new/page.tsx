@@ -3,6 +3,8 @@ import { getAllAuthors } from "@/services/authorsService";
 import { getAllCategories } from "@/services/categoriesService";
 import { authFetch } from "@/lib/authFetch"; // Đảm bảo import hàm fetch gắn token bảo mật
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = { title: "Nhập Sách Mới" };
 
 async function getPublishersDirectly() {

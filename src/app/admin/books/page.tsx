@@ -264,12 +264,13 @@ function BooksContent() {
         {/* Search, Filter, Export, View Toggle */}
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Search bar */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div style={{ position: "relative" }} className="w-full sm:w-64">
+            <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
             <input
               type="search"
+              style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm kiếm sách, tác giả, thể loại..."
-              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+              className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -283,14 +284,7 @@ function BooksContent() {
             <span>Xuất File</span>
           </button>
 
-          <button
-            onClick={() => loadBooks(true)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Tải lại</span>
-          </button>
+
 
           {/* View Toggles */}
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">

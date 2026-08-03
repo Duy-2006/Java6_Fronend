@@ -329,14 +329,7 @@ function CustomersContent() {
             <span>Xuất File</span>
           </button>
 
-          <button
-            onClick={() => refreshCustomers()}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Tải lại</span>
-          </button>
+
 
           {/* View Toggles */}
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">

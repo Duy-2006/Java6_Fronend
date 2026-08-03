@@ -1086,16 +1086,7 @@ export default function BookDetailPage() {
                                         <Edit className="w-4 h-4" />
                                         <span>Chỉnh sửa thông tin</span>
                                     </Link>
-                                    <button
-                                        onClick={() => {
-                                            showToast("Đang chuẩn bị dữ liệu mã vạch sách...", "info");
-                                            setTimeout(() => window.print(), 800);
-                                        }}
-                                        className="bg-white border border-slate-200 text-slate-700 hover:text-[#b70011] hover:border-[#b70011] font-bold text-xs px-5 py-3 rounded-lg transition-all flex items-center gap-1.5"
-                                    >
-                                        <Barcode className="w-4 h-4" />
-                                        <span>In tem mã vạch</span>
-                                    </button>
+                                    {/* Removed 'In tem mã vạch' button per user request */}
                                 </div>
                             </div>
                         </div>

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Book, Package, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import BookImage from '@/app/user/books/[id]/_components/BookImage';
 
 interface ChatSource {
@@ -25,7 +26,13 @@ interface ChatMessage {
 }
 
 export default function Chatbot() {
+    const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
+
+    // Hide chatbot on admin views
+    if (pathname?.startsWith('/admin')) {
+        return null;
+    }
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);

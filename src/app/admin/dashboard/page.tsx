@@ -46,7 +46,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState('year');
+  const [timeRange, setTimeRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [isRebuilding, setIsRebuilding] = useState(false);
 
   // States
@@ -83,7 +85,7 @@ export default function AdminDashboard() {
     return `${apiBase}/uploads/books/${cleanUrl}`;
   };
 
-  const loadDashboardData = async (isSilent = false, range = timeRange) => {
+  const loadDashboardData = async (isSilent = false, range = timeRange, startDate = customStartDate, endDate = customEndDate) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     setError(null);
@@ -91,7 +93,7 @@ export default function AdminDashboard() {
     try {
       // Fetch stats, orders, books and authors
       const [data, allOrders, allBooksList, allAuthorsList] = await Promise.all([
-        getDashboardStats(range),
+        getDashboardStats(range, startDate, endDate),
         getAllOrders(),
         getAllBooks().catch(() => []),
         getAllAuthors().catch(() => [])
@@ -269,8 +271,27 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    loadDashboardData(false, timeRange);
-  }, [timeRange]);
+    loadDashboardData(false, 'all', '', '');
+  }, []);
+
+  const handleCustomDateFilter = () => {
+    if (!customStartDate && !customEndDate) {
+      // Nếu trống cả 2, mặc định là tất cả thời gian
+      setTimeRange('all');
+      loadDashboardData(false, 'all', '', '');
+      return;
+    }
+    if (!customStartDate || !customEndDate) {
+      alert('Vui lòng chọn cả từ ngày và đến ngày, hoặc để trống cả hai để xem tất cả thời gian.');
+      return;
+    }
+    if (new Date(customStartDate) > new Date(customEndDate)) {
+      alert('Từ ngày không được lớn hơn đến ngày.');
+      return;
+    }
+    setTimeRange('custom');
+    loadDashboardData(false, 'custom', customStartDate, customEndDate);
+  };
 
   if (loading) {
     return (
@@ -287,33 +308,47 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Tổng quan Dashboard</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Chào mừng trở lại! Đây là tóm tắt hoạt động kinh doanh hôm nay.</p>
+          <p className="text-sm text-[#5c403c] font-sans">
+            {timeRange === 'all' ? 'Đang hiển thị: Tất cả thời gian' : `Đang hiển thị: ${customStartDate} → ${customEndDate}`}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <select 
-            value={timeRange} 
-            onChange={(e) => setTimeRange(e.target.value)}
-            disabled={refreshing || loading}
-            className="px-4 py-2 bg-white text-[#191c1e] rounded-lg font-semibold text-xs border border-[#e6bdb8]/50 focus:outline-none focus:ring-1 focus:ring-[#b70011] cursor-pointer"
-          >
-            <option value="day">Hôm nay</option>
-            <option value="week">7 ngày qua</option>
-            <option value="month">Tháng này</option>
-            <option value="year">Năm nay</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
+          {/* Bộ lọc thời gian nhỏ gọn */}
+          <div className="flex items-center gap-1.5 bg-[#fcf8f8] p-1.5 rounded-lg border border-[#e6bdb8]/30 shadow-sm">
+            <input 
+              type="date" 
+              value={customStartDate}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
+            />
+            <span className="text-xs text-[#916f6b] font-bold">-</span>
+            <input 
+              type="date" 
+              value={customEndDate}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
+            />
+            <button 
+              onClick={handleCustomDateFilter}
+              className="px-3 py-1 bg-[#b70011] text-white rounded text-xs font-semibold shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
+            >
+              Lọc
+            </button>
+          </div>
+
           <button 
             onClick={handleRebuildIndex}
             disabled={isRebuilding}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isRebuilding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            {isRebuilding ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
             {isRebuilding ? 'Đang cập nhật...' : 'Cập nhật AI'}
           </button>
           <button 
             onClick={handleExportReport}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer whitespace-nowrap"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             Xuất Báo Cáo
           </button>
         </div>
@@ -333,15 +368,10 @@ export default function AdminDashboard() {
             <div className="p-2 bg-[#ffdad6] rounded-lg text-[#b70011]">
               <DollarSign className="w-5 h-5" />
             </div>
-            <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
-              {formatGrowth(stats.revenueGrowth)}
-              <TrendingUp className="w-3.5 h-3.5" />
-            </span>
           </div>
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Doanh Thu</p>
             <h3 className="text-2xl font-bold text-[#191c1e]">{formatCurrency(stats.totalRevenue)}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">So với tháng trước</p>
           </div>
         </div>
 
@@ -351,15 +381,10 @@ export default function AdminDashboard() {
             <div className="p-2 bg-[#d5e0f8] rounded-lg text-[#111c2d]">
               <ShoppingCart className="w-5 h-5" />
             </div>
-            <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
-              {formatGrowth(stats.ordersGrowth)}
-              <TrendingUp className="w-3.5 h-3.5" />
-            </span>
           </div>
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Tổng Đơn Hàng</p>
             <h3 className="text-2xl font-bold text-[#191c1e]">{stats.totalOrders.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">So với tháng trước</p>
           </div>
         </div>
 
@@ -373,7 +398,6 @@ export default function AdminDashboard() {
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Sách Đã Bán</p>
             <h3 className="text-2xl font-bold text-[#191c1e]">{booksSold.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Sách giấy &amp; E-books</p>
           </div>
         </div>
 
@@ -383,15 +407,10 @@ export default function AdminDashboard() {
             <div className="p-2 bg-[#ffdad6] rounded-lg text-[#93000a]">
               <Users className="w-5 h-5" />
             </div>
-            <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
-              {formatGrowth(stats.customersGrowth)}
-              <TrendingUp className="w-3.5 h-3.5" />
-            </span>
           </div>
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Khách Hàng</p>
             <h3 className="text-2xl font-bold text-[#191c1e]">{stats.totalCustomers.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Người dùng hoạt động</p>
           </div>
         </div>
       </div>

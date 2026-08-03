@@ -133,11 +133,12 @@ export default function AuthorForm({ author }: { author?: Author }) {
               <label className="block text-sm font-bold text-slate-700">
                 Tên Tác Giả <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <User className="w-4.5 h-4.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div style={{ position: "relative" }}>
+                <User className="w-4.5 h-4.5 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input
                   type="text"
-                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.name ? "ring-2 ring-red-500" : ""
+                  style={{ paddingLeft: "2.5rem" }}
+                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.name ? "ring-2 ring-red-500" : ""
                     }`}
                   value={form.name}
                   onChange={(e) => setField("name", e.target.value)}
@@ -164,11 +165,12 @@ export default function AuthorForm({ author }: { author?: Author }) {
               <label className="block text-sm font-bold text-slate-700">
                 Email Liên Hệ <span className="text-slate-400 font-normal text-xs">(Tùy chọn)</span>
               </label>
-              <div className="relative">
-                <Mail className="w-4.5 h-4.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div style={{ position: "relative" }}>
+                <Mail className="w-4.5 h-4.5 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                 <input
                   type="email"
-                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pl-10 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.email ? "ring-2 ring-red-500" : ""
+                  style={{ paddingLeft: "2.5rem" }}
+                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${errors.email ? "ring-2 ring-red-500" : ""
                     }`}
                   value={form.email}
                   onChange={(e) => setField("email", e.target.value)}

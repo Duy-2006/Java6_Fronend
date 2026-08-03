@@ -278,7 +278,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
 
         {/* Section Title */}
         <div className="text-center">
-          <h2 className="text-xl font-bold tracking-widest text-slate-800 uppercase font-headline-lg">
+          <h2 className="text-xl font-bold tracking-widest text-slate-800 uppercase font-sans">
             CHI TIẾT BANNER
           </h2>
         </div>

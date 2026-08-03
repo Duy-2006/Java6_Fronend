@@ -97,7 +97,7 @@ export default function CartPage() {
       const res = await authFetch(`${API_BASE_URL}/api/books/flash-sale`);
       if (!res.ok) return;
       const data: FlashSaleBook[] = await res.json();
-      const map = new Map<number, { price: number, limit: number | null }>();
+      const map = new Map<number, { price: number, limit: number | null, usedCount: number, promotionId: number }>();
       data.forEach(book => {
         let finalPrice: number | null = null;
         if (book.discountPrice !== undefined && book.discountPrice !== null) {

@@ -1,10 +1,20 @@
+/*
+ * page.tsx (Checkout Page)
+ * Trang thanh toan don hang cua khach hang.
+ * Chuc nang:
+ * - Hien thi tom tat don hang, ap dung khuyen mai (Flash sale, Voucher).
+ * - Cho phep chon dia chi giao hang (GHTK API/Tich hop dia chi tu dong) hoac mua sach noi (Digital).
+ * - Tinh toan phi van chuyen tu dong.
+ * - Chon phuong thuc thanh toan (COD, VNPAY, PAYOS) va tich hop redirect sang cong thanh toan.
+ */
+
 "use client";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isBlank, isValidEmail } from "@/services/validation";
-import { authFetch, isLoggedIn } from "@/services/ordersService";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -14,7 +24,10 @@ interface CartDetail {
   imageUrl: string;
   quantity: number;
   price: number;
+  isAudiobook?: boolean;
+  authorName?: string;
 }
+
 interface FormState {
   customerName: string;
   customerPhone: string;
@@ -22,10 +35,13 @@ interface FormState {
   customerAddress: string;
   paymentMethod: string;
 }
+
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(n) + " ₫";
+
+// Cookie-Only: Không cần getToken() — xác thực qua HTTP-Only cookie
 
 function validate(f: FormState): FormErrors {
   const e: FormErrors = {};
@@ -40,6 +56,7 @@ function validate(f: FormState): FormErrors {
 export default function CheckoutPage() {
   const router = useRouter();
   const [rawCartDetails, setRawCartDetails] = useState<CartDetail[]>([]);
+  const [cartDetailIds, setCartDetailIds] = useState<number[]>([]);
   const [shippingFee, setShippingFee] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -55,29 +72,32 @@ export default function CheckoutPage() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
+  // GHTK and Provinces Integration States
   const [provinces, setProvinces] = useState<any[]>([]);
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [districts, setDistricts] = useState<any[]>([]);
+  const [selectedWard, setSelectedWard] = useState("");
+  const [wards, setWards] = useState<any[]>([]);
   const [detailAddress, setDetailAddress] = useState("");
   const [calculatingFee, setCalculatingFee] = useState(false);
-  const [saveAddress, setSaveAddress] = useState(false);
   const [savedUser, setSavedUser] = useState<any>(null);
 
-  // Address book states
+  // Addresses States
   const [addresses, setAddresses] = useState<any[]>([]);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [useManualAddress, setUseManualAddress] = useState(true);
+  const [saveAddress, setSaveAddress] = useState(false);
 
-  // Voucher states
+  // Voucher States
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discountAmount: number } | null>(null);
   const [voucherError, setVoucherError] = useState("");
   const [applyingVoucher, setApplyingVoucher] = useState(false);
   const [availableVouchers, setAvailableVouchers] = useState<any[]>([]);
 
-  // Toast state
+  // Minimalist Toast State
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -85,31 +105,26 @@ export default function CheckoutPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const setFormField = (field: keyof FormState, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
-    setErrors((e) => ({ ...e, [field]: undefined }));
-  };
-
   // 1. Lấy flash sale map
   useEffect(() => {
     const fetchFlashSale = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/books/flash-sale`);
+        const res = await authFetch(`${API_URL}/api/books/flash-sale`);
         if (!res.ok) return;
         const data: any[] = await res.json();
-        console.log("🔍 [DEBUG] Flash sale data from API:", data);
         const map = new Map<number, { price: number; limit: number | null, usedCount: number, promotionId: number }>();
         data.forEach((book) => {
           let finalPrice: number | null = null;
           if (book.discountPrice != null) finalPrice = Number(book.discountPrice);
           else if (book.discountValue != null && book.price != null) {
-            const discount = Number(book.discountValue);
+            const discountPercent = Number(book.discountValue);
             const original = Number(book.price);
-            if (discount > 0 && discount <= 100) finalPrice = (original * (100 - discount)) / 100;
+            if (discountPercent > 0 && discountPercent <= 100) {
+              finalPrice = (original * (100 - discountPercent)) / 100;
+            }
           }
           if (finalPrice && finalPrice > 0 && book.promotionId) {
             map.set(book.id, { price: finalPrice, limit: book.usageLimit ?? null, usedCount: book.usedCount ?? 0, promotionId: book.promotionId });
-            console.log(`  - Mapped bookId ${book.id} -> discountPrice ${finalPrice}`);
           }
         });
         setFlashSaleMap(map);
@@ -120,11 +135,11 @@ export default function CheckoutPage() {
     fetchFlashSale();
   }, []);
 
-  // 1.5 Lấy danh sách Tỉnh/Thành phố
+  // 1.5 Lấy danh sách Tỉnh/Thành phố từ Open API
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const res = await fetch("https://provinces.open-api.vn/api/?depth=2");
+        const res = await fetch("https://provinces.open-api.vn/api/?depth=3");
         if (res.ok) {
           const data = await res.json();
           setProvinces(data);
@@ -144,23 +159,41 @@ export default function CheckoutPage() {
         return;
       }
       try {
-        // authFetch tự parse JSON và throw nếu lỗi
-        const data = await authFetch(`${API_URL}/api/checkout/preview`, {
-          headers: { "Content-Type": "application/json" },
-        });
-        console.log("🔍 [DEBUG] Preview data from backend:", data);
+        const idsStr = sessionStorage.getItem("selectedCartDetailIds");
+        if (!idsStr) {
+          router.push("/user/cart");
+          return;
+        }
+        const parsedIds = JSON.parse(idsStr);
+        if (!Array.isArray(parsedIds) || parsedIds.length === 0) {
+          router.push("/user/cart");
+          return;
+        }
+        setCartDetailIds(parsedIds);
 
+        const res = await authFetch(`${API_URL}/api/checkout/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartDetailIds: parsedIds }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error || "Không thể lấy thông tin đơn hàng.");
+        const data = await res.json();
+
+        // Map details to identify audiobooks
         const details = (data.cartDetails || []).map((item: any) => ({
           ...item,
-          isAudiobook:
-            item.book?.audioPrice > 0 && Number(item.price) === Number(item.book?.audioPrice),
+          isAudiobook: item.book?.audioPrice > 0 && Number(item.price) === Number(item.book?.audioPrice),
           authorName: item.book?.author?.name || item.authorName || "Nguyễn Nhật Ánh",
         }));
         setRawCartDetails(details);
         setDiscount(data.discount || 0);
 
-        try {
-          const me = await authFetch(`${API_URL}/api/auth/me`, {});
+        // Fetch User Info to autofill
+        const meRes = await authFetch(`${API_URL}/api/auth/me`, {
+          headers: {},
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
           setForm((f) => ({
             ...f,
             customerName: me.name || f.customerName,
@@ -168,23 +201,25 @@ export default function CheckoutPage() {
             email: me.email || f.email,
           }));
           setSavedUser(me);
-        } catch (e) {
-          console.error("Lỗi lấy thông tin user", e);
         }
 
+        // Fetch saved addresses
         try {
-          const addrData = await authFetch(`${API_URL}/api/profile/addresses`, {});
-          if (Array.isArray(addrData) && addrData.length > 0) {
-            setAddresses(addrData);
-            const defaultAddr = addrData.find((a: any) => a.isDefault) || addrData[0];
-            setSelectedAddressId(defaultAddr.id);
-            setUseManualAddress(false);
+          const addrRes = await authFetch(`${API_URL}/api/profile/addresses`);
+          if (addrRes.ok) {
+            const addrData = await addrRes.json();
+            if (Array.isArray(addrData) && addrData.length > 0) {
+              setAddresses(addrData);
+              const defaultAddr = addrData.find(a => a.isDefault) || addrData[0];
+              setSelectedAddressId(defaultAddr.id);
+              setUseManualAddress(false);
+            }
           }
         } catch (e) {
           console.error("Lỗi lấy địa chỉ", e);
         }
       } catch (error: any) {
-        alert(error.message);
+        showToast(error.message, "error");
         router.push("/user/cart");
       } finally {
         setLoading(false);
@@ -193,28 +228,49 @@ export default function CheckoutPage() {
     fetchPreview();
   }, [router]);
 
-  // Autofill từ address book khi chọn địa chỉ đã lưu
+  // Map selected address to form
   useEffect(() => {
     if (provinces.length > 0 && selectedAddressId && !useManualAddress) {
-      const addr = addresses.find((a) => a.id === selectedAddressId);
+      const addr = addresses.find(a => a.id === selectedAddressId);
       if (addr) {
-        setForm((f) => ({
+        setForm(f => ({
           ...f,
           customerName: addr.receiverName,
           customerPhone: addr.receiverPhone,
         }));
+
         setSelectedProvince(addr.provinceId.toString());
         const provObj = provinces.find((p: any) => p.code === addr.provinceId);
         if (provObj) {
-          setDistricts(provObj.districts || []);
+          const distList = provObj.districts || [];
+          setDistricts(distList);
           setSelectedDistrict(addr.districtId.toString());
+          
+          const distObj = distList.find((d: any) => d.code === addr.districtId);
+          if (distObj) {
+            const wardList = distObj.wards || [];
+            setWards(wardList);
+            if (addr.wardCode) {
+              setSelectedWard(addr.wardCode.toString());
+            } else {
+              setSelectedWard("");
+            }
+          } else {
+            setWards([]);
+            setSelectedWard("");
+          }
+        } else {
+          setDistricts([]);
+          setSelectedDistrict("");
+          setWards([]);
+          setSelectedWard("");
         }
-        setDetailAddress(addr.street + (addr.wardName ? ", " + addr.wardName : ""));
+        setDetailAddress(addr.street);
       }
     }
   }, [selectedAddressId, addresses, provinces, useManualAddress]);
 
-  // Autofill địa chỉ từ profile khi chưa có address book
+  // Autofill address from profile if no saved addresses
   useEffect(() => {
     if (provinces.length > 0 && savedUser?.address && useManualAddress && addresses.length === 0) {
       const parts = savedUser.address.split(", ").reverse();
@@ -222,12 +278,15 @@ export default function CheckoutPage() {
         const pName = parts[0];
         const dName = parts[1];
         const detail = parts.slice(2).reverse().join(", ");
+
         const prov = provinces.find((p: any) => p.name === pName);
         if (prov) {
           setSelectedProvince(prov.code.toString());
           setDistricts(prov.districts || []);
           const dist = prov.districts?.find((d: any) => d.name === dName);
-          if (dist) setSelectedDistrict(dist.code.toString());
+          if (dist) {
+            setSelectedDistrict(dist.code.toString());
+          }
           setDetailAddress(detail);
           setForm((f) => ({ ...f, customerAddress: savedUser.address }));
         }
@@ -236,12 +295,38 @@ export default function CheckoutPage() {
     }
   }, [provinces, savedUser, useManualAddress, addresses.length]);
 
-  // Lấy danh sách voucher
+  // Fetch Available Vouchers
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        const data = await authFetch(`${API_URL}/api/vouchers/active`, {});
-        setAvailableVouchers(data || []);
+        const headers: any = {};
+        
+        // Gọi đồng thời 2 API: Lấy tất cả voucher active và Lấy lịch sử voucher của user
+        const [activeRes, myVouchersRes] = await Promise.all([
+          authFetch(`${API_URL}/api/vouchers/active`, { headers }),
+          authFetch(`${API_URL}/api/vouchers/my-vouchers`, { headers })
+        ]);
+
+        if (activeRes.ok) {
+          const activeData = await activeRes.json();
+          
+          let myVouchers: any[] = [];
+          if (myVouchersRes.ok) {
+            myVouchers = await myVouchersRes.json();
+          }
+
+          // Lọc ra danh sách ID các voucher mà User ĐÃ DÙNG
+          const usedVoucherIds = new Set(
+            myVouchers
+              .filter((uv: any) => uv.isUsed)
+              .map((uv: any) => uv.voucher?.id)
+          );
+
+          // Chỉ giữ lại những voucher chưa được dùng
+          const available = (activeData || []).filter((v: any) => !usedVoucherIds.has(v.id));
+          
+          setAvailableVouchers(available);
+        }
       } catch (err) {
         console.error("Failed to fetch vouchers:", err);
       }
@@ -249,7 +334,7 @@ export default function CheckoutPage() {
     fetchVouchers();
   }, []);
 
-  // 3. Tính toán giá
+  // 3. Tính toán giá khuyến mãi và tổng tiền
   const { displayItems, totalAmount, onlyAudiobooks } = useMemo(() => {
     if (rawCartDetails.length === 0) {
       return { displayItems: [], totalAmount: 0, onlyAudiobooks: false };
@@ -260,7 +345,9 @@ export default function CheckoutPage() {
     const appliedPromos = new Set<number>();
 
     rawCartDetails.forEach((item) => {
-      if (!(item as any).isAudiobook) isAllAudiobooks = false;
+      if (!item.isAudiobook) {
+        isAllAudiobooks = false;
+      }
       const promoInfo = flashSaleMap.get(item.bookId);
       if (promoInfo && promoInfo.price < item.price) {
         const isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
@@ -303,20 +390,66 @@ export default function CheckoutPage() {
       }
     });
 
-    console.log("🔍 [DEBUG] Calculated totalAmount:", total);
-    return { displayItems: items, totalAmount: total, onlyAudiobooks: isAllAudiobooks };
+    return {
+      displayItems: items,
+      totalAmount: total,
+      onlyAudiobooks: isAllAudiobooks,
+    };
   }, [rawCartDetails, flashSaleMap]);
 
   const finalAmount = useMemo(() => {
     return totalAmount + shippingFee - discount - (appliedVoucher?.discountAmount || 0);
   }, [totalAmount, shippingFee, discount, appliedVoucher]);
 
-  // Tính phí vận chuyển GHTK
+  const groupedDisplayItems = useMemo(() => {
+    const map = new Map<number, {
+      bookId: number;
+      title: string;
+      imageUrl: string;
+      authorName?: string;
+      isAudiobook?: boolean;
+      price: number;
+      promoPart?: { quantity: number; price: number; total: number };
+      normalPart?: { quantity: number; price: number; total: number };
+    }>();
+
+    displayItems.forEach((item) => {
+      if (!map.has(item.bookId)) {
+        map.set(item.bookId, {
+          bookId: item.bookId,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          authorName: item.authorName,
+          isAudiobook: item.isAudiobook,
+          price: item.price,
+        });
+      }
+      const grouped = map.get(item.bookId)!;
+      if (item.isPromo) {
+        grouped.promoPart = {
+          quantity: item.quantity,
+          price: item.displayPrice,
+          total: item.displayTotal,
+        };
+      } else {
+        grouped.normalPart = {
+          quantity: item.quantity,
+          price: item.displayPrice,
+          total: item.displayTotal,
+        };
+      }
+    });
+
+    return Array.from(map.values());
+  }, [displayItems]);
+
+  // 2.5 Tính toán phí vận chuyển GHTK khi thay đổi địa chỉ hoặc tổng tiền
   useEffect(() => {
     if (onlyAudiobooks) {
       setShippingFee(0);
       return;
     }
+
     if (!selectedProvince || !selectedDistrict) {
       setShippingFee(0);
       return;
@@ -333,57 +466,53 @@ export default function CheckoutPage() {
 
       const provName = provObj.name;
       const distName = distObj.name;
-      const fullAddress = `${detailAddress ? detailAddress + ", " : ""}${distName}, ${provName}`;
+      const wardName = wards.find((w) => w.code === parseInt(selectedWard))?.name || "";
+
+      // Cập nhật địa chỉ đầy đủ vào form state
+      const fullAddress = `${detailAddress ? detailAddress + ", " : ""}${wardName ? wardName + ", " : ""}${distName}, ${provName}`;
       setForm((f) => ({ ...f, customerAddress: fullAddress }));
 
-      const totalWeight =
-        displayItems.reduce(
-          (acc, item) => acc + ((item as any).isAudiobook ? 0 : item.quantity * 250),
-          0
-        ) || 500;
-
       try {
-        const params = new URLSearchParams({
-          pick_province: "Hà Nội",
-          pick_district: "Quận Cầu Giấy",
-          province: provName,
-          district: distName,
-          weight: totalWeight.toString(),
-          value: totalAmount.toString(),
-          deliver_option: "none",
-        });
-        const data = await authFetch(`/api/shipment/fee?${params.toString()}`, {});
-        if (data.success && data.fee) {
-          setShippingFee(data.fee.fee);
-          setCalculatingFee(false);
-          return;
-        }
-      } catch (e) {
-        console.warn("GHTK API error, using fallback.", e);
-      }
+        const payload = {
+          provinceName: provName,
+          districtName: distName,
+          wardName: wardName,
+          items: displayItems.map(item => ({
+            bookId: item.bookId,
+            quantity: item.quantity,
+            price: item.displayPrice
+          }))
+        };
 
-      const isHaNoi = provName.includes("Hà Nội");
-      const northernProvinces = [
-        "Hải Phòng", "Quảng Ninh", "Hải Dương", "Hưng Yên", "Bắc Ninh", "Vĩnh Phúc",
-        "Thái Nguyên", "Phú Thọ", "Bắc Giang", "Hòa Bình", "Sơn La", "Điện Biên",
-        "Lai Châu", "Lào Cai", "Yên Bái", "Hà Giang", "Tuyên Quang", "Cao Bằng",
-        "Bắc Kạn", "Lạng Sơn", "Thái Bình", "Nam Định", "Ninh Bình", "Thanh Hóa",
-      ];
-      const isNorthern = northernProvinces.some((p) => provName.includes(p));
-      let baseFee = 38000;
-      if (isHaNoi) baseFee = 22000;
-      else if (isNorthern) baseFee = 30000;
-      const weightSurcharge =
-        totalWeight > 1000 ? Math.floor((totalWeight - 1000) / 500) * 5000 : 0;
-      setShippingFee(baseFee + weightSurcharge);
-      setCalculatingFee(false);
+        const res = await authFetch(`${API_URL}/api/checkout/shipping-fee`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.fee !== undefined) {
+            setShippingFee(data.fee);
+          }
+        } else {
+          const errorData = await res.json();
+          showToast(errorData.error || "Không thể tính phí vận chuyển tự động.", "error");
+        }
+      } catch (e: any) {
+        console.error("Shipping fee preview error:", e);
+        showToast("Lỗi kết nối máy chủ khi tính phí vận chuyển", "error");
+      } finally {
+        setCalculatingFee(false);
+      }
     };
 
     const delayDebounce = setTimeout(() => {
       calculateFee();
     }, 600);
+
     return () => clearTimeout(delayDebounce);
-  }, [selectedProvince, selectedDistrict, detailAddress, provinces, districts, totalAmount, displayItems, onlyAudiobooks]);
+  }, [selectedProvince, selectedDistrict, selectedWard, detailAddress, provinces, districts, wards, totalAmount, displayItems, onlyAudiobooks]);
 
   const handleApplyVoucher = async (codeOverride?: string) => {
     const codeToApply = codeOverride || voucherCode;
@@ -394,14 +523,19 @@ export default function CheckoutPage() {
     setApplyingVoucher(true);
     setVoucherError("");
     try {
-      // authFetch tự throw nếu lỗi, nên catch bên dưới sẽ bắt
-      const data = await authFetch(`${API_URL}/api/checkout/apply-voucher`, {
+      const res = await authFetch(`${API_URL}/api/checkout/apply-voucher`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify({ code: codeToApply, orderValue: totalAmount }),
       });
-      setAppliedVoucher({ code: codeToApply, discountAmount: data.discountAmount || 0 });
-      setVoucherCode("");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || "Voucher không hợp lệ");
+
+      setAppliedVoucher({
+        code: codeToApply,
+        discountAmount: data.discountAmount || 0,
+      });
+      setVoucherCode(""); // clear input on success
       showToast(`Đã áp dụng mã giảm giá ${codeToApply.toUpperCase()} thành công!`);
     } catch (err: any) {
       setVoucherError(err.message);
@@ -411,16 +545,22 @@ export default function CheckoutPage() {
     }
   };
 
+  const setFormField = (field: keyof FormState, value: string) => {
+    setForm((f) => ({ ...f, [field]: value }));
+    setErrors((e) => ({ ...e, [field]: undefined }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate(form);
 
+    // Giao hàng vật lý mới yêu cầu check kỹ địa chỉ giao hàng
     if (!onlyAudiobooks) {
       if (!selectedProvince || !selectedDistrict || isBlank(detailAddress)) {
-        errs.customerAddress =
-          "Vui lòng chọn đầy đủ thông tin Tỉnh/Thành phố, Quận/Huyện và số địa chỉ chi tiết.";
+        errs.customerAddress = "Vui lòng chọn đầy đủ thông tin Tỉnh/Thành phố, Quận/Huyện và số địa chỉ chi tiết.";
       }
     } else {
+      // Đối với sách nói, nếu không nhập địa chỉ, điền sẵn địa chỉ mặc định/số để qua form validate
       if (isBlank(form.customerAddress)) {
         form.customerAddress = "Sách nói (Digital Delivery)";
       }
@@ -440,45 +580,43 @@ export default function CheckoutPage() {
     setSubmitting(true);
     try {
       if (!isLoggedIn()) throw new Error("Vui lòng đăng nhập lại");
-
       const itemsPayload = displayItems.map((item) => ({
         bookId: item.bookId,
         quantity: item.quantity,
         price: item.displayPrice,
       }));
-      console.log("🔍 [DEBUG] Submitting payload items:", itemsPayload);
 
       const payload = {
         customerName: form.customerName,
         customerPhone: form.customerPhone,
         email: form.email,
-        customerAddress: form.customerAddress,
+        customerAddress: onlyAudiobooks ? "Sách nói (Digital Delivery)" : form.customerAddress,
         paymentMethod: form.paymentMethod,
         voucherCode: appliedVoucher?.code || null,
         items: itemsPayload,
+        cartDetailIds,
         saveAddress: useManualAddress && saveAddress,
         provinceId: selectedProvince ? parseInt(selectedProvince) : null,
         districtId: selectedDistrict ? parseInt(selectedDistrict) : null,
-        provinceName:
-          provinces.find((p: any) => p.code === parseInt(selectedProvince))?.name || null,
+        provinceName: provinces.find((p: any) => p.code === parseInt(selectedProvince))?.name || null,
+        districtName: districts.find((d: any) => d.code === parseInt(selectedDistrict))?.name || null,
+        wardName: wards.find((w: any) => w.code === parseInt(selectedWard))?.name || null,
+        wardCode: selectedWard || null,
         street: detailAddress,
       };
-      console.log("🔍 [DEBUG] Full checkout payload:", payload);
 
-      // authFetch tự parse JSON và throw nếu lỗi
-      const data = await authFetch(`${API_URL}/api/checkout`, {
+      const res = await authFetch(`${API_URL}/api/checkout`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", },
         body: JSON.stringify(payload),
       });
-      console.log("🔍 [DEBUG] Checkout response:", data);
-
-      if (data.success) {
-        // ─── VNPAY ───────────────────────────────────────────────────
+      const data = await res.json();
+      if (res.ok && data.success) {
+        sessionStorage.removeItem("selectedCartDetailIds");
         if (form.paymentMethod === "VNPAY") {
-          const paymentData = await authFetch(`${API_URL}/api/payment/create`, {
+          const paymentRes = await authFetch(`${API_URL}/api/payment/create`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", },
             body: JSON.stringify({
               amount: finalAmount,
               orderId: data.orderId.toString(),
@@ -486,41 +624,36 @@ export default function CheckoutPage() {
               bankCode: "VNBANK",
             }),
           });
+          const paymentData = await paymentRes.json();
           if (paymentData.paymentUrl) {
             sessionStorage.setItem("pendingOrderId", data.orderId);
             sessionStorage.setItem("pendingOrderCode", data.orderCode);
             window.location.href = paymentData.paymentUrl;
-          } else {
-            throw new Error(paymentData.message || "Không tạo được link thanh toán VNPAY");
-          }
-
-        // ─── PAYOS ───────────────────────────────────────────────────
+          } else throw new Error(paymentData.message || "Không tạo được cổng thanh toán VNPay");
         } else if (form.paymentMethod === "PAYOS") {
-          const paymentData = await authFetch(`${API_URL}/api/pay-os/create`, {
+          const paymentRes = await authFetch(`${API_URL}/api/pay-os/create`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", },
             body: JSON.stringify({
               amount: finalAmount,
-              description: `DH${data.orderCode}`.substring(0, 25),
+              orderId: data.orderId,
+              description: `Thanh toan don ${data.orderId}`.substring(0, 25),
             }),
           });
+          const paymentData = await paymentRes.json();
           if (paymentData.checkoutUrl) {
             sessionStorage.setItem("pendingOrderId", data.orderId);
             sessionStorage.setItem("pendingOrderCode", data.orderCode);
             window.location.href = paymentData.checkoutUrl;
-          } else {
-            throw new Error(paymentData.message || "Không tạo được link thanh toán PayOS");
-          }
-
-        // ─── COD ─────────────────────────────────────────────────────
+          } else throw new Error(paymentData.error || "Không tạo được cổng thanh toán PayOS");
         } else {
           router.push(`/user/orders/${data.orderId}/success`);
         }
       } else {
-        throw new Error(data.error || data.message || "Đặt hàng thất bại");
+        throw new Error(data.error || data.message || "Đặt hàng không thành công");
       }
     } catch (error: any) {
-      alert(error.message);
+      showToast(error.message, "error");
       setSubmitting(false);
     }
   };
@@ -532,29 +665,30 @@ export default function CheckoutPage() {
     return `${API_URL}/uploads/books/${clean}`;
   };
 
-  if (loading)
+  if (loading) {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5]">
-          <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-[#f7f9fb]">
+          <div className="text-center font-mono text-[13px]">
+            <div className="animate-spin w-8 h-8 border-[2px] border-[#b70011] border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-[#545f73]">Đang tải thông tin thanh toán...</p>
+          </div>
         </div>
         <Footer />
       </>
     );
+  }
 
-  if (displayItems.length === 0)
+  if (displayItems.length === 0) {
     return (
       <>
         <Navbar />
-        <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5]">
-          <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-            <p className="text-6xl mb-4">🛒</p>
-            <p className="text-gray-500 mb-6">Không có sản phẩm nào được chọn để thanh toán.</p>
-            <Link
-              href="/cart"
-              className="inline-block bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition"
-            >
+        <div className="min-h-screen flex items-center justify-center bg-[#f7f9fb] px-4">
+          <div className="text-center bg-white p-8 border border-[#e0e3e5] rounded-[4px] max-w-sm w-full font-sans">
+            <span className="material-symbols-outlined text-[48px] text-[#e0e3e5] mb-3">shopping_cart</span>
+            <p className="text-[14px] text-[#545f73] mb-6">Không có sản phẩm nào được chọn để thanh toán.</p>
+            <Link href="/user/cart" className="block w-full bg-[#b70011] hover:bg-[#b70011]/90 text-white text-[13px] font-bold py-2.5 rounded-[2px] transition duration-200 uppercase tracking-wider text-center">
               Quay lại giỏ hàng
             </Link>
           </div>
@@ -562,10 +696,13 @@ export default function CheckoutPage() {
         <Footer />
       </>
     );
+  }
 
   return (
     <>
       <Navbar />
+
+      {/* Dynamic Font Loader */}
       <link
         href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap"
         rel="stylesheet"
@@ -574,15 +711,11 @@ export default function CheckoutPage() {
       <main className="bg-[#f7f9fb] min-h-screen py-10 font-sans text-[#191c1e]">
         <div className="max-w-[1230px] mx-auto px-4">
 
-          {/* Header */}
+          {/* Header & Breadcrumbs */}
           <div className="mb-8">
-            <h1 className="text-[32px] font-bold text-[#191c1e] tracking-[-0.02em] font-sans">
-              Thanh toán đơn hàng
-            </h1>
+            <h1 className="text-[32px] font-bold text-[#191c1e] tracking-[-0.02em] font-sans">Thanh toán đơn hàng</h1>
             <div className="flex items-center gap-2 mt-2 font-mono text-[11px] text-[#545f73]">
-              <Link href="/user/cart" className="hover:text-[#b70011] transition-colors">
-                Giỏ hàng
-              </Link>
+              <Link href="/user/cart" className="hover:text-[#b70011] transition-colors">Giỏ hàng</Link>
               <span className="material-symbols-outlined text-[12px]">chevron_right</span>
               <span className="text-[#191c1e] font-semibold">Thông tin thanh toán</span>
               <span className="material-symbols-outlined text-[12px]">chevron_right</span>
@@ -596,62 +729,29 @@ export default function CheckoutPage() {
               <div className="bg-white rounded-[4px] w-[90%] max-w-[500px] shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center p-4 border-b">
                   <h3 className="font-bold text-[15px]">Chọn địa chỉ nhận hàng</h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressModal(false)}
-                    className="text-gray-500 hover:text-black"
-                  >
+                  <button type="button" onClick={() => setShowAddressModal(false)} className="text-gray-500 hover:text-black">
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
                 <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3">
-                  {addresses.map((a) => (
-                    <div
-                      key={a.id}
-                      className={`border rounded-[4px] p-4 cursor-pointer transition-all ${
-                        selectedAddressId === a.id && !useManualAddress
-                          ? "border-[#b70011] bg-[#b70011]/5"
-                          : "border-[#e0e3e5] hover:border-gray-400"
-                      }`}
-                      onClick={() => {
-                        setSelectedAddressId(a.id);
-                        setUseManualAddress(false);
-                        setShowAddressModal(false);
-                      }}
-                    >
+                  {addresses.map(a => (
+                    <div key={a.id} className={`border rounded-[4px] p-4 cursor-pointer transition-all ${selectedAddressId === a.id && !useManualAddress ? 'border-[#b70011] bg-[#b70011]/5' : 'border-[#e0e3e5] hover:border-gray-400'}`} onClick={() => { setSelectedAddressId(a.id); setUseManualAddress(false); setShowAddressModal(false); }}>
                       <div className="flex justify-between items-start mb-1">
                         <div className="font-bold flex items-center gap-2 text-[13px]">
                           {a.receiverName}
-                          {a.isDefault && (
-                            <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">
-                              Mặc định
-                            </span>
-                          )}
+                          {a.isDefault && <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">Mặc định</span>}
+                          <Link href={`/user/profile/addresses/${a.id}`} className="text-[#b70011] hover:underline text-[11px] font-medium ml-2 flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                            <span className="material-symbols-outlined text-[14px]">edit</span> Sửa
+                          </Link>
                         </div>
                         <div className="text-[#b70011] font-mono text-[13px]">{a.receiverPhone}</div>
                       </div>
                       <div className="text-[13px] text-[#545f73]">
-                        {a.street},{a.wardName && " " + a.wardName + ","}
-                        {" "}
-                        {provinces
-                          .find((p: any) => p.code === a.provinceId)
-                          ?.districts?.find((d: any) => d.code === a.districtId)?.name}
-                        , {a.provinceName}
+                        {a.street}, {a.wardName && a.wardName + ", "} {provinces.find((p: any) => p.code === a.provinceId)?.districts?.find((d: any) => d.code === a.districtId)?.name}, {a.provinceName}
                       </div>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUseManualAddress(true);
-                      setShowAddressModal(false);
-                    }}
-                    className={`w-full border border-dashed rounded-[4px] p-3 text-center transition-all text-[13px] font-semibold ${
-                      useManualAddress
-                        ? "border-[#b70011] text-[#b70011] bg-[#b70011]/5"
-                        : "border-[#e0e3e5] text-[#545f73] hover:border-gray-400"
-                    }`}
-                  >
+                  <button type="button" onClick={() => { setUseManualAddress(true); setShowAddressModal(false); }} className={`w-full border border-dashed rounded-[4px] p-3 text-center transition-all text-[13px] font-semibold ${useManualAddress ? 'border-[#b70011] text-[#b70011] bg-[#b70011]/5' : 'border-[#e0e3e5] text-[#545f73] hover:border-gray-400'}`}>
                     + Nhập địa chỉ nhận hàng mới
                   </button>
                 </div>
@@ -662,7 +762,7 @@ export default function CheckoutPage() {
           <form onSubmit={handleSubmit} noValidate>
             <div className="flex flex-col lg:flex-row gap-8 items-start">
 
-              {/* Left side */}
+              {/* Form fields (Left side) */}
               <div className="w-full lg:w-2/3 space-y-6">
 
                 {/* 1. Shipping Details */}
@@ -675,25 +775,19 @@ export default function CheckoutPage() {
                     <div className="border border-[#b70011] bg-[#b70011]/5 rounded-[2px] p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div className="font-bold flex items-center gap-2 text-[13px] text-[#191c1e]">
-                          {addresses.find((a) => a.id === selectedAddressId)?.receiverName}
-                          {addresses.find((a) => a.id === selectedAddressId)?.isDefault && (
-                            <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">
-                              Mặc định
-                            </span>
-                          )}
+                          {addresses.find(a => a.id === selectedAddressId)?.receiverName}
+                          {addresses.find(a => a.id === selectedAddressId)?.isDefault && <span className="bg-[#b70011] text-white text-[10px] px-1.5 py-0.5 rounded-[2px] font-mono">Mặc định</span>}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddressModal(true)}
-                          className="text-[#b70011] text-[13px] font-semibold hover:underline"
-                        >
+                        <button type="button" onClick={() => setShowAddressModal(true)} className="text-[#b70011] text-[13px] font-semibold hover:underline">
                           Thay đổi
                         </button>
                       </div>
                       <div className="text-[#545f73] text-[13px] mb-1 font-mono">
-                        SĐT: {addresses.find((a) => a.id === selectedAddressId)?.receiverPhone}
+                        SĐT: {addresses.find(a => a.id === selectedAddressId)?.receiverPhone}
                       </div>
-                      <div className="text-[#545f73] text-[13px]">{form.customerAddress}</div>
+                      <div className="text-[#545f73] text-[13px]">
+                        {form.customerAddress}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -705,20 +799,16 @@ export default function CheckoutPage() {
                           <input
                             type="text"
                             placeholder="Nhập họ và tên người nhận"
-                            className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                              errors.customerName
-                                ? "border-[#ba1a1a] bg-[#ba1a1a]/5"
-                                : "border-[#e0e3e5]"
-                            }`}
+                            className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerName ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                              }`}
                             value={form.customerName}
                             onChange={(e) => setFormField("customerName", e.target.value)}
                           />
                           {errors.customerName && (
-                            <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">
-                              * {errors.customerName}
-                            </p>
+                            <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">* {errors.customerName}</p>
                           )}
                         </div>
+
                         <div>
                           <label className="block text-[11px] font-semibold text-[#545f73] uppercase tracking-wider mb-1.5">
                             Số điện thoại *
@@ -726,18 +816,13 @@ export default function CheckoutPage() {
                           <input
                             type="tel"
                             placeholder="Ví dụ: 0901234567"
-                            className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                              errors.customerPhone
-                                ? "border-[#ba1a1a] bg-[#ba1a1a]/5"
-                                : "border-[#e0e3e5]"
-                            }`}
+                            className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerPhone ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                              }`}
                             value={form.customerPhone}
                             onChange={(e) => setFormField("customerPhone", e.target.value)}
                           />
                           {errors.customerPhone && (
-                            <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">
-                              * {errors.customerPhone}
-                            </p>
+                            <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">* {errors.customerPhone}</p>
                           )}
                         </div>
                       </div>
@@ -749,16 +834,13 @@ export default function CheckoutPage() {
                         <input
                           type="email"
                           placeholder="email@example.com"
-                          className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                            errors.email ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
-                          }`}
+                          className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.email ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                            }`}
                           value={form.email}
                           onChange={(e) => setFormField("email", e.target.value)}
                         />
                         {errors.email && (
-                          <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">
-                            * {errors.email}
-                          </p>
+                          <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">* {errors.email}</p>
                         )}
                       </div>
 
@@ -771,11 +853,8 @@ export default function CheckoutPage() {
                               </label>
                               <select
                                 aria-label="Tỉnh/Thành phố"
-                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                                  errors.customerAddress && !selectedProvince
-                                    ? "border-[#ba1a1a] bg-[#ba1a1a]/5"
-                                    : "border-[#e0e3e5]"
-                                }`}
+                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerAddress && !selectedProvince ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                                  }`}
                                 value={selectedProvince}
                                 onChange={(e) => {
                                   const val = e.target.value;
@@ -783,85 +862,104 @@ export default function CheckoutPage() {
                                   setSelectedDistrict("");
                                   setDistricts([]);
                                   const prov = provinces.find((p) => p.code === parseInt(val));
-                                  if (prov) setDistricts(prov.districts || []);
+                                  if (prov) {
+                                    setDistricts(prov.districts || []);
+                                  }
                                   setFormField("customerAddress", "");
                                 }}
                               >
                                 <option value="">Chọn Tỉnh / Thành phố</option>
                                 {provinces.map((p) => (
-                                  <option key={p.code} value={p.code}>
-                                    {p.name}
-                                  </option>
+                                  <option key={p.code} value={p.code}>{p.name}</option>
                                 ))}
                               </select>
                             </div>
+
                             <div>
                               <label className="block text-[11px] font-semibold text-[#545f73] uppercase tracking-wider mb-1.5">
                                 Quận/Huyện *
                               </label>
                               <select
                                 aria-label="Quận/Huyện"
-                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                                  errors.customerAddress && !selectedDistrict
-                                    ? "border-[#ba1a1a] bg-[#ba1a1a]/5"
-                                    : "border-[#e0e3e5]"
-                                }`}
+                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerAddress && !selectedDistrict ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                                  }`}
                                 value={selectedDistrict}
-                                disabled={!selectedProvince}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   setSelectedDistrict(val);
-                                  const provObj = provinces.find(
-                                    (p) => p.code === parseInt(selectedProvince)
-                                  );
-                                  const distObj = districts.find((d) => d.code === parseInt(val));
-                                  const fullAddress = `${detailAddress ? detailAddress + ", " : ""}${distObj?.name || ""}${distObj && provObj ? ", " : ""}${provObj?.name || ""}`;
-                                  setFormField("customerAddress", fullAddress);
+                                  setSelectedWard("");
+                                  setWards([]);
+                                  const provObj = provinces.find((p) => p.code === parseInt(selectedProvince));
+                                  if (provObj && provObj.districts) {
+                                    const distObj = provObj.districts.find((d: any) => d.code === parseInt(val));
+                                    if (distObj) {
+                                      setWards(distObj.wards || []);
+                                    }
+                                  }
+                                  setFormField("customerAddress", "");
                                 }}
+                                disabled={!selectedProvince}
                               >
                                 <option value="">Chọn Quận / Huyện</option>
                                 {districts.map((d) => (
-                                  <option key={d.code} value={d.code}>
-                                    {d.name}
-                                  </option>
+                                  <option key={d.code} value={d.code}>{d.name}</option>
                                 ))}
                               </select>
                             </div>
                           </div>
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-[#545f73] uppercase tracking-wider mb-1.5">
-                              Địa chỉ chi tiết (Số nhà, tên đường, phường/xã) *
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Ví dụ: 123 Đường 3/2, Phường 12"
-                              className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${
-                                errors.customerAddress && isBlank(detailAddress)
-                                  ? "border-[#ba1a1a] bg-[#ba1a1a]/5"
-                                  : "border-[#e0e3e5]"
-                              }`}
-                              value={detailAddress}
-                              disabled={!selectedDistrict}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setDetailAddress(val);
-                                const provObj = provinces.find(
-                                  (p) => p.code === parseInt(selectedProvince)
-                                );
-                                const distObj = districts.find(
-                                  (d) => d.code === parseInt(selectedDistrict)
-                                );
-                                const fullAddress = `${val ? val + ", " : ""}${distObj?.name || ""}${distObj && provObj ? ", " : ""}${provObj?.name || ""}`;
-                                setFormField("customerAddress", fullAddress);
-                                setErrors((err) => ({ ...err, customerAddress: undefined }));
-                              }}
-                            />
-                            {errors.customerAddress && (
-                              <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">
-                                * {errors.customerAddress}
-                              </p>
-                            )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-[#545f73] uppercase tracking-wider mb-1.5">
+                                Phường/Xã *
+                              </label>
+                              <select
+                                aria-label="Phường/Xã"
+                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerAddress && !selectedWard ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                                  }`}
+                                value={selectedWard}
+                                onChange={(e) => {
+                                  setSelectedWard(e.target.value);
+                                  setFormField("customerAddress", "");
+                                }}
+                                disabled={!selectedDistrict}
+                              >
+                                <option value="">Chọn Phường / Xã</option>
+                                {wards.map((w) => (
+                                  <option key={w.code} value={w.code}>{w.name}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-[#545f73] uppercase tracking-wider mb-1.5">
+                                Địa chỉ cụ thể (Số nhà, đường) *
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Ví dụ: 123 Đường 3/2"
+                                className={`w-full h-11 px-3 bg-white border rounded-[2px] outline-none text-[13px] transition-colors focus:border-[#b70011] ${errors.customerAddress && isBlank(detailAddress) ? "border-[#ba1a1a] bg-[#ba1a1a]/5" : "border-[#e0e3e5]"
+                                  }`}
+                                value={detailAddress}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDetailAddress(val);
+                                  const provObj = provinces.find((p) => p.code === parseInt(selectedProvince));
+                                  const distObj = districts.find((d) => d.code === parseInt(selectedDistrict));
+                                  const wardObj = wards.find((w) => w.code === parseInt(selectedWard));
+                                  const provName = provObj ? provObj.name : "";
+                                  const distName = distObj ? distObj.name : "";
+                                  const wardName = wardObj ? wardObj.name : "";
+                                  const fullAddress = `${val ? val + ", " : ""}${wardName ? wardName + ", " : ""}${distName}${distName && provName ? ", " : ""}${provName}`;
+                                  setFormField("customerAddress", fullAddress);
+                                  setErrors((err) => ({ ...err, customerAddress: undefined }));
+                                }}
+                                disabled={!selectedWard}
+                              />
+                              {errors.customerAddress && (
+                                <p className="text-[#ba1a1a] text-[11px] font-mono mt-1">* {errors.customerAddress}</p>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2 pt-2">
@@ -870,12 +968,9 @@ export default function CheckoutPage() {
                               id="saveAddress"
                               className="w-4 h-4 rounded text-[#b70011] focus:ring-[#b70011] cursor-pointer"
                               checked={saveAddress}
-                              onChange={(e) => setSaveAddress(e.target.checked)}
+                              onChange={e => setSaveAddress(e.target.checked)}
                             />
-                            <label
-                              htmlFor="saveAddress"
-                              className="text-[13px] text-[#545f73] font-semibold select-none cursor-pointer"
-                            >
+                            <label htmlFor="saveAddress" className="text-[13px] text-[#545f73] font-semibold select-none cursor-pointer">
                               Lưu thông tin này vào Sổ địa chỉ
                             </label>
                           </div>
@@ -886,12 +981,10 @@ export default function CheckoutPage() {
                             <span className="material-symbols-outlined text-[16px]">cloud_done</span>
                             <span>Đơn hàng chỉ gồm sản phẩm số (Sách nói)</span>
                           </div>
-                          <p>
-                            Hệ thống không tính phí vận chuyển và sẽ mở khóa sách trực tiếp trong
-                            Thư viện cá nhân của bạn ngay khi giao dịch hoàn tất.
-                          </p>
+                          <p>Hệ thống không tính phí vận chuyển và sẽ mở khóa sách trực tiếp trong Thư viện cá nhân của bạn ngay khi giao dịch hoàn tất.</p>
                         </div>
                       )}
+
                     </div>
                   )}
                 </div>
@@ -902,24 +995,17 @@ export default function CheckoutPage() {
                     <h3 className="text-[14px] font-bold text-[#191c1e] tracking-wider uppercase border-b border-[#e0e3e5] pb-3 mb-5">
                       2. Đối tác vận chuyển
                     </h3>
-                    <div className="border border-[#b70011] bg-[#b70011]/5 rounded-[2px] p-4 flex justify-between items-center">
+
+                    <div className="border border-[#b70011] bg-[#b70011]/5 rounded-[2px] p-4 flex justify-between items-center relative">
                       <div className="flex gap-3 items-start">
-                        <span className="material-symbols-outlined text-[#b70011] text-[20px] mt-0.5">
-                          local_shipping
-                        </span>
+                        <span className="material-symbols-outlined text-[#b70011] text-[20px] mt-0.5">local_shipping</span>
                         <div>
-                          <div className="font-semibold text-[13px] text-[#191c1e]">
-                            Giao hàng tiêu chuẩn
-                          </div>
-                          <div className="text-[11px] text-[#545f73] font-mono mt-0.5">
-                            Đối tác: Giao Hàng Tiết Kiệm (GHTK)
-                          </div>
-                          <div className="text-[11px] text-[#545f73] font-mono">
-                            Dự kiến nhận hàng: 3 - 5 ngày làm việc
-                          </div>
+                          <div className="font-semibold text-[13px] text-[#191c1e]">Giao hàng tiêu chuẩn</div>
+                          <div className="text-[11px] text-[#545f73] font-mono mt-0.5">Đối tác: Giao Hàng Tiết Kiệm (GHTK)</div>
+                          <div className="text-[11px] text-[#545f73] font-mono">Dự kiến nhận hàng: 3 - 5 ngày làm việc</div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end">
                         <span className="font-bold text-[14px] font-mono text-[#b70011]">
                           {calculatingFee ? (
                             <span className="inline-block w-4 h-4 border-2 border-[#b70011] border-t-transparent rounded-full animate-spin" />
@@ -939,6 +1025,7 @@ export default function CheckoutPage() {
                   <h3 className="text-[14px] font-bold text-[#191c1e] tracking-wider uppercase border-b border-[#e0e3e5] pb-3 mb-5">
                     3. Phương thức thanh toán
                   </h3>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       {
@@ -946,37 +1033,38 @@ export default function CheckoutPage() {
                         label: "Thanh toán khi nhận hàng (COD)",
                         desc: "Nhận sách và thanh toán tiền mặt trực tiếp với shipper",
                         icon: "payments",
-                        disabled: onlyAudiobooks,
+                        disabled: onlyAudiobooks, // Sách nói ko hỗ trợ COD
                       },
                       {
                         value: "VNPAY",
-                        label: "Thanh toán qua VNPay",
-                        desc: "Quét mã QR hoặc sử dụng thẻ ATM, Visa, Mastercard",
+                        label: "Thanh toán qua VNPay cổng nội địa",
+                        desc: "Quét mã QR thanh toán hoặc sử dụng thẻ ATM, Visa, Mastercard",
                         icon: "qr_code_scanner",
                         disabled: false,
                       },
                       {
                         value: "PAYOS",
-                        label: "Thanh toán qua PayOS",
-                        desc: "Thanh toán nhanh qua PayOS với QR, thẻ nội địa/quốc tế hoặc ví điện tử",
-                        icon: "credit_score",
+                        label: "Thanh toán qua PayOS (VietQR)",
+                        desc: "Chuyển khoản liên ngân hàng miễn phí, tự động xác nhận",
+                        icon: "qr_code",
                         disabled: false,
                       },
                     ].map((opt) => {
                       const isSelected = form.paymentMethod === opt.value;
                       if (opt.disabled && isSelected) {
-                        setTimeout(() => setFormField("paymentMethod", "VNPAY"), 0);
+                        // Tự động chuyển qua PAYOS nếu COD bị vô hiệu hóa
+                        setTimeout(() => setFormField("paymentMethod", "PAYOS"), 0);
                       }
+
                       return (
                         <label
                           key={opt.value}
-                          className={`border rounded-[2px] p-4 flex flex-col justify-between cursor-pointer transition-all ${
-                            opt.disabled
-                              ? "opacity-40 cursor-not-allowed border-[#e0e3e5] bg-[#eceef0]"
-                              : isSelected
+                          className={`border rounded-[2px] p-4 flex flex-col justify-between cursor-pointer transition-all ${opt.disabled
+                            ? "opacity-40 cursor-not-allowed border-[#e0e3e5] bg-[#eceef0]"
+                            : isSelected
                               ? "border-[#b70011] bg-[#b70011]/5"
                               : "border-[#e0e3e5] bg-white hover:bg-[#f7f9fb]"
-                          }`}
+                            }`}
                         >
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-2">
@@ -989,13 +1077,9 @@ export default function CheckoutPage() {
                                 onChange={(e) => setFormField("paymentMethod", e.target.value)}
                                 className="accent-[#b70011] w-3.5 h-3.5 border-[#e0e3e5] cursor-pointer disabled:cursor-not-allowed"
                               />
-                              <span className="text-[13px] font-semibold text-[#191c1e]">
-                                {opt.label}
-                              </span>
+                              <span className="text-[13px] font-semibold text-[#191c1e]">{opt.label}</span>
                             </div>
-                            <span className="material-symbols-outlined text-[18px] text-[#545f73]">
-                              {opt.icon}
-                            </span>
+                            <span className="material-symbols-outlined text-[18px] text-[#545f73]">{opt.icon}</span>
                           </div>
                           <p className="text-[11px] text-[#545f73] leading-relaxed">{opt.desc}</p>
                           {opt.value === "COD" && onlyAudiobooks && (
@@ -1010,35 +1094,27 @@ export default function CheckoutPage() {
 
                   {form.paymentMethod === "VNPAY" && (
                     <div className="mt-4 p-4 bg-[#f2f4f6] border border-[#e0e3e5] rounded-[2px] text-[11px] text-[#545f73] font-mono space-y-1">
-                      <div className="font-semibold text-[#191c1e] mb-1">
-                        Hướng dẫn thanh toán VNPay:
-                      </div>
-                      <div>
-                        • Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của VNPay.
-                      </div>
-                      <div>
-                        • Bạn có thể chọn quét mã QR bằng ứng dụng ngân hàng hoặc nhập thông tin
-                        thẻ ATM, VISA, Mastercard.
-                      </div>
+                      <div className="font-semibold text-[#191c1e] mb-1">Hướng dẫn thanh toán VNPay:</div>
+                      <div>• Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của VNPay.</div>
+                      <div>• Bạn có thể chọn quét mã QR bằng ứng dụng ngân hàng hoặc nhập thông tin thẻ ATM, VISA, Mastercard.</div>
                     </div>
                   )}
 
                   {form.paymentMethod === "PAYOS" && (
-                    <div className="mt-4 p-4 bg-[#f2f4f6] border border-[#e0e3e5] rounded-[2px] text-[11px] text-[#545f73] font-mono space-y-1">
-                      <div className="font-semibold text-[#191c1e] mb-1">
-                        Hướng dẫn thanh toán PayOS:
-                      </div>
-                      <div>• Chọn PayOS để thanh toán nhanh qua cổng PayOS.</div>
-                      <div>• Hỗ trợ QR, thẻ ATM, thẻ quốc tế và nhiều ví điện tử.</div>
+                    <div className="mt-4 p-4 bg-[#e8f4fc] border border-[#bae0ff] rounded-[2px] text-[11px] text-[#0050b3] font-mono space-y-1">
+                      <div className="font-semibold text-[#003a8c] mb-1">Hướng dẫn thanh toán PayOS (VietQR):</div>
+                      <div>• Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của PayOS.</div>
+                      <div>• Vui lòng mở ứng dụng ngân hàng và quét mã VietQR để hoàn tất giao dịch tự động.</div>
                     </div>
                   )}
                 </div>
 
-                {/* 4. Voucher */}
+                {/* 4. Voucher Coupons */}
                 <div className="bg-white border border-[#e0e3e5] rounded-[4px] p-6">
                   <h3 className="text-[14px] font-bold text-[#191c1e] tracking-wider uppercase border-b border-[#e0e3e5] pb-3 mb-5">
                     4. Mã giảm giá & Quà tặng
                   </h3>
+
                   <div className="flex gap-3">
                     <input
                       type="text"
@@ -1067,25 +1143,25 @@ export default function CheckoutPage() {
                         className="px-6 h-11 bg-[#b70011] hover:bg-[#b70011]/90 text-white rounded-[2px] font-bold transition text-[12px] font-mono uppercase tracking-wider disabled:opacity-40 flex items-center justify-center min-w-[110px]"
                       >
                         {applyingVoucher ? (
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                         ) : (
                           "Áp dụng"
                         )}
                       </button>
                     )}
                   </div>
+
                   {voucherError && (
-                    <p className="text-[#ba1a1a] text-[11px] font-mono mt-2 font-medium">
-                      * {voucherError}
-                    </p>
+                    <p className="text-[#ba1a1a] text-[11px] font-mono mt-2 font-medium">* {voucherError}</p>
                   )}
                   {appliedVoucher && (
-                    <p className="text-emerald-600 text-sm mt-2 font-bold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm">check_circle</span>
-                      Đã áp dụng mã {appliedVoucher.code} (-{fmt(appliedVoucher.discountAmount)}đ)
+                    <p className="text-[#166534] text-[12px] font-mono mt-2 font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px] text-inherit">check_circle</span>
+                      Đã áp dụng mã {appliedVoucher.code} thành công (-{fmt(appliedVoucher.discountAmount)})
                     </p>
                   )}
 
+                  {/* Available vouchers */}
                   {availableVouchers.length > 0 && !appliedVoucher && (
                     <div className="mt-6 border-t border-[#eceef0] pt-4">
                       <p className="text-[10px] text-[#545f73] font-semibold mb-3 uppercase tracking-wider font-mono">
@@ -1097,26 +1173,19 @@ export default function CheckoutPage() {
                           return (
                             <div
                               key={i}
-                              className={`flex items-center justify-between p-3 rounded-[2px] border transition-all ${
-                                isEligible
-                                  ? "border-[#e0e3e5] bg-white hover:border-[#b70011]/40"
-                                  : "border-[#eceef0] bg-[#f7f9fb] opacity-50"
-                              }`}
+                              className={`flex items-center justify-between p-3 rounded-[2px] border transition-all ${isEligible
+                                ? "border-[#e0e3e5] bg-white hover:border-[#b70011]/40"
+                                : "border-[#eceef0] bg-[#f7f9fb] opacity-50"
+                                }`}
                             >
                               <div className="min-w-0 pr-2">
                                 <div className="font-bold text-[12px] text-[#191c1e] font-mono flex items-center gap-1.5">
-                                  <span className="material-symbols-outlined text-[14px] text-[#b70011]">
-                                    local_activity
-                                  </span>
+                                  <span className="material-symbols-outlined text-[14px] text-[#b70011]">local_activity</span>
                                   {v.code}
                                 </div>
                                 <div className="text-[11px] text-[#545f73] mt-1 line-clamp-1 font-mono">
-                                  Giảm{" "}
-                                  {v.discountType === "PERCENT"
-                                    ? `${v.discountValue}%`
-                                    : fmt(v.discountValue)}
-                                  {v.minOrderValue > 0 &&
-                                    ` cho đơn từ ${fmt(v.minOrderValue)}`}
+                                  Giảm {v.discountType === "PERCENT" ? `${v.discountValue}%` : fmt(v.discountValue)}
+                                  {v.minOrderValue > 0 && ` cho đơn từ ${fmt(v.minOrderValue)}`}
                                 </div>
                               </div>
                               <button
@@ -1126,11 +1195,10 @@ export default function CheckoutPage() {
                                   setVoucherCode(v.code);
                                   handleApplyVoucher(v.code);
                                 }}
-                                className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold font-mono transition-all uppercase tracking-wider ${
-                                  isEligible
-                                    ? "bg-[#b70011] text-white hover:bg-[#b70011]/90"
-                                    : "bg-[#e6e8ea] text-[#9ba3af] cursor-not-allowed"
-                                }`}
+                                className={`px-3 py-1.5 rounded-[2px] text-[11px] font-bold font-mono transition-all uppercase tracking-wider ${isEligible
+                                  ? "bg-[#b70011] text-white hover:bg-[#b70011]/90"
+                                  : "bg-[#e6e8ea] text-[#9ba3af] cursor-not-allowed"
+                                  }`}
                               >
                                 Dùng
                               </button>
@@ -1143,22 +1211,29 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Right side — Order Summary */}
+              {/* Order Summary (Right side) */}
               <div className="w-full lg:w-1/3 lg:sticky lg:top-24 space-y-6">
+
+                {/* 1. Summary details */}
                 <div className="bg-white border border-[#e0e3e5] rounded-[4px] p-6 space-y-6">
                   <div className="flex justify-between items-center border-b border-[#e0e3e5] pb-3">
                     <h3 className="text-[14px] font-bold text-[#191c1e] uppercase tracking-wider">
                       Đơn hàng của bạn
                     </h3>
                     <span className="text-[12px] text-[#545f73] font-semibold font-mono">
-                      {displayItems.length} sản phẩm
+                      {groupedDisplayItems.length} sản phẩm
                     </span>
                   </div>
 
+                  {/* Items Scroll Area */}
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 divide-y divide-[#eceef0] no-scrollbar">
-                    {displayItems.map((item, idx) => (
-                      <div key={idx} className={`flex gap-4 items-start ${idx > 0 ? "pt-4" : ""}`}>
-                        <div className="w-[60px] h-[90px] bg-[#eceef0] border border-[#e0e3e5] rounded-[2px] flex-shrink-0 overflow-hidden shadow-sm">
+                    {groupedDisplayItems.map((item, idx) => (
+                      <div
+                        key={item.bookId}
+                        className={`flex gap-4 items-start ${idx > 0 ? "pt-4" : ""}`}
+                      >
+                        {/* Hiện một ảnh */}
+                        <div className="w-[60px] h-[90px] bg-[#eceef0] border border-[#e0e3e5] rounded-[2px] flex-shrink-0 overflow-hidden relative shadow-sm">
                           <img
                             src={getImageUrl(item.imageUrl)}
                             alt={item.title}
@@ -1166,6 +1241,7 @@ export default function CheckoutPage() {
                             onError={(e) => (e.currentTarget.src = "/images/book-default.jpg")}
                           />
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-[13px] text-[#191c1e] line-clamp-2 leading-tight">
                             {item.title}
@@ -1173,35 +1249,32 @@ export default function CheckoutPage() {
                           <p className="text-[11px] text-[#545f73] mt-0.5 truncate font-sans">
                             Tác giả: {item.authorName}
                           </p>
-                          <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
-                            <span className="text-[11px] text-[#545f73] font-mono">
-                              SL: {item.quantity}
-                            </span>
-                            <div className="text-right">
-                              <span className="font-bold text-[13px] font-mono text-[#b70011]">
-                                {fmt(item.displayTotal)}
-                              </span>
-                              {item.displayPrice < item.price && (
-                                <div className="text-[10px] text-gray-400 line-through font-mono">
-                                  {fmt(item.price * item.quantity)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-2">
-                            {(item as any).isAudiobook ? (
-                              <span className="px-1.5 py-0.5 bg-[#6a7188] text-white text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">
-                                Sách nói
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 bg-[#d5e0f8] text-[#586377] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">
-                                Sách giấy
-                              </span>
+
+                          {/* Tách ra sản phẩm không giảm giá và giảm giá ra riêng, chỉ ghi số lượng và giá tiền */}
+                          <div className="mt-2 space-y-1 font-sans text-[11px]">
+                            {item.promoPart && (
+                              <div className="flex justify-between items-center text-[#b70011] font-semibold">
+                                <span>Khuyến mãi (SL: {item.promoPart.quantity})</span>
+                                <span className="font-mono">{fmt(item.promoPart.total)}</span>
+                              </div>
                             )}
-                            {item.isPromo && (
-                              <span className="px-1.5 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">
-                                Khuyến mãi
-                              </span>
+                            {item.normalPart && (
+                              <div className="flex justify-between items-center text-[#545f73]">
+                                <span>Giá gốc (SL: {item.normalPart.quantity})</span>
+                                <span className="font-mono">{fmt(item.normalPart.total)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Chỉ ghi chú phía dưới */}
+                          <div className="flex items-center gap-1.5 mt-2">
+                            {item.isAudiobook ? (
+                              <span className="px-1.5 py-0.5 bg-[#6a7188] text-white text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách nói</span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 bg-[#d5e0f8] text-[#586377] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách giấy</span>
+                            )}
+                            {item.promoPart && (
+                              <span className="px-1.5 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Có khuyến mãi</span>
                             )}
                           </div>
                         </div>
@@ -1209,13 +1282,13 @@ export default function CheckoutPage() {
                     ))}
                   </div>
 
+                  {/* Calculations */}
                   <div className="border-t border-[#e0e3e5] pt-4 space-y-2.5 text-[13px]">
                     <div className="flex justify-between items-center text-[#545f73]">
-                      <span>Tạm tính</span>
-                      <span className="font-semibold font-mono text-[#191c1e]">
-                        {fmt(totalAmount)}
-                      </span>
+                      <span>Tiền sách</span>
+                      <span className="font-semibold font-mono text-[#191c1e]">{fmt(totalAmount)}</span>
                     </div>
+
                     {!onlyAudiobooks && (
                       <div className="flex justify-between items-center text-[#545f73]">
                         <span>Phí vận chuyển</span>
@@ -1230,18 +1303,21 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                     )}
+
                     {discount > 0 && (
                       <div className="flex justify-between items-center text-[#166534] font-medium">
                         <span>Giảm giá hạng thành viên</span>
                         <span className="font-mono">-{fmt(discount)}</span>
                       </div>
                     )}
+
                     {appliedVoucher && (
                       <div className="flex justify-between items-center text-[#166534] font-medium">
                         <span>Voucher ({appliedVoucher.code})</span>
                         <span className="font-mono">-{fmt(appliedVoucher.discountAmount)}</span>
                       </div>
                     )}
+
                     <div className="border-t border-[#e0e3e5] pt-4 mt-2 flex justify-between items-baseline">
                       <span className="font-bold text-[14px] text-[#191c1e]">Tổng thanh toán</span>
                       <span className="text-[22px] font-extrabold text-[#b70011] font-mono">
@@ -1250,6 +1326,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
+                  {/* Submit Button */}
                   <div className="space-y-3 pt-2">
                     <button
                       type="submit"
@@ -1265,6 +1342,7 @@ export default function CheckoutPage() {
                         "Xác nhận đặt hàng"
                       )}
                     </button>
+
                     <div className="flex items-center justify-center gap-1.5 opacity-60 text-[10px] text-[#545f73] font-mono">
                       <span className="material-symbols-outlined text-[13px]">lock</span>
                       <span>Secure SSL Checkout</span>
@@ -1272,19 +1350,17 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
+
             </div>
           </form>
         </div>
       </main>
 
-      {/* Toast notification */}
+      {/* Sleek Minimalist Toast Notification */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 p-4 border rounded-[2px] shadow-md max-w-sm animate-fade-in flex items-center gap-3 font-mono text-[12px] ${
-            toast.type === "success"
-              ? "bg-white border-[#586377] text-[#191c1e]"
-              : "bg-white border-[#ba1a1a] text-[#ba1a1a]"
-          }`}
+          className={`fixed bottom-6 right-6 z-50 p-4 border rounded-[2px] shadow-md max-w-sm animate-fade-in flex items-center gap-3 font-mono text-[12px] ${toast.type === "success" ? "bg-white border-[#586377] text-[#191c1e]" : "bg-white border-[#ba1a1a] text-[#ba1a1a]"
+            }`}
         >
           <span className="material-symbols-outlined text-[16px] text-inherit">
             {toast.type === "success" ? "check_circle" : "error"}

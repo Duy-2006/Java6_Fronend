@@ -160,7 +160,7 @@ const PublisherList: React.FC = () => {
     const representative = publishers.length > 0 ? publishers[0].name : "Chưa có";
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 font-sans">
             {/* Breadcrumb & Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -177,7 +177,7 @@ const PublisherList: React.FC = () => {
                             </li>
                         </ol>
                     </nav>
-                    <h1 className="text-2xl font-bold text-gray-900 font-headline">Quản lý Nhà xuất bản</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 font-sans">Quản lý Nhà xuất bản</h1>
                 </div>
                 <Link 
                     href="/admin/publishers/new"

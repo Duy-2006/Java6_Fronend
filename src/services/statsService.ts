@@ -18,8 +18,12 @@ function getAuthHeaders(): HeadersInit {
 
 // Lay so lieu thong ke tong hop cho Dashboard
 // Tham so range: khoang thoi gian thong ke ('day', 'week', 'month', 'year'), mac dinh la 'year'
-export async function getDashboardStats(range: string = 'year'): Promise<any> {
-  const res = await authFetch(`${BASE_URL}/api/admin/stats?range=${range}`, {
+export async function getDashboardStats(range: string = 'year', startDate?: string, endDate?: string): Promise<any> {
+  let url = `${BASE_URL}/api/admin/stats?range=${range}`;
+  if (startDate) url += `&startDate=${startDate}`;
+  if (endDate) url += `&endDate=${endDate}`;
+
+  const res = await authFetch(url, {
     headers: getAuthHeaders(),
     credentials: 'include',
   });

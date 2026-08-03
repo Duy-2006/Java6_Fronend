@@ -1,6 +1,15 @@
-const API_URL = process.env.API_URL || "http://localhost:8080";
+/*
+ * promotionServices.ts
+ * Lop service xu ly cac thao tac CRUD doi voi chuong trinh khuyen mai (Promotion).
+ * Admin co the tao khuyen mai ap dung cho toan bo sach, theo tung cuon sach, hoac theo the loai.
+ */
 
-// ==================== INTERFACES ====================
+import { authFetch } from "@/lib/authFetch";
+
+// Dia chi goc cua backend
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
+
+// Kieu du lieu cua mot chuong trinh khuyen mai
 export interface PromotionDTO {
   id?: number;                              // Ma khuyen mai
   name: string;                             // Ten chuong trinh khuyen mai
@@ -18,29 +27,24 @@ export interface PromotionDTO {
   usedCount?: number;                       // So luot da dung
 }
 
+// Kieu du lieu cho form tao/sua khuyen mai (danh sach sach va the loai de chon)
 export interface FormData {
   books:      { id: number; title: string }[];
   categories: { id: number; name: string  }[];
 }
 
-// ==================== HELPER ====================
-/**
- * Trả về header Authorization chỉ khi token hợp lệ.
- * Tránh gửi "Bearer null" / "Bearer undefined" → 401.
- */
-function authHeader(token: string): Record<string, string> {
-  return token && token !== "null" && token !== "undefined"
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+// Ham tao header xac thuc - hien tai dung Cookie-Only nen khong can Authorization header
+function authHeader(): Record<string, string> {
+  return {};
 }
 
-// ==================== GET ALL PROMOTIONS ====================
-export async function getAllPromotions(token: string): Promise<PromotionDTO[]> {
-  const res = await fetch(`${API_URL}/api/admin/promotions`, {
+// Lay toan bo danh sach khuyen mai tu backend
+export async function getAllPromotions(): Promise<PromotionDTO[]> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
     method: "GET",
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -48,20 +52,17 @@ export async function getAllPromotions(token: string): Promise<PromotionDTO[]> {
     throw new Error(`Lỗi tải danh sách khuyến mãi (${res.status})`);
   }
 
-  // BE trả thẳng List<PromotionDTO> — không có wrapper object
+  // Backend tra ve truc tiep mang PromotionDTO (khong co wrapper object)
   const data: PromotionDTO[] = await res.json();
   return data;
 }
 
-// ==================== GET PROMOTION BY ID ====================
-export async function getPromotionById(
-  id: number,
-  token: string
-): Promise<PromotionDTO> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+// Lay chi tiet 1 chuong trinh khuyen mai theo ma ID
+export async function getPromotionById(id: number): Promise<PromotionDTO> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -73,12 +74,12 @@ export async function getPromotionById(
   return res.json();
 }
 
-// ==================== GET FORM DATA (books + categories) ====================
-export async function getPromotionFormData(token: string): Promise<FormData> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/form-data`, {
+// Lay du lieu phuc vu form tao/sua khuyen mai (danh sach sach va the loai)
+export async function getPromotionFormData(): Promise<FormData> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/form-data`, {
     cache: "no-store",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 
@@ -86,16 +87,14 @@ export async function getPromotionFormData(token: string): Promise<FormData> {
   return res.json();
 }
 
-// ==================== CREATE PROMOTION ====================
+// Tao moi mot chuong trinh khuyen mai
 export async function createPromotion(
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
-  token: string
-): Promise<string> {
-  const res = await fetch(`${API_URL}/api/admin/promotions`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...authHeader(token),
+      
     },
     body: JSON.stringify(payload),
   });
@@ -105,20 +104,19 @@ export async function createPromotion(
     throw new Error(errorText || "Tạo khuyến mãi thất bại.");
   }
 
-  return res.text(); // BE trả về string "Tạo khuyến mãi thành công"
+  // Backend tra ve chuoi thong bao dang text (khong phai JSON)
+  return res.text();
 }
 
-// ==================== UPDATE PROMOTION ====================
+// Cap nhat chuong trinh khuyen mai theo ma ID
 export async function updatePromotion(
   id: number,
-  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">,
-  token: string
-): Promise<string> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+  payload: Omit<PromotionDTO, "id" | "computedStatus" | "bookTitles" | "categoryNames">): Promise<string> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      ...authHeader(token),
+      
     },
     body: JSON.stringify(payload),
   });
@@ -128,15 +126,15 @@ export async function updatePromotion(
     throw new Error(errorText || "Cập nhật khuyến mãi thất bại.");
   }
 
-  return res.text(); // BE trả về string "Cập nhật thành công"
+  return res.text();
 }
 
-// ==================== DELETE PROMOTION ====================
-export async function deletePromotion(id: number, token: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/admin/promotions/${id}`, {
+// Xoa chuong trinh khuyen mai theo ma ID
+export async function deletePromotion(id: number): Promise<void> {
+  const res = await authFetch(`${API_URL}/api/admin/promotions/${id}`, {
     method: "DELETE",
     headers: {
-      ...authHeader(token),
+      
     },
   });
 

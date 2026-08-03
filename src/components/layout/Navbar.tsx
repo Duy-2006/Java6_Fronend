@@ -204,8 +204,8 @@ export default function Navbar() {
                   <span className="material-symbols-outlined text-sm">expand_more</span>
                 </button>
                 {/* Mega Menu Content */}
-                <div className="absolute top-full left-0 w-[600px] bg-white shadow-2xl rounded-2xl border border-[#eceef0] p-8 invisible opacity-0 -translate-y-2 group-hover/mega:visible group-hover/mega:opacity-100 group-hover/mega:translate-y-0 transition-all duration-300 z-[100] flex gap-8">
-                  <div className="w-1/2 pr-4">
+                <div className="absolute top-full left-0 w-[300px] bg-white shadow-2xl rounded-2xl border border-[#eceef0] p-6 invisible opacity-0 -translate-y-2 group-hover/mega:visible group-hover/mega:opacity-100 group-hover/mega:translate-y-0 transition-all duration-300 z-[100]">
+                  <div className="w-full">
                     <h4 className="text-[11px] font-bold uppercase tracking-widest text-[#b70011] mb-5">Danh mục nổi bật</h4>
                     <ul className="space-y-4 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
                       {categories.map((c) => (
@@ -216,30 +216,6 @@ export default function Navbar() {
                         </li>
                       ))}
                     </ul>
-                  </div>
-
-                  {/* Gợi ý hôm nay */}
-                  <div className="w-1/2 bg-[#f2f4f6] rounded-xl p-6 flex flex-col justify-between">
-                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-4">Gợi ý hôm nay</h4>
-                    <div className="flex gap-4">
-                      <div className="w-16 h-24 bg-gray-300 rounded shadow-sm overflow-hidden flex-shrink-0">
-                        <img
-                          alt="Sách hot"
-                          className="w-full h-full object-cover"
-                          src="/images/book-default.jpg"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.onerror = null;
-                            target.src = "/images/book-default.jpg";
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-[#191c1e] leading-tight mb-1">Mắt Biếc</p>
-                        <p className="text-xs text-gray-500 mb-3">Nguyễn Nhật Ánh</p>
-                        <Link className="text-[#b70011] text-[11px] font-bold hover:underline" href="/user/books/1">Chi tiết →</Link>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

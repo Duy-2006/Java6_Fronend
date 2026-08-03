@@ -191,7 +191,7 @@ export default function BannerForm({ id }: BannerFormProps) {
           
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] font-headline-lg">
+              <h2 className="text-3xl font-bold tracking-tight text-[#191c1e] font-sans">
                 {isEditing ? "Cập Nhật Banner" : "Thêm Banner Mới"}
               </h2>
               <p className="text-sm text-[#545f73] mt-1">Cấu hình các thông số hiển thị và liên kết điều hướng cho banner.</p>
@@ -253,14 +253,15 @@ export default function BannerForm({ id }: BannerFormProps) {
 
                 <div>
                   <label className="block text-xs font-bold text-[#545f73] uppercase tracking-wider mb-2">Đường dẫn liên kết điều hướng (Link)</label>
-                  <div className="relative">
-                    <LinkIcon className="w-4.5 h-4.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <div style={{ position: "relative" }}>
+                    <LinkIcon className="w-4.5 h-4.5 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                     <input 
                       type="text" 
                       placeholder="Ví dụ: /books/1 hoặc https://libris.com/summer-sale"
                       value={formData.link} 
                       onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                      className="w-full bg-white border border-[#e6bdb8] rounded py-3 pl-10 pr-4 text-sm focus:ring-1 focus:ring-[#b70011] focus:border-[#b70011] transition-all outline-none"
+                      style={{ paddingLeft: "2.5rem" }}
+                      className="w-full bg-white border border-[#e6bdb8] rounded py-3 pr-4 text-sm focus:ring-1 focus:ring-[#b70011] focus:border-[#b70011] transition-all outline-none text-[#191c1e]"
                     />
                   </div>
                 </div>
@@ -400,8 +401,8 @@ export default function BannerForm({ id }: BannerFormProps) {
 
               <div className="mt-4 pt-4 border-t border-[#e6bdb8]/30">
                 <label className="block text-xs font-bold text-[#545f73] uppercase tracking-wider mb-2">Hoặc nhập URL hình ảnh trực tiếp</label>
-                <div className="relative">
-                  <ImageIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div style={{ position: "relative" }}>
+                  <ImageIcon className="w-4 h-4 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                   <input 
                     type="text" 
                     placeholder="https://example.com/image.png"
@@ -411,7 +412,8 @@ export default function BannerForm({ id }: BannerFormProps) {
                       setFormData({ ...formData, image_url: e.target.value });
                     }}
                     disabled={!!imageFile}
-                    className="w-full bg-white border border-[#e6bdb8] rounded py-2.5 pl-9 pr-4 text-xs focus:ring-1 focus:ring-[#b70011] focus:border-[#b70011] transition-all outline-none disabled:opacity-60 disabled:bg-slate-50"
+                    style={{ paddingLeft: "2.5rem" }}
+                    className="w-full bg-white border border-[#e6bdb8] rounded py-2.5 pr-4 text-xs focus:ring-1 focus:ring-[#b70011] focus:border-[#b70011] transition-all outline-none disabled:opacity-60 disabled:bg-slate-50 text-[#191c1e]"
                   />
                 </div>
               </div>

@@ -206,14 +206,7 @@ export default function VoucherListPage() {
           <p className="text-sm text-[#5c403c] font-sans">Tạo và quản lý các mã giảm giá cho khách hàng mua hàng trên hệ thống.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => fetchVouchers(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[#e0e3e5] text-[#191c1e] rounded-lg font-semibold text-xs hover:bg-[#e6e8ea] transition-all border border-[#e6bdb8]/30 disabled:opacity-50 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Tải lại dữ liệu
-          </button>
+
           <Link
             href="/admin/voucher/new"
             className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"

@@ -87,7 +87,7 @@ export default function PublisherBooksList({ books = [], publisherName, baseUrl 
   }, [books, searchTerm, sortBy, filterActive]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 font-sans">
       {/* Dynamic Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
