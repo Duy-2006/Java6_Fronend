@@ -126,6 +126,8 @@ export default function BookDetailPage() {
     const [currentIndex, setCurrentIndex] = useState(0);
     /** Đang phát hay đang dừng */
     const [isPlaying, setIsPlaying] = useState(false);
+    /** Trạng thái lưu đoạn audio cần duyệt trước khi lưu */
+    const [previewingAudio, setPreviewingAudio] = useState<{chapterId: number, langCode: string} | null>(null);
     /** Chương đang được phát (dùng cho player UI) */
     const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
     /** Ngôn ngữ đang được phát */
@@ -226,6 +228,9 @@ export default function BookDetailPage() {
             try {
                 const chapterList = await getChapters(bookId);
 
+                let autoPreviewChapter: Chapter | null = null;
+                let autoPreviewLangCode: string | null = null;
+
                 // Notify when a chapter finishes
                 chaptersRef.current.forEach((oldCh) => {
                     const newCh = chapterList.find((c) => c.id === oldCh.id);
@@ -235,9 +240,34 @@ export default function BookDetailPage() {
                             "success"
                         );
                     }
+                    if (oldCh && newCh) {
+                        newCh.audioSegments.forEach(newSeg => {
+                            const oldSeg = oldCh.audioSegments.find(s => s.languageCode === newSeg.languageCode && s.sequenceOrder === newSeg.sequenceOrder);
+                            if (oldSeg && (oldSeg.ttsStatus === "PROCESSING" || oldSeg.ttsStatus === "pending") && newSeg.ttsStatus === "SUCCESS") {
+                                autoPreviewChapter = newCh;
+                                autoPreviewLangCode = newSeg.languageCode || null;
+                            }
+                        });
+                    }
                 });
 
                 setChapters(chapterList);
+                
+                if (autoPreviewChapter && autoPreviewLangCode) {
+                    setCurrentChapter(autoPreviewChapter);
+                    setCurrentPlayLanguage(autoPreviewLangCode);
+                    const chapterData = autoPreviewChapter as Chapter;
+                    const langData = autoPreviewLangCode as string;
+                    const filtered = chapterData.audioSegments
+                        .filter(seg => (seg.languageCode || "vi") === langData && seg.audioUrl && seg.audioUrl !== "null")
+                        .sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
+                    if (filtered.length > 0) {
+                        setPlaylist(filtered);
+                        setCurrentIndex(0);
+                        setIsPlaying(true);
+                        setPreviewingAudio({ chapterId: chapterData.id, langCode: langData });
+                    }
+                }
             } catch (e: any) {
                 const msg: string = e?.message ?? '';
                 if (msg.includes('401')) {
@@ -390,6 +420,7 @@ export default function BookDetailPage() {
         setCurrentChapter(null);
         setCurrentTime(0);
         setSegmentDuration(0);
+        setPreviewingAudio(null);
     }, []);
 
     /** Phát/Dừng từ thanh player (không load lại segment) */
@@ -1185,7 +1216,7 @@ export default function BookDetailPage() {
                                 {
                                     bg: "bg-blue-50/40 border-blue-100",
                                     iconBg: "bg-blue-100/50 text-blue-700",
-                                    icon: <RotateCw className="w-5 h-5 animate-spin" />,
+                                    icon: <RotateCw className={`w-5 h-5 ${processingCh > 0 ? "animate-spin" : ""}`} />,
                                     label: "Đang chuyển đổi",
                                     value: `${processingCh} chương`,
                                     labelColor: "text-blue-600/70",
@@ -1597,6 +1628,39 @@ export default function BookDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
+                        {previewingAudio && currentChapter && previewingAudio.chapterId === currentChapter.id ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setPreviewingAudio(null);
+                                        handleClosePlayback();
+                                        showToast("Đã lưu bản dịch audio vào dữ liệu.", "success");
+                                    }}
+                                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-md transition-colors whitespace-nowrap"
+                                >
+                                    Lưu
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (currentPlayLanguage) {
+                                            handleDeleteLanguageAudio(currentChapter.id, currentPlayLanguage);
+                                        }
+                                        setPreviewingAudio(null);
+                                        handleClosePlayback();
+                                    }}
+                                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow-md transition-colors whitespace-nowrap"
+                                >
+                                    Xóa
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={handleClosePlayback}
+                                className="text-xs text-slate-400 hover:text-white underline"
+                            >
+                                Đóng
+                            </button>
+                        )}
                         <button
                             onClick={handleTogglePlayPause}
                             className="w-9 h-9 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition-all"
@@ -1606,12 +1670,6 @@ export default function BookDetailPage() {
                             ) : (
                                 <Play className="w-4 h-4 fill-slate-900 translate-x-[1px]" />
                             )}
-                        </button>
-                        <button
-                            onClick={handleClosePlayback}
-                            className="text-xs text-slate-400 hover:text-white underline"
-                        >
-                            Đóng
                         </button>
                     </div>
                 </div>

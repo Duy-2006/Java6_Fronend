@@ -187,10 +187,6 @@ function AuthorsContent() {
           <div>
             <p className="font-bold text-[10px] text-[#916f6b] uppercase tracking-widest mb-1">Tổng số tác giả</p>
             <h3 className="text-2xl font-bold text-[#191c1e] leading-none">{authors.length}</h3>
-            <p className="font-semibold text-xs text-[#b70011] mt-1 flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5 animate-pulse" />
-              +12 trong tháng này
-            </p>
           </div>
         </div>
 
@@ -203,10 +199,6 @@ function AuthorsContent() {
               <div className="flex items-center gap-4 mt-1.5">
                 <span className="bg-[#d5e0f8] text-[#586377] px-3 py-1 rounded-full text-[10px] font-bold">
                   {popularAuthor.bookCount ?? 0} Tác phẩm
-                </span>
-                <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
-                  <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                  4.9 Rating
                 </span>
               </div>
             </div>

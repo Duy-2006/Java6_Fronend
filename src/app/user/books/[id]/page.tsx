@@ -291,11 +291,6 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
                     <span className="material-symbols-outlined text-lg text-red-500">headphones</span>
                     Nghe Sách Nói (Chương 1 Miễn Phí)
                   </Link>
-
-                  <button className="w-full border-2 border-gray-900 text-gray-900 py-3 rounded-full font-bold hover:bg-gray-900 hover:text-white transition duration-200 text-sm flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-lg">favorite</span>
-                    Thêm vào yêu thích
-                  </button>
                 </div>
 
               </div>

@@ -151,11 +151,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                   <label htmlFor="categoryName" className="form-label fw-bold text-secondary">
                     Tên Thể Loại <span className="text-danger">*</span>
                   </label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-light">
-                      <i className="fa-solid fa-tag text-muted" />
-                    </span>
-                    <input
+                  <input
                       id="categoryName"
                       type="text"
                       className={`form-control form-control-lg ${errors.name ? "border-danger" : ""}`}
@@ -170,7 +166,6 @@ export default function CategoryForm({ category }: { category?: Category }) {
                       maxLength={50}
                       disabled={loading}
                     />
-                  </div>
                   <FieldError msg={errors.name} />
                   <div className="d-flex justify-content-between mt-1">
                     <div className="form-text text-muted small ms-1">
@@ -183,11 +178,7 @@ export default function CategoryForm({ category }: { category?: Category }) {
                 {/* Upload ảnh */}
                 <div className="mb-4">
                   <label htmlFor="categoryImage" className="form-label fw-bold text-secondary">Hình ảnh danh mục</label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-light">
-                      <i className="fa-solid fa-image text-muted" />
-                    </span>
-                    <input
+                  <input
                       id="categoryImage"
                       ref={fileInputRef}
                       type="file"
@@ -196,7 +187,6 @@ export default function CategoryForm({ category }: { category?: Category }) {
                       onChange={handleFileChange}
                       disabled={loading}
                     />
-                  </div>
                   <div className="form-text text-muted small mt-1">
                     Chọn ảnh đại diện (JPEG, PNG, WebP, tối đa 2MB). Nếu không chọn, ảnh cũ sẽ được giữ nguyên (khi sửa).
                   </div>

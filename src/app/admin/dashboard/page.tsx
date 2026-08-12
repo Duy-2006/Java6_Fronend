@@ -49,6 +49,8 @@ export default function AdminDashboard() {
   const [timeRange, setTimeRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'year' | 'custom'>('all');
+  const [selectedYear, setSelectedYear] = useState('');
   const [isRebuilding, setIsRebuilding] = useState(false);
 
   // States
@@ -194,48 +196,16 @@ export default function AdminDashboard() {
 
       // 1. Sheet 1: Tổng quan
       const overviewData = [
-        { 'Chỉ số': 'Doanh Thu', 'Giá trị': formatCurrency(stats.totalRevenue), 'Mô tả': 'Tổng doanh thu từ đơn hàng hoàn thành' },
-        { 'Chỉ số': 'Tổng Đơn Hàng', 'Giá trị': stats.totalOrders, 'Mô tả': 'Tổng số đơn hàng trong năm' },
-        { 'Chỉ số': 'Sách Đã Bán', 'Giá trị': booksSold, 'Mô tả': 'Tổng số lượng sách giấy & E-books đã bán' },
-        { 'Chỉ số': 'Khách Hàng', 'Giá trị': stats.totalCustomers, 'Mô tả': 'Tổng số khách hàng hoạt động' }
+        { 'Chỉ số': 'Doanh Thu', 'Giá trị': formatCurrency(stats.totalRevenue) },
+        { 'Chỉ số': 'Tổng Đơn Hàng', 'Giá trị': stats.totalOrders },
+        { 'Chỉ số': 'Sách Đã Bán', 'Giá trị': booksSold },
+        { 'Chỉ số': 'Khách Hàng', 'Giá trị': stats.totalCustomers }
       ];
       const wsOverview = XLSX.utils.json_to_sheet(overviewData);
-
-      // 2. Sheet 2: Xu hướng doanh thu theo tháng
-      const trendData = monthlyTrend.map(item => ({
-        'Tháng': item.name,
-        'Doanh thu (VND)': item['Doanh thu'],
-        'Số đơn hàng': item['Đơn hàng']
-      }));
-      const wsTrend = XLSX.utils.json_to_sheet(trendData);
-
-      // 3. Sheet 3: Sách bán chạy
-      const booksData = topProducts.map((p, idx) => ({
-        'Hạng': idx + 1,
-        'Tên sách': p.title,
-        'Tác giả': p.authorName,
-        'Số lượng bán': p.sales,
-        'Giá bán (VND)': p.price,
-        'Doanh thu ước tính (VND)': p.revenue
-      }));
-      const wsBooks = XLSX.utils.json_to_sheet(booksData);
-
-      // 4. Sheet 4: Đơn hàng gần đây
-      const ordersData = recentOrders.map(o => ({
-        'Mã đơn': o.orderCode || o.id,
-        'Khách hàng': o.customerName || 'Khách vãng lai',
-        'Ngày đặt': o.date ? new Date(o.date).toLocaleDateString('vi-VN') : '—',
-        'Trạng thái': o.status,
-        'Số tiền (VND)': o.amount || 0
-      }));
-      const wsOrders = XLSX.utils.json_to_sheet(ordersData);
 
       // Create Workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, wsOverview, 'Tổng quan');
-      XLSX.utils.book_append_sheet(wb, wsTrend, 'Xu hướng doanh thu');
-      XLSX.utils.book_append_sheet(wb, wsBooks, 'Sách bán chạy');
-      XLSX.utils.book_append_sheet(wb, wsOrders, 'Đơn hàng gần đây');
 
       // Save Workbook
       XLSX.writeFile(wb, `Bao_cao_dashboard_BookStore_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -278,7 +248,7 @@ export default function AdminDashboard() {
     if (!customStartDate && !customEndDate) {
       // Nếu trống cả 2, mặc định là tất cả thời gian
       setTimeRange('all');
-      loadDashboardData(false, 'all', '', '');
+      loadDashboardData(true, 'all', '', '');
       return;
     }
     if (!customStartDate || !customEndDate) {
@@ -290,13 +260,13 @@ export default function AdminDashboard() {
       return;
     }
     setTimeRange('custom');
-    loadDashboardData(false, 'custom', customStartDate, customEndDate);
+    loadDashboardData(true, 'custom', customStartDate, customEndDate);
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#b70011]" role="status"></div>
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <div className="w-8 h-8 border-4 border-[#b70011] border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-slate-500 font-medium font-sans">Đang tải số liệu thống kê...</p>
       </div>
     );
@@ -308,34 +278,91 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Tổng quan Dashboard</h2>
-          <p className="text-sm text-[#5c403c] font-sans">
-            {timeRange === 'all' ? 'Đang hiển thị: Tất cả thời gian' : `Đang hiển thị: ${customStartDate} → ${customEndDate}`}
-          </p>
+          {/* Bộ lọc thời gian */}
+          <div className="flex items-center gap-1.5 bg-[#fcf8f8] p-1.5 rounded-lg border border-[#e6bdb8]/30 shadow-sm mt-2 w-fit">
+            <select
+              className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] cursor-pointer"
+              value={filterMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'all' | 'year' | 'custom';
+                setFilterMode(mode);
+                if (mode === 'all') {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                  setSelectedYear('');
+                  setTimeRange('all');
+                  loadDashboardData(true, 'all', '', '');
+                } else if (mode === 'year') {
+                  setSelectedYear('');
+                }
+              }}
+            >
+              <option value="all">Tất cả thời gian</option>
+              <option value="year">Lọc theo năm</option>
+              <option value="custom">Khoảng thời gian</option>
+            </select>
+
+            {filterMode === 'year' && (
+              <>
+                <span className="text-[#e6bdb8] mx-1">|</span>
+                <input
+                  type="text"
+                  maxLength={4}
+                  placeholder="Nhập năm..."
+                  className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[90px]"
+                  value={selectedYear}
+                  onChange={(e) => {
+                    const year = e.target.value.replace(/[^0-9]/g, '');
+                    setSelectedYear(year);
+                  }}
+                />
+                <button 
+                  onClick={() => {
+                    if (selectedYear && selectedYear.length === 4) {
+                      const start = `${selectedYear}-01-01`;
+                      const end = `${selectedYear}-12-31`;
+                      setCustomStartDate(start);
+                      setCustomEndDate(end);
+                      setTimeRange('custom');
+                      loadDashboardData(true, 'custom', start, end);
+                    } else {
+                      alert('Vui lòng nhập năm hợp lệ (4 chữ số).');
+                    }
+                  }}
+                  className="px-3 py-1 bg-[#b70011] text-white rounded text-xs font-semibold shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
+                >
+                  Lọc
+                </button>
+              </>
+            )}
+
+            {filterMode === 'custom' && (
+              <>
+                <span className="text-[#e6bdb8] mx-1">|</span>
+                <input 
+                  type="date" 
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
+                />
+                <span className="text-xs text-[#916f6b] font-bold">-</span>
+                <input 
+                  type="date" 
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
+                />
+                <button 
+                  onClick={handleCustomDateFilter}
+                  className="px-3 py-1 bg-[#b70011] text-white rounded text-xs font-semibold shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
+                >
+                  Lọc
+                </button>
+              </>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
-          {/* Bộ lọc thời gian nhỏ gọn */}
-          <div className="flex items-center gap-1.5 bg-[#fcf8f8] p-1.5 rounded-lg border border-[#e6bdb8]/30 shadow-sm">
-            <input 
-              type="date" 
-              value={customStartDate}
-              onChange={(e) => setCustomStartDate(e.target.value)}
-              className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
-            />
-            <span className="text-xs text-[#916f6b] font-bold">-</span>
-            <input 
-              type="date" 
-              value={customEndDate}
-              onChange={(e) => setCustomEndDate(e.target.value)}
-              className="px-2 py-1 bg-white text-[#191c1e] rounded border border-[#e6bdb8]/50 text-xs focus:outline-none focus:ring-1 focus:ring-[#b70011] w-[115px] cursor-pointer"
-            />
-            <button 
-              onClick={handleCustomDateFilter}
-              className="px-3 py-1 bg-[#b70011] text-white rounded text-xs font-semibold shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
-            >
-              Lọc
-            </button>
-          </div>
-
           <button 
             onClick={handleRebuildIndex}
             disabled={isRebuilding}

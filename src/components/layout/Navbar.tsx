@@ -8,13 +8,13 @@
  * - Tu dong cap nhat thong tin tu localStorage va kiem tra token backend.
  */
 
-"use strict";
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import BookCard from "@/components/BookCard";
 
 interface Category { id: number; name: string }
 interface User { id: number; name: string; role: string; username?: string; email?: string; avatar?: string; }
@@ -22,16 +22,15 @@ interface User { id: number; name: string; role: string; username?: string; emai
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [keyword, setKeyword] = useState("");
 
-  // States for Image Search
-  const [showImageSearchModal, setShowImageSearchModal] = useState(false);
+  // States for Integrated Image Search
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
+  const [isImageSearch, setIsImageSearch] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
@@ -42,9 +41,6 @@ export default function Navbar() {
       try {
         const parsed = JSON.parse(savedUser);
         setUser(parsed);
-        if (parsed.role === "ADMIN") {
-          router.push("/admin/dashboard");
-        }
       } catch (e) { console.error(e); }
     }
 
@@ -57,9 +53,6 @@ export default function Navbar() {
         .then(data => {
           setUser(data);
           localStorage.setItem("user", JSON.stringify(data));
-          if (data.role === "ADMIN") {
-            router.push("/admin/dashboard");
-          }
         })
         .catch(() => {
           localStorage.removeItem("token");
@@ -109,9 +102,28 @@ export default function Navbar() {
     };
   }, [API_URL, pathname]);
 
+  // Sync URL search keyword param and image search status
+  useEffect(() => {
+    const kw = searchParams.get("keyword") ?? "";
+    setKeyword(kw);
+
+    const syncImageSearch = () => {
+      const active = sessionStorage.getItem("isImageSearchActive") === "true";
+      const preview = sessionStorage.getItem("searchImageBase64");
+      setIsImageSearch(active);
+      setImagePreview(preview);
+    };
+
+    syncImageSearch();
+    window.addEventListener("imageSearchUpdated", syncImageSearch);
+    return () => {
+      window.removeEventListener("imageSearchUpdated", syncImageSearch);
+    };
+  }, [searchParams]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (keyword.trim()) router.push(`/user/search?keyword=${encodeURIComponent(keyword.trim())}`);
+    router.push(`/user/search?keyword=${encodeURIComponent(keyword.trim())}`);
   };
 
   const handleCartClick = () => {
@@ -130,36 +142,34 @@ export default function Navbar() {
       .finally(() => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        sessionStorage.removeItem("searchImageBase64");
+        sessionStorage.removeItem("isImageSearchActive");
+        window.dispatchEvent(new Event("imageSearchUpdated"));
         setUser(null);
         router.push("/");
         router.refresh();
       });
   };
 
-  const handleImageSearchClick = () => {
-    setShowImageSearchModal(true);
-    setImagePreview(null);
-    setIsScanning(false);
-    setImageSearchResults([]);
+  const clearImageSearch = () => {
+    sessionStorage.removeItem("searchImageBase64");
+    sessionStorage.removeItem("isImageSearchActive");
+    window.dispatchEvent(new Event("imageSearchUpdated"));
+    if (pathname === "/user/search") {
+      router.push("/user/search");
+    }
   };
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-        setIsScanning(true);
-        setImageSearchResults([]);
-
-        // Giả lập quét ảnh tìm sách trong 2.5 giây
-        setTimeout(() => {
-          setIsScanning(false);
-          setImageSearchResults([
-            { id: 1, title: "Mắt Biếc", author: "Nguyễn Nhật Ánh", price: 110000, image: "/images/book-default.jpg" },
-            { id: 2, title: "Cho Tôi Xin Một Vé Đi Tuổi Thơ", author: "Nguyễn Nhật Ánh", price: 85000, image: "/images/book-default.jpg" }
-          ]);
-        }, 2500);
+        const base64String = reader.result as string;
+        sessionStorage.setItem("searchImageBase64", base64String);
+        sessionStorage.setItem("isImageSearchActive", "true");
+        window.dispatchEvent(new Event("imageSearchUpdated"));
+        router.push("/user/search");
       };
       reader.readAsDataURL(file);
     }
@@ -224,24 +234,42 @@ export default function Navbar() {
 
           {/* Search bar - flex-1 and max-w-[650px] to expand beautifully */}
           <div className="flex-1 max-w-[650px] hidden md:block">
-            <form onSubmit={handleSearch} className="relative w-full">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#b70011] text-xl">search</span>
+            <form onSubmit={handleSearch} className="relative w-full flex items-center">
+              {/* Image Preview Thumbnail (Shopee style) */}
+              {isImageSearch && imagePreview ? (
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg overflow-hidden border border-[#b70011] shrink-0 group z-10">
+                  <img src={imagePreview} alt="Search source" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      clearImageSearch();
+                    }}
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                    title="Xoá ảnh"
+                  >
+                    <span className="material-symbols-outlined text-[10px] font-bold">close</span>
+                  </button>
+                </div>
+              ) : (
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#b70011] text-xl">search</span>
+              )}
+
               <input
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
-                className="!py-2.5 !pl-12 !pr-12 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400"
-                placeholder="Tìm kiếm sách, tác giả..."
+                className={`!py-2.5 !pr-12 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400 ${
+                  isImageSearch && imagePreview ? "!pl-14" : "!pl-12"
+                }`}
+                placeholder={isImageSearch && imagePreview ? "Thêm từ khóa cho hình ảnh..." : "Tìm kiếm sách, tác giả..."}
                 type="text"
               />
-              {/* Image Search Button inside the search bar */}
-              <button
-                type="button"
-                onClick={handleImageSearchClick}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#b70011] transition-all duration-300 flex items-center justify-center"
-                title="Tìm kiếm bằng hình ảnh"
-              >
+
+              {/* Camera Icon to upload/change image search */}
+              <label className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#b70011] transition-all duration-300 flex items-center justify-center cursor-pointer">
                 <span className="material-symbols-outlined text-xl">photo_camera</span>
-              </button>
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
+              </label>
             </form>
           </div>
 
@@ -320,121 +348,6 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
-
-      {/* Modal Tìm kiếm bằng hình ảnh */}
-      {showImageSearchModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-gray-100 transition-all duration-300">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-[#191c1e] text-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#b70011]">photo_camera</span>
-                Tìm kiếm bằng hình ảnh
-              </h3>
-              <button
-                onClick={() => setShowImageSearchModal(false)}
-                className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-black transition-all flex items-center justify-center"
-              >
-                <span className="material-symbols-outlined text-xl">close</span>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {!imagePreview ? (
-                // Chưa chọn ảnh
-                <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-10 cursor-pointer hover:bg-gray-50 hover:border-[#b70011] transition-all group">
-                  <span className="material-symbols-outlined text-5xl text-gray-400 group-hover:text-[#b70011] transition-all mb-4">cloud_upload</span>
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-black transition-all">Kéo thả hoặc click để tải ảnh bìa sách</span>
-                  <span className="text-xs text-gray-400 mt-2">Hỗ trợ JPG, PNG (tối đa 5MB)</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageFileChange}
-                  />
-                </label>
-              ) : (
-                // Đã chọn ảnh
-                <div className="space-y-6">
-                  <div className="relative aspect-video max-h-56 bg-gray-900 rounded-2xl overflow-hidden flex items-center justify-center">
-                    <img src={imagePreview} alt="Preview" className="h-full w-auto object-contain" />
-
-                    {/* Đường quét quét chuyển động */}
-                    {isScanning && (
-                      <div className="scan-line"></div>
-                    )}
-                  </div>
-
-                  {isScanning ? (
-                    <div className="flex flex-col items-center justify-center py-4">
-                      <div className="w-8 h-8 border-4 border-[#b70011]/20 border-t-[#b70011] rounded-full animate-spin mb-3"></div>
-                      <p className="text-sm font-medium text-gray-700">Đang quét và phân tích hình ảnh bìa sách...</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Kết quả khớp nhất</h4>
-                      <div className="space-y-3">
-                        {imageSearchResults.length > 0 ? (
-                          imageSearchResults.map((book) => (
-                            <Link
-                              key={book.id}
-                              href={`/user/books/${book.id}`}
-                              onClick={() => setShowImageSearchModal(false)}
-                              className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-[#b70011]/30 hover:bg-gray-50 transition-all group"
-                            >
-                              <div className="w-12 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                                <img
-                                  src={book.image}
-                                  alt={book.title}
-                                  className="w-full h-full object-cover animate-pulse"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.onerror = null;
-                                    target.src = "/images/book-default.jpg";
-                                  }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-[#191c1e] truncate group-hover:text-[#b70011] transition-all">{book.title}</p>
-                                <p className="text-xs text-gray-500">{book.author}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-bold text-sm text-[#b70011]">{book.price.toLocaleString('vi-VN')}đ</p>
-                                <p className="text-[10px] text-green-600 font-medium">98% Khớp</p>
-                              </div>
-                            </Link>
-                          ))
-                        ) : (
-                          <p className="text-sm text-gray-500 text-center py-4">Không tìm thấy sách phù hợp. Vui lòng thử lại với ảnh rõ hơn.</p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={() => setImagePreview(null)}
-                          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all"
-                        >
-                          Chọn ảnh khác
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowImageSearchModal(false);
-                            router.push(`/user/search?keyword=${encodeURIComponent("Nguyễn Nhật Ánh")}`);
-                          }}
-                          className="flex-1 py-2.5 rounded-xl bg-[#b70011] text-white text-sm font-semibold hover:bg-[#dc2626] transition-all"
-                        >
-                          Xem tất cả kết quả
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

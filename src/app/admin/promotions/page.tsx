@@ -206,15 +206,10 @@ export default function PromotionsPage() {
             <div className="p-2.5 bg-[#ffdad6] rounded-lg text-[#b70011]">
               <Tag className="w-5 h-5" />
             </div>
-            <span className="text-[#b70011] font-bold text-xs flex items-center bg-[#b70011]/5 px-2 py-1 rounded-full gap-0.5">
-              Tất cả
-              <TrendingUp className="w-3.5 h-3.5" />
-            </span>
           </div>
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Tổng Chiến Dịch</p>
             <h3 className="text-2xl font-bold text-[#191c1e]">{totalCampaigns.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Tổng số chương trình đã tạo</p>
           </div>
         </div>
 
@@ -228,7 +223,6 @@ export default function PromotionsPage() {
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Mức Giảm Trung Bình</p>
             <h3 className="text-2xl font-bold text-blue-700">{avgDiscount}%</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Tính trên các chiến dịch</p>
           </div>
         </div>
 
@@ -242,7 +236,6 @@ export default function PromotionsPage() {
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Đang hoạt động</p>
             <h3 className="text-2xl font-bold text-emerald-700">{currentLive.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Đang áp dụng giảm giá trực tiếp</p>
           </div>
         </div>
 
@@ -256,7 +249,6 @@ export default function PromotionsPage() {
           <div>
             <p className="text-xs font-semibold text-[#5c403c] uppercase tracking-wider mb-1">Sắp kết thúc</p>
             <h3 className="text-2xl font-bold text-rose-700">{endingSoon.toLocaleString()}</h3>
-            <p className="text-[#916f6b] text-[11px] mt-2">Hết hạn trong vòng 3 ngày</p>
           </div>
         </div>
       </div>

@@ -113,7 +113,8 @@ function CustomersContent() {
 
     try {
       const data = await getAllCustomers();
-      setCustomers(data);
+      // Đảo ngược danh sách để khách hàng mới đăng ký (nằm cuối) sẽ hiện lên đầu
+      setCustomers(data.reverse());
       setFetchError("");
     } catch (err: any) {
       setFetchError(err.message || "Không thể tải danh sách khách hàng.");

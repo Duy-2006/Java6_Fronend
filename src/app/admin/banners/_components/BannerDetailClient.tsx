@@ -15,7 +15,9 @@ import {
   ExternalLink,
   CheckCircle,
   AlertCircle,
-  X
+  X,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 interface Banner {
@@ -41,6 +43,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
   const [banner, setBanner] = useState<Banner | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [toggling, setToggling] = useState<boolean>(false);
   const [imageMeta, setImageMeta] = useState<{ width: number, height: number, sizeKB: number | string, format: string } | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
@@ -136,6 +139,60 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
     } catch (error) {
       console.error("Lỗi xóa banner:", error);
       setAlert({ msg: "Lỗi kết nối đến máy chủ.", type: "error" });
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!banner) return;
+    const newStatus = !banner.active;
+    const actionName = newStatus ? "hiển thị" : "ẩn";
+
+    try {
+      setToggling(true);
+      const res = await authFetch(`${API_URL}/api/banners/${id}/toggle`, {
+        method: "PUT",
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setBanner(updated);
+        setAlert({
+          msg: `Đã chuyển trạng thái banner sang: ${updated.active ? 'Đang bật (Hiển thị)' : 'Đang ẩn'}.`,
+          type: "success"
+        });
+      } else {
+        // Fallback update via multipart endpoint
+        const formData = new FormData();
+        formData.append("title", banner.title || "");
+        formData.append("description", banner.description || "");
+        formData.append("image_url", banner.image_url || "");
+        formData.append("link", banner.link || "");
+        formData.append("position", String(banner.position || 0));
+        formData.append("active", String(newStatus));
+        if (banner.start_date) formData.append("start_date", banner.start_date);
+        if (banner.end_date) formData.append("end_date", banner.end_date);
+
+        const updateRes = await authFetch(`${API_URL}/api/banners/${id}`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (updateRes.ok) {
+          const updated = await updateRes.json();
+          setBanner(updated);
+          setAlert({
+            msg: `Đã chuyển trạng thái banner sang: ${updated.active ? 'Đang bật (Hiển thị)' : 'Đang ẩn'}.`,
+            type: "success"
+          });
+        } else {
+          setAlert({ msg: `Không thể ${actionName} banner. Vui lòng thử lại.`, type: "error" });
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi thay đổi trạng thái banner:", error);
+      setAlert({ msg: "Lỗi kết nối đến máy chủ.", type: "error" });
+    } finally {
+      setToggling(false);
     }
   };
 
@@ -258,10 +315,24 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Quay lại</span>
           </button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleToggleActive}
+              disabled={toggling}
+              className={`px-3 py-1.5 font-semibold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-sm border cursor-pointer disabled:opacity-50 ${
+                banner.active
+                  ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                  : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+              }`}
+              title={banner.active ? "Nhấn để ẩn banner" : "Nhấn để hiện banner"}
+            >
+              {banner.active ? <EyeOff className="w-3.5 h-3.5 text-amber-700" /> : <Eye className="w-3.5 h-3.5 text-emerald-700" />}
+              <span>{toggling ? "Đang xử lý..." : banner.active ? "Ẩn banner" : "Hiện banner"}</span>
+            </button>
+
             <Link 
               href={`/admin/banners/${id}/edit`}
-              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg hover:bg-slate-55 transition-all flex items-center gap-1.5 shadow-sm text-decoration-none cursor-pointer"
+              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-sm text-decoration-none cursor-pointer"
             >
               <Edit className="w-3.5 h-3.5 text-slate-500" />
               <span>Chỉnh sửa</span>
@@ -382,9 +453,24 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-slate-500 font-semibold w-24">Quản trị:</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold border ${banner.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-55 text-slate-600 border-slate-200'}`}>
-                    {banner.active ? "Đang bật" : "Đang ẩn"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold border ${banner.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-55 text-slate-600 border-slate-200'}`}>
+                      {banner.active ? "Đang bật" : "Đang ẩn"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleActive}
+                      disabled={toggling}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded border cursor-pointer transition-all disabled:opacity-50 flex items-center gap-1 ${
+                        banner.active
+                          ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                          : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {banner.active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{banner.active ? "Ẩn ngay" : "Bật hiển thị"}</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <span className="text-slate-500 font-semibold w-24 shrink-0">Thực tế:</span>
@@ -426,24 +512,6 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
                 </div>
               </div>
             </div>
-
-            {/* Thông tin hệ thống */}
-            <div className="space-y-4 pt-2">
-              <h3 className="text-xs font-bold text-[#b70011] uppercase tracking-wider border-b border-slate-100 pb-1.5">
-                Thông tin hệ thống
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-500 font-semibold w-24">Ngày tạo:</span>
-                  <span className="text-slate-900 font-bold">{formatDate(banner.createdAt)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-500 font-semibold w-24">Ngày cập nhật:</span>
-                  <span className="text-slate-900 font-bold">{formatDate(banner.updatedAt)}</span>
-                </div>
-              </div>
-            </div>
-
           </div>
 
         </div>

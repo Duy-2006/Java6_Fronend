@@ -554,30 +554,7 @@ export default function HomePage() {
                   loading="lazy"
                 />
 
-                <div className="absolute bottom-6 left-6 md:left-10 z-30 pointer-events-auto">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const targetLink = currentBanner?.link && currentBanner.link.trim() !== "" ? currentBanner.link : "/user/category/1";
-                      if (targetLink.startsWith("http")) {
-                        window.open(targetLink, "_blank");
-                      } else {
-                        router.push(targetLink);
-                      }
-                    }}
-                    className="relative inline-flex items-center gap-2.5 bg-gradient-to-r from-[#b70011] to-[#e61e2a] hover:from-[#dc2626] hover:to-[#ff2e3d] text-white px-6 py-3 rounded-2xl font-black text-xs md:text-sm tracking-wide uppercase shadow-[0_10px_25px_rgba(183,0,17,0.5)] border border-white/30 backdrop-blur-md transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 active:scale-95 group/btn overflow-hidden cursor-pointer"
-                  >
-                    <span className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-12 -translate-x-full group-hover/btn:translate-x-[300%] transition-transform duration-1000 ease-out" />
 
-                    <span className="material-symbols-outlined text-lg md:text-xl font-bold animate-bounce">
-                      shopping_cart
-                    </span>
-                    <span className="drop-shadow-md">Mua Ngay</span>
-                    <span className="material-symbols-outlined text-base font-bold transition-transform duration-300 group-hover/btn:translate-x-1.5">
-                      arrow_forward
-                    </span>
-                  </button>
-                </div>
 
                 {activeBanners.length > 1 && (
                   <>

@@ -1,7 +1,14 @@
-fastapi  # Chờ AI đọc xong và lưu thành file mp3 trên máy tính
-uvicorn #  Web server chạy FastAPI (ASGI)
-edge-tts # Thư viện TTS dùng giọng Microsoft Edge
+fastapi  # Web framework FastAPI
+uvicorn # Web server ASGI
+edge-tts # Thư viện TTS giọng Microsoft Edge
 cloudinary   # SDK Cloudinary để upload file lên Cloud
 python-multipart # Xử lý file tải lên (multipart/form-data) 
-pydantic  # Định nghĩa schema dữ liệu đầu vào (Model)
-pydub # Thư viện xử lý audio (cắt ghép, trộn âm thanh) - **Không cần thiết**
+pydantic  # Định nghĩa schema dữ liệu đầu vào
+pydub # Thư viện xử lý audio
+torch # Deep learning framework cho OpenCLIP
+torchvision # Thư viện xử lý hình ảnh cho PyTorch
+open_clip_torch # OpenCLIP model cho Image Search
+faiss-cpu # Vector database cho Similarity Search
+pillow # Thư viện xử lý hình ảnh
+requests # HTTP request để tải ảnh
+numpy # Thư viện mảng số học

@@ -144,7 +144,7 @@ export default function RegisterPage() {
         <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[#ffdad6]/40 blur-3xl -z-10" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#ffdad6]/25 blur-3xl -z-10" />
         
-        <div className="w-full max-w-md bg-white border border-[#e6bdb8]/30 rounded-2xl shadow-xl overflow-hidden animate__animated animate__fadeIn relative z-10">
+        <div className="w-full max-w-2xl bg-white border border-[#e6bdb8]/30 rounded-2xl shadow-xl overflow-hidden animate__animated animate__fadeIn relative z-10">
           {/* Header block with red accent line */}
           <div className="h-1.5 w-full bg-gradient-to-r from-[#b70011] via-[#d63031] to-[#b70011]" />
           
@@ -174,167 +174,169 @@ export default function RegisterPage() {
             )}
 
             {/* Registration Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Tên đăng nhập</span>
-                </label>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                    fieldErrors.username ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
-                  } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                  placeholder="Nhập tên tài khoản"
-                />
-                {fieldErrors.username && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.username}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Full Name */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Họ và tên</span>
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                    fieldErrors.fullName || fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
-                  } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                  placeholder="Nhập họ và tên đầy đủ"
-                />
-                {(fieldErrors.fullName || fieldErrors.name) && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.fullName || fieldErrors.name}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <Mail className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Email</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                    fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
-                  } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                  placeholder="example@email.com"
-                />
-                {fieldErrors.email && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.email}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <Phone className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Số điện thoại</span>
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                    fieldErrors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
-                  } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                  placeholder="0xxxxxxxxx"
-                />
-                {fieldErrors.phone && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.phone}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Mật khẩu</span>
-                </label>
-                <div className="relative group">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                {/* Username */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <User className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Tên đăng nhập</span>
+                  </label>
                   <input
-                    type={showPass ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
+                    type="text"
+                    name="username"
+                    value={formData.username}
                     onChange={handleChange}
-                    className={`w-full pl-4 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                      fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                    className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                      fieldErrors.username ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
                     } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                    placeholder="••••••••"
+                    placeholder="Nhập tên tài khoản"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-[#b70011] transition-colors"
-                  >
-                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  {fieldErrors.username && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.username}</span>
+                    </p>
+                  )}
                 </div>
-                {fieldErrors.password && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.password}</span>
-                  </p>
-                )}
-              </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Xác nhận mật khẩu</span>
-                </label>
-                <div className="relative group">
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <User className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Họ và tên</span>
+                  </label>
                   <input
-                    type={showConfirmPass ? "text" : "password"}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
                     onChange={handleChange}
-                    className={`w-full pl-4 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
-                      fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                    className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                      fieldErrors.fullName || fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
                     } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
-                    placeholder="••••••••"
+                    placeholder="Nhập họ và tên đầy đủ"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPass(!showConfirmPass)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-[#b70011] transition-colors"
-                  >
-                    {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  {(fieldErrors.fullName || fieldErrors.name) && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.fullName || fieldErrors.name}</span>
+                    </p>
+                  )}
                 </div>
-                {fieldErrors.confirmPassword && (
-                  <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{fieldErrors.confirmPassword}</span>
-                  </p>
-                )}
+
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Mail className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                      fieldErrors.email ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                    } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
+                    placeholder="example@email.com"
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.email}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Phone className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Số điện thoại</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                      fieldErrors.phone ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                    } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
+                    placeholder="0xxxxxxxxx"
+                  />
+                  {fieldErrors.phone && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.phone}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Mật khẩu</span>
+                  </label>
+                  <div className="relative group">
+                    <input
+                      type={showPass ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={`w-full pl-4 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                        fieldErrors.password ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                      } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-[#b70011] transition-colors"
+                    >
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fieldErrors.password && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.password}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Xác nhận mật khẩu</span>
+                  </label>
+                  <div className="relative group">
+                    <input
+                      type={showConfirmPass ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className={`w-full pl-4 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border ${
+                        fieldErrors.confirmPassword ? "border-red-500 focus:border-red-500 focus:ring-red-100" : "border-slate-200 focus:border-[#b70011] focus:ring-[#ffdad6]/30"
+                      } rounded-xl focus:bg-white focus:ring-4 outline-none transition-all duration-200 text-sm placeholder-slate-400 font-medium text-slate-800`}
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-[#b70011] transition-colors"
+                    >
+                      {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fieldErrors.confirmPassword && (
+                    <p className="text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{fieldErrors.confirmPassword}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Submit Button */}

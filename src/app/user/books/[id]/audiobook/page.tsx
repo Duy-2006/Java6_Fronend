@@ -64,7 +64,6 @@ export default function UserAudiobookPlayer() {
   const [bookPrice, setBookPrice] = useState(0);
   const [physicalPrice, setPhysicalPrice] = useState(0);
   const [bookImage, setBookImage] = useState("");
-  const [nextBook, setNextBook] = useState<any>(null);
   // Auth state — checked client-side from localStorage
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -123,18 +122,6 @@ export default function UserAudiobookPlayer() {
           setBookImage(`${API_URL}/uploads/books/${cleanUrl}`);
         } else {
           setBookImage("/images/book-default.jpg");
-        }
-      })
-      .catch(console.error);
-
-    // Lấy danh sách gợi ý "Tiếp theo"
-    authFetch(`${API_URL}/api/books`)
-      .then((res) => res.json())
-      .then((data) => {
-        const allBooks = Array.isArray(data) ? data : (data.content || []);
-        const suggestions = allBooks.filter((b: any) => b.id !== bookId);
-        if (suggestions.length > 0) {
-          setNextBook(suggestions[0]);
         }
       })
       .catch(console.error);
@@ -697,20 +684,6 @@ export default function UserAudiobookPlayer() {
                   type="text"
                 />
               </div>
-
-              <div className="flex items-center gap-4 text-gray-400">
-                <button className="hover:text-white" aria-label="Thông báo">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                  </svg>
-                </button>
-                <button className="hover:text-white" aria-label="Tùy chọn">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                  </svg>
-                </button>
-              </div>
             </div>
           </header>
 
@@ -730,82 +703,8 @@ export default function UserAudiobookPlayer() {
                       src={bookImage || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"}
                     />
                   </div>
-                  <div className="text-center space-y-8 w-full max-w-2xl mt-8">
-                    <div>
-                      <h2 className="text-3xl md:text-4xl font-bold text-white mb-2 leading-snug line-clamp-2">{bookTitle}</h2>
-                      <p className="text-gray-400 text-lg">
-                        {currentChapter ? `Đang phát: ${currentChapter.title || `Chương ${currentChapter.number}`}` : "Chưa chọn chương"}
-                      </p>
-                    </div>
-
-                    {/* Playback Actions */}
-                    <div className="flex items-center justify-center gap-10">
-                      {/* Prev Chapter */}
-                      <button
-                        onClick={playPreviousChapter}
-                        className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-                        aria-label="Chương trước"
-                      >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                      </button>
-
-                      {/* Skip Back 10s */}
-                      <button
-                        onClick={() => skipTime(-10)}
-                        disabled={!currentSegment}
-                        className="text-gray-300 hover:text-white transition-colors flex flex-col items-center cursor-pointer disabled:opacity-30"
-                        aria-label="Lùi 10 giây"
-                      >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
-                        </svg>
-                        <span className="text-[10px] mt-1 font-bold">10</span>
-                      </button>
-
-                      {/* Play/Pause Button */}
-                      <button
-                        onClick={togglePlay}
-                        disabled={!currentSegment}
-                        className="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl shadow-white/10 cursor-pointer disabled:opacity-50"
-                        aria-label={isPlaying ? "Tạm dừng" : "Phát"}
-                      >
-                        {isPlaying ? (
-                          <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
-                          </svg>
-                        ) : (
-                          <svg className="w-10 h-10 translate-x-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"></path>
-                          </svg>
-                        )}
-                      </button>
-
-                      {/* Skip Forward 10s */}
-                      <button
-                        onClick={() => skipTime(10)}
-                        disabled={!currentSegment}
-                        className="text-gray-300 hover:text-white transition-colors flex flex-col items-center cursor-pointer disabled:opacity-30"
-                        aria-label="Tiến 10 giây"
-                      >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
-                        </svg>
-                        <span className="text-[10px] mt-1 font-bold">10</span>
-                      </button>
-
-                      {/* Next Chapter */}
-                      <button
-                        onClick={() => playNextChapter(false)}
-                        className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-                        aria-label="Chương tiếp"
-                      >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M11.933 12.8a1 1 0 000-1.6L6.599 7.2A1 1 0 005 8v8a1 1 0 001.599.8l5.334-4zM19.933 12.8a1 1 0 000-1.6L14.599 7.2A1 1 0 0013 8v8a1 1 0 001.599.8l5.334-4z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                      </button>
-                    </div>
+                  <div className="text-center w-full max-w-2xl mt-6">
+                    <h2 className="text-3xl md:text-4xl font-bold text-white leading-snug line-clamp-2">{bookTitle}</h2>
                   </div>
                 </div>
               ) : (
@@ -944,36 +843,6 @@ export default function UserAudiobookPlayer() {
                   })}
                 </div>
               </section>
-
-              {/* Up Next */}
-              {nextBook && (
-                <section>
-                  <h3 className="text-xl font-bold mb-4 text-white">Tiếp theo</h3>
-                  <div
-                    onClick={() => router.push(`/user/books/${nextBook.id}`)}
-                    className="glass-panel p-4 rounded-2xl flex items-center gap-4 group cursor-pointer hover:bg-white/5 transition-all"
-                  >
-                    <img
-                      alt={nextBook.title}
-                      className="w-16 rounded shadow-lg aspect-[3/4] object-cover"
-                      src={
-                        nextBook.imageUrl
-                          ? `${API_URL}/uploads/books/${nextBook.imageUrl.startsWith("books/") ? nextBook.imageUrl.substring(6) : nextBook.imageUrl}`
-                          : "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1074"
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white group-hover:text-red-500 transition-colors truncate">{nextBook.title}</p>
-                      <p className="text-xs text-gray-400 mt-1">{nextBook.authorName || "Tác giả"}</p>
-                    </div>
-                    <button className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-all shrink-0" aria-label="Phát sách tiếp theo">
-                      <svg className="w-5 h-5 fill-currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </section>
-              )}
             </div>
 
           </div>

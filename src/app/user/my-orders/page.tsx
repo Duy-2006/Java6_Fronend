@@ -19,6 +19,15 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   DELIVERED: { label: "Giao thành công", cls: "bg-teal-50 text-teal-700 border border-teal-200" },
 };
 
+const STATUS_PRIORITY: Record<string, number> = {
+  PENDING: 1,    // Chờ xác nhận (Ưu tiên số 1)
+  CONFIRMED: 2,  // Đã xác nhận (Ưu tiên số 2)
+  SHIPPING: 3,   // Đang giao (Ưu tiên số 3)
+  DELIVERED: 4,  // Giao thành công (Ưu tiên số 4)
+  COMPLETED: 5,  // Hoàn thành (Ưu tiên số 5)
+  CANCELLED: 6,  // Đã hủy (Xếp cuối cùng)
+};
+
 const STATUS_OPTIONS = ["", "PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "COMPLETED", "CANCELLED"];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -217,7 +226,23 @@ export default function MyOrdersPage() {
         })
       );
 
-      setOrders(ordersWithDetails);
+      // Sắp xếp đơn hàng:
+      // 1. Ưu tiên theo trạng thái: PENDING (Chờ xác nhận) -> CONFIRMED (Đã xác nhận) -> SHIPPING (Đang giao) -> DELIVERED (Giao thành công) -> COMPLETED (Hoàn thành) -> CANCELLED (Đã hủy)
+      // 2. Trong cùng một trạng thái: Đơn mới nhất (mới đặt) luôn ở trên đầu
+      const sortedOrders = [...ordersWithDetails].sort((a: any, b: any) => {
+        const priorityA = STATUS_PRIORITY[a.status] ?? 99;
+        const priorityB = STATUS_PRIORITY[b.status] ?? 99;
+
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+
+        const timeA = a.orderDate ? new Date(a.orderDate).getTime() : (a.id || 0);
+        const timeB = b.orderDate ? new Date(b.orderDate).getTime() : (b.id || 0);
+        return timeB - timeA;
+      });
+
+      setOrders(sortedOrders);
     } catch (err: any) {
       setError(err.message || "Đã xảy ra lỗi khi tải đơn hàng");
       setOrders([]);
@@ -252,9 +277,17 @@ export default function MyOrdersPage() {
         }
       );
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderToCancel.id ? { ...o, status: "CANCELLED" } : o))
-        );
+        setOrders((prev) => {
+          const updated = prev.map((o) => (o.id === orderToCancel.id ? { ...o, status: "CANCELLED" } : o));
+          return [...updated].sort((a: any, b: any) => {
+            const priorityA = STATUS_PRIORITY[a.status] ?? 99;
+            const priorityB = STATUS_PRIORITY[b.status] ?? 99;
+            if (priorityA !== priorityB) return priorityA - priorityB;
+            const timeA = a.orderDate ? new Date(a.orderDate).getTime() : (a.id || 0);
+            const timeB = b.orderDate ? new Date(b.orderDate).getTime() : (b.id || 0);
+            return timeB - timeA;
+          });
+        });
         alert("Đã hủy đơn thành công.");
       } else {
         alert(`Hủy đơn thất bại: ${await res.text()}`);
@@ -278,9 +311,17 @@ export default function MyOrdersPage() {
         { method: "POST", headers: { } }
       );
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, status: "COMPLETED" } : o))
-        );
+        setOrders((prev) => {
+          const updated = prev.map((o) => (o.id === id ? { ...o, status: "COMPLETED" } : o));
+          return [...updated].sort((a: any, b: any) => {
+            const priorityA = STATUS_PRIORITY[a.status] ?? 99;
+            const priorityB = STATUS_PRIORITY[b.status] ?? 99;
+            if (priorityA !== priorityB) return priorityA - priorityB;
+            const timeA = a.orderDate ? new Date(a.orderDate).getTime() : (a.id || 0);
+            const timeB = b.orderDate ? new Date(b.orderDate).getTime() : (b.id || 0);
+            return timeB - timeA;
+          });
+        });
         alert("Cảm ơn bạn đã xác nhận nhận hàng!");
       } else {
         alert(`Lỗi: ${await res.text()}`);

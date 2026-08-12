@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Book, Package, AlertCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Book, Package, AlertCircle, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import BookImage from '@/app/user/books/[id]/_components/BookImage';
@@ -28,16 +28,20 @@ interface ChatMessage {
 export default function Chatbot() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
-
-    // Hide chatbot on admin views
-    if (pathname?.startsWith('/admin')) {
-        return null;
-    }
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const handleResetChat = () => {
+        setConversationId(null);
+        setMessages([{
+            id: Date.now().toString(),
+            text: 'Xin chào! Tôi là trợ lý AI của nhà sách. Tôi có thể giúp bạn tìm sách, tra cứu đơn hàng, giá cả hoặc giải đáp các thắc mắc khác. Bạn cần tôi giúp gì?',
+            sender: 'bot'
+        }]);
+    };
 
     // Initial greeting
     useEffect(() => {
@@ -50,9 +54,15 @@ export default function Chatbot() {
         }
     }, [isOpen, messages.length]);
 
+    // Auto scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, isLoading]);
+
+    // Hide chatbot on admin views
+    if (pathname?.startsWith('/admin')) {
+        return null;
+    }
 
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
@@ -64,11 +74,28 @@ export default function Chatbot() {
 
         try {
             const { authFetch } = await import('@/lib/authFetch');
+            let storedUserId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+            if (!storedUserId && typeof window !== 'undefined') {
+                const uStr = localStorage.getItem('user');
+                if (uStr) {
+                    try {
+                        const parsed = JSON.parse(uStr);
+                        if (parsed?.id || parsed?.userId) {
+                            storedUserId = (parsed.id || parsed.userId).toString();
+                        }
+                    } catch (e) {}
+                }
+            }
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json'
+            };
+            if (storedUserId) {
+                headers['X-User-Id'] = storedUserId;
+            }
+
             const response = await authFetch('/api/chatbot', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers as Record<string, string>,
                 body: JSON.stringify({
                     message: userMsg.text,
                     conversationId: conversationId
@@ -129,9 +156,14 @@ export default function Chatbot() {
                             <MessageCircle size={20} />
                             <h3 className="font-semibold text-lg">Trợ lý sách AI</h3>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="text-white hover:text-gray-200">
-                            <X size={20} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={handleResetChat} title="Làm mới cuộc trò chuyện" className="text-white hover:text-gray-200 p-1">
+                                <RotateCcw size={18} />
+                            </button>
+                            <button onClick={() => setIsOpen(false)} className="text-white hover:text-gray-200 p-1">
+                                <X size={20} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Messages Area */}

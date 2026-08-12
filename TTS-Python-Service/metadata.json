@@ -1,0 +1,74 @@
+{
+  "1": {
+    "book_id": 1,
+    "image_url": "1772696228330_tienganh12.jpg"
+  },
+  "2": {
+    "book_id": 2,
+    "image_url": "1772696085993_tiengviet1.jpg"
+  },
+  "3": {
+    "book_id": 3,
+    "image_url": "1772696219459_tnvxh4.jpg"
+  },
+  "4": {
+    "book_id": 4,
+    "image_url": "1772696208296_tienganh11.jpg"
+  },
+  "5": {
+    "book_id": 5,
+    "image_url": "1772547787611_20.jpg"
+  },
+  "6": {
+    "book_id": 6,
+    "image_url": "1772094317458_anh2.jpg"
+  },
+  "7": {
+    "book_id": 7,
+    "image_url": "225e12ac-98d6-448c-9e19-16444006fadd_choxinmotve.jpg"
+  },
+  "8": {
+    "book_id": 8,
+    "image_url": "79de39c1-1b25-4e76-9602-831ba32094b8_noibuonchientranh2.jpg"
+  },
+  "9": {
+    "book_id": 9,
+    "image_url": "5c68f175-d8b3-4fc4-a154-314f9d32089c_tuoitre.jpg"
+  },
+  "1009": {
+    "book_id": 1009,
+    "image_url": "19bed50b-cb84-4d0b-b590-0bd5abfea14a_nhagiakim1.jpg"
+  },
+  "1010": {
+    "book_id": 1010,
+    "image_url": "cb5756fc-2a57-4d9b-a990-b11b40141c3a_muonkiepnhansinh.webp"
+  },
+  "1011": {
+    "book_id": 1011,
+    "image_url": "eed23a5a-09cf-49b3-9bb1-3d3900e8ebcc_coxanh.jpg"
+  },
+  "1012": {
+    "book_id": 1012,
+    "image_url": "0bc78c0f-4863-4bed-a37c-4c399134906e_camngot.jpg"
+  },
+  "1013": {
+    "book_id": 1013,
+    "image_url": "998a392e-52e9-47a3-ab35-69bee0cb89f2_vietnamsuluoc1.jpg"
+  },
+  "1016": {
+    "book_id": 1016,
+    "image_url": "f25c9b4b-9937-452e-8df3-a0fe6f6387e8_z7699742642814_97c076056aa22c0d680616ff09a127f1.jpg"
+  },
+  "1017": {
+    "book_id": 1017,
+    "image_url": "0d75fae8-a424-46b1-892f-ebcc8ece74e5_coxanh.jpg"
+  },
+  "2017": {
+    "book_id": 2017,
+    "image_url": "e0b7c2fd-e6fa-40e1-8429-c25c77295452_dacnhantam.jpg"
+  },
+  "1008": {
+    "book_id": 1008,
+    "image_url": "9052a1db-cf07-4a35-8998-0e41b6ef65ac_datnhantam.webp"
+  }
+}

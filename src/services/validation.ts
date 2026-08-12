@@ -15,7 +15,7 @@ export const isValidPrice   = (v: string | number) => !isNaN(Number(v)) && Numbe
 export const isValidQty     = (v: string | number) => !isNaN(Number(v)) && Number(v) >= 0 && Number.isInteger(Number(v)); // Kiem tra so luong (so nguyen khong am)
 export const isValidPercent = (v: string | number) => !isNaN(Number(v)) && Number(v) > 0 && Number(v) <= 100;  // Kiem tra phan tram (1-100)
 export const isValidISBN    = (v: string) => v === "" || /^[\d\-]{10,17}$/.test(v.trim());                     // Kiem tra ma ISBN (10-17 ky tu so va gach ngang)
-export const isValidDate    = (v: string) => v !== "" && !isNaN(Date.parse(v));                                 // Kiem tra ngay thang hop le
+export const isValidDate    = (v?: string | null) => !!v && v.trim() !== "" && !isNaN(Date.parse(v));                                 // Kiem tra ngay thang hop le
 
 // Validate du lieu form tac gia (Author)
 export interface AuthorFields { name: string; email?: string }
@@ -92,3 +92,81 @@ export function validatePromotion(f: PromotionFields): FieldErrors<PromotionFiel
   }
   return e;
 }
+
+// Validate du lieu form banner (Banner)
+export interface BannerFields {
+  title?: string;
+  image_url?: string;
+  imageFile?: File | null;
+  link?: string;
+  position?: number | string;
+  startDate?: string;
+  endDate?: string;
+  isEdit?: boolean;
+  initialStartDate?: string;
+}
+export function validateBanner(f: BannerFields): FieldErrors<BannerFields> {
+  const e: FieldErrors<BannerFields> = {};
+  if (isBlank(f.title))                                  e.title = "Tên banner không được để trống.";
+  else if (f.title!.trim().length < 2)                   e.title = "Tên banner phải có ít nhất 2 ký tự.";
+  else if (f.title!.trim().length > 255)                 e.title = "Tên banner không được vượt quá 255 ký tự.";
+
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+
+  if (!f.imageFile && isBlank(f.image_url)) {
+    e.image_url = "Vui lòng chọn hình ảnh banner hoặc nhập URL.";
+  } else if (f.imageFile) {
+    if (f.imageFile.size > MAX_IMAGE_SIZE) {
+      e.image_url = "Dung lượng hình ảnh vượt quá giới hạn cho phép (tối đa 5MB).";
+    } else if (f.imageFile.type && !ALLOWED_IMAGE_TYPES.includes(f.imageFile.type) && !f.imageFile.type.startsWith("image/")) {
+      e.image_url = "Định dạng tệp không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, WEBP, GIF, SVG.";
+    }
+  }
+
+  if (f.link && f.link.trim().length > 500)              e.link = "Đường dẫn liên kết không được vượt quá 500 ký tự.";
+
+  if (f.position !== undefined && f.position !== null && String(f.position).trim() !== "") {
+    if (isNaN(Number(f.position)) || Number(f.position) < 0 || !Number.isInteger(Number(f.position))) {
+      e.position = "Thứ tự hiển thị phải là số nguyên không âm (>= 0).";
+    }
+  }
+
+  // 1. Ngày bắt đầu bắt buộc
+  if (isBlank(f.startDate)) {
+    e.startDate = "Vui lòng chọn ngày bắt đầu.";
+  } else if (!isValidDate(f.startDate)) {
+    e.startDate = "Ngày bắt đầu không hợp lệ.";
+  } else {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const startStr = f.startDate!.substring(0, 10);
+    const initialStartStr = f.initialStartDate ? f.initialStartDate.substring(0, 10) : "";
+
+    // Ngày bắt đầu không được nằm trong quá khứ
+    if (startStr < todayStr && (!f.isEdit || startStr !== initialStartStr)) {
+      e.startDate = "Ngày bắt đầu không được nằm trong quá khứ.";
+    }
+  }
+
+  // 2. Ngày kết thúc bắt buộc
+  if (isBlank(f.endDate)) {
+    e.endDate = "Vui lòng chọn ngày kết thúc.";
+  } else if (!isValidDate(f.endDate)) {
+    e.endDate = "Ngày kết thúc không hợp lệ.";
+  }
+
+  // 3. Ngày kết thúc không được trước ngày bắt đầu
+  if (f.startDate && f.endDate && isValidDate(f.startDate) && isValidDate(f.endDate) && !e.startDate && !e.endDate) {
+    const startStr = f.startDate.substring(0, 10);
+    const endStr = f.endDate.substring(0, 10);
+    if (endStr < startStr) {
+      e.endDate = "Ngày kết thúc không được trước ngày bắt đầu.";
+    }
+  }
+
+  return e;
+}
