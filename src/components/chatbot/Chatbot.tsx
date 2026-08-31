@@ -25,6 +25,90 @@ interface ChatMessage {
     fallback?: boolean;
 }
 
+// Helper to clean all markdown tokens and asterisks from text
+function cleanMarkdown(text: string): string {
+    let cleaned = text
+        .replace(/^###\s*/, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .trim();
+
+    // If line starts with bullet '* ' or '- ', replace with clean bullet '• '
+    if (/^[\*\-]\s+/.test(cleaned)) {
+        cleaned = cleaned.replace(/^[\*\-]\s+/, '• ');
+    }
+
+    // Remove all remaining asterisks from the text
+    cleaned = cleaned.replace(/\*/g, '');
+
+    return cleaned.trim();
+}
+
+// Check if a line represents a title, step or heading
+function isHeader(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    
+    // Markdown header ###
+    if (trimmed.startsWith('#')) return true;
+
+    // Line was entirely bold **Title**
+    if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length < 70) return true;
+
+    const cleaned = cleanMarkdown(trimmed);
+    // Numbered step like "1. CHỌN SÁCH NÓI", "1. Chọn sách nói:", "Bước 1: ...", "Phần 1: ..."
+    if (/^(\d+\.|\bBước\s+\d+:?|\bPhần\s+\d+:?|\bMục\s+\d+:?)/i.test(cleaned) && cleaned.length < 80) {
+        return true;
+    }
+
+    return false;
+}
+
+function renderMessageContent(text: string, isUser: boolean) {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+
+    return (
+        <div className={`text-sm leading-relaxed space-y-1.5 ${isUser ? 'text-white' : 'text-gray-800'}`}>
+            {lines.map((line, lineIdx) => {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    return <div key={lineIdx} className="h-1.5" />;
+                }
+
+                const textToDisplay = cleanMarkdown(trimmed);
+
+                // Case 1: Entire line is a heading/title
+                if (isHeader(trimmed)) {
+                    return (
+                        <div key={lineIdx} className={`mt-2.5 font-bold ${isUser ? 'text-white' : 'text-gray-900'}`}>
+                            {textToDisplay}
+                        </div>
+                    );
+                }
+
+                // Case 2: Line starts with a numbered prefix e.g. "1. CHỌN SÁCH NÓI: ..." with description
+                const prefixMatch = textToDisplay.match(/^((?:\d+\.|\bBước\s+\d+:?|\bPhần\s+\d+:?)\s+[A-ZÀ-Ỵ\s\W]{2,30}:?)\s+(.+)$/);
+                if (prefixMatch) {
+                    return (
+                        <div key={lineIdx} className={`font-normal ${isUser ? 'text-white' : 'text-gray-800'}`}>
+                            <span className={`font-bold ${isUser ? 'text-white' : 'text-gray-900'}`}>{prefixMatch[1]} </span>
+                            <span>{prefixMatch[2]}</span>
+                        </div>
+                    );
+                }
+
+                // Case 3: Regular text (all normal font, no ** marks)
+                return (
+                    <div key={lineIdx} className={`font-normal ${isUser ? 'text-white' : 'text-gray-800'}`}>
+                        {textToDisplay}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export default function Chatbot() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
@@ -38,7 +122,7 @@ export default function Chatbot() {
         setConversationId(null);
         setMessages([{
             id: Date.now().toString(),
-            text: 'Xin chào! Tôi là trợ lý AI của nhà sách. Tôi có thể giúp bạn tìm sách, tra cứu đơn hàng, giá cả hoặc giải đáp các thắc mắc khác. Bạn cần tôi giúp gì?',
+            text: 'Xin chào! Tôi là trợ lý của nhà sách. Tôi có thể giúp bạn tìm sách, tra cứu đơn hàng, giá cả hoặc giải đáp các thắc mắc khác. Bạn cần tôi giúp gì?',
             sender: 'bot'
         }]);
     };
@@ -48,7 +132,7 @@ export default function Chatbot() {
         if (isOpen && messages.length === 0) {
             setMessages([{
                 id: '1',
-                text: 'Xin chào! Tôi là trợ lý AI của nhà sách. Tôi có thể giúp bạn tìm sách, tra cứu đơn hàng, giá cả hoặc giải đáp các thắc mắc khác. Bạn cần tôi giúp gì?',
+                text: 'Xin chào! Tôi là Trợ lý của nhà sách. Tôi có thể giúp bạn tìm sách, tra cứu đơn hàng, giá cả hoặc giải đáp các thắc mắc khác. Bạn cần tôi giúp gì?',
                 sender: 'bot'
             }]);
         }
@@ -74,28 +158,12 @@ export default function Chatbot() {
 
         try {
             const { authFetch } = await import('@/lib/authFetch');
-            let storedUserId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
-            if (!storedUserId && typeof window !== 'undefined') {
-                const uStr = localStorage.getItem('user');
-                if (uStr) {
-                    try {
-                        const parsed = JSON.parse(uStr);
-                        if (parsed?.id || parsed?.userId) {
-                            storedUserId = (parsed.id || parsed.userId).toString();
-                        }
-                    } catch (e) {}
-                }
-            }
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json'
-            };
-            if (storedUserId) {
-                headers['X-User-Id'] = storedUserId;
-            }
 
             const response = await authFetch('/api/chatbot', {
                 method: 'POST',
-                headers: headers as Record<string, string>,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     message: userMsg.text,
                     conversationId: conversationId
@@ -107,7 +175,7 @@ export default function Chatbot() {
             }
 
             const data = await response.json();
-            
+
             if (data.conversationId) {
                 setConversationId(data.conversationId);
             }
@@ -120,7 +188,7 @@ export default function Chatbot() {
                 sources: data.sources,
                 fallback: data.fallback
             };
-            
+
             setMessages(prev => [...prev, botMsg]);
         } catch (error) {
             console.error('Chat error:', error);
@@ -139,7 +207,7 @@ export default function Chatbot() {
         <div className="fixed bottom-6 right-6 z-50">
             {/* Chatbot Button */}
             {!isOpen && (
-                <button 
+                <button
                     onClick={() => setIsOpen(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all transform hover:scale-105 flex items-center justify-center"
                 >
@@ -154,7 +222,7 @@ export default function Chatbot() {
                     <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <MessageCircle size={20} />
-                            <h3 className="font-semibold text-lg">Trợ lý sách AI</h3>
+                            <h3 className="font-semibold text-lg">Trợ lý nhà sách </h3>
                         </div>
                         <div className="flex items-center gap-2">
                             <button onClick={handleResetChat} title="Làm mới cuộc trò chuyện" className="text-white hover:text-gray-200 p-1">
@@ -170,17 +238,17 @@ export default function Chatbot() {
                     <div className="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3">
                         {messages.map((msg) => (
                             <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'self-end' : 'self-start'}`}>
-                                <div className={`p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'}`}>
-                                    {msg.text}
+                                <div className={`p-3.5 rounded-2xl shadow-sm ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'}`}>
+                                    {renderMessageContent(msg.text, msg.sender === 'user')}
                                 </div>
-                                
+
                                 {/* Sources display if any */}
                                 {msg.sources && msg.sources.length > 0 && (
                                     <div className="mt-2 flex flex-col gap-3">
                                         {(() => {
                                             const mainBook = msg.sources.find(s => s.reason === 'Sách bạn đang quan tâm');
                                             const otherBooks = msg.sources.filter(s => s.reason !== 'Sách bạn đang quan tâm');
-                                            
+
                                             return (
                                                 <>
                                                     {mainBook && (
@@ -211,7 +279,7 @@ export default function Chatbot() {
                                                             </Link>
                                                         </div>
                                                     )}
-                                                    
+
                                                     {otherBooks.length > 0 && (
                                                         <div className="flex flex-col gap-1.5 mt-1">
                                                             <p className="text-[13px] text-gray-700 font-semibold flex items-center gap-1.5">
@@ -251,8 +319,8 @@ export default function Chatbot() {
                         {isLoading && (
                             <div className="self-start bg-white border border-gray-200 p-3 rounded-2xl rounded-bl-sm flex gap-1 items-center">
                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
@@ -260,7 +328,7 @@ export default function Chatbot() {
 
                     {/* Input Area */}
                     <div className="p-3 border-t border-gray-200 bg-white flex items-center gap-2">
-                        <input 
+                        <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
@@ -269,7 +337,7 @@ export default function Chatbot() {
                             className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             disabled={isLoading}
                         />
-                        <button 
+                        <button
                             onClick={handleSend}
                             disabled={!input.trim() || isLoading}
                             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-full p-2 flex items-center justify-center transition-colors"

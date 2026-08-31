@@ -30,12 +30,12 @@ import {
 
 // MỤC 4: Bổ sung trạng thái DELIVERED (Giao hàng thành công) vào cấu hình STATUS_MAP
 const STATUS_MAP: Record<string, { label: string; cls: string; icon: any }> = {
-  PENDING:   { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-800 border-amber-200",  icon: Hourglass },
-  CONFIRMED: { label: "Đã xác nhận", cls: "bg-blue-50 text-blue-800 border-blue-200",   icon: PackageCheck },
-  SHIPPING: { label: "Đang giao",   cls: "bg-purple-50 text-purple-800 border-purple-200", icon: Truck },
+  PENDING: { label: "Chờ xác nhận", cls: "bg-amber-50 text-amber-800 border-amber-200", icon: Hourglass },
+  CONFIRMED: { label: "Đã xác nhận", cls: "bg-blue-50 text-blue-800 border-blue-200", icon: PackageCheck },
+  SHIPPING: { label: "Đang giao", cls: "bg-purple-50 text-purple-800 border-purple-200", icon: Truck },
   DELIVERED: { label: "Giao thành công", cls: "bg-teal-50 text-teal-800 border-teal-200", icon: CheckSquare },
-  COMPLETED: { label: "Hoàn thành",   cls: "bg-green-50 text-green-800 border-green-200",    icon: CheckSquare },
-  CANCELLED: { label: "Đã hủy",       cls: "bg-red-50 text-red-800 border-red-200",         icon: Ban },
+  COMPLETED: { label: "Hoàn thành", cls: "bg-green-50 text-green-800 border-green-200", icon: CheckSquare },
+  CANCELLED: { label: "Đã hủy", cls: "bg-red-50 text-red-800 border-red-200", icon: Ban },
 };
 
 function OrdersContent() {
@@ -49,7 +49,7 @@ function OrdersContent() {
   const [activeTab, setActiveTab] = useState<'physical' | 'audio'>('physical');
   const [currentPage, setCurrentPage] = useState(1);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  
+
   const itemsPerPage = 8;
   const router = useRouter();
 
@@ -102,11 +102,11 @@ function OrdersContent() {
 
   let filtered = searchQuery
     ? safeOrders.filter(
-        (order) =>
-          (order && (order.orderCode || order.id?.toString() || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order && (order.customerName || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (order && (order.customerPhone || "")).includes(searchQuery)
-      )
+      (order) =>
+        (order && (order.orderCode || order.id?.toString() || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (order && (order.customerName || "")).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (order && (order.customerPhone || "")).includes(searchQuery)
+    )
     : [...safeOrders]; // Clone to avoid mutating original
 
   if (statusFilter !== "ALL") {
@@ -138,12 +138,12 @@ function OrdersContent() {
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }
-    
+
     // PENDING: Cũ nhất -> mới nhất (Ascending)
     if (a.status === 'PENDING') {
       return dateA - dateB;
     }
-    
+
     // Các trạng thái khác: Mới nhất -> cũ nhất (Descending)
     return dateB - dateA;
   });
@@ -151,18 +151,18 @@ function OrdersContent() {
   // Tính toán phân trang
   const totalPages = Math.max(1, Math.ceil((sortedFiltered?.length || 0) / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  
-  const paginatedOrders = Array.isArray(sortedFiltered) 
-    ? sortedFiltered.slice(startIndex, startIndex + itemsPerPage) 
+
+  const paginatedOrders = Array.isArray(sortedFiltered)
+    ? sortedFiltered.slice(startIndex, startIndex + itemsPerPage)
     : [];
 
   // Statistics calculation - Cập nhật cho Mục 4
   const totalCount = safeOrders.length;
-  
+
   const processingCount = safeOrders.filter(
     (o) => o && ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED'].includes(o.status)
   ).length;
-  
+
   const totalRevenue = safeOrders
     .filter((o) => o && o.status === 'COMPLETED')
     .reduce((sum, o) => sum + (o.totalAmount ?? 0) + (o.shippingFee ?? 0), 0);
@@ -173,9 +173,9 @@ function OrdersContent() {
       const dataToExport = orders.map(order => {
         const orderDate = order.orderDate
           ? new Date(order.orderDate).toLocaleString("vi-VN", {
-              day: "2-digit", month: "2-digit", year: "numeric",
-              hour: "2-digit", minute: "2-digit",
-            })
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit",
+          })
           : "—";
         return {
           'Mã Đơn': order.orderCode || order.id,
@@ -211,18 +211,17 @@ function OrdersContent() {
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
       {/* Toast Alert */}
       {toast && (
-        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
-          toast.type === 'success' 
-            ? 'bg-green-50 text-green-800 border-green-200' 
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${toast.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-200'
             : 'bg-red-50 text-red-800 border-red-200'
-        }`}>
+          }`}>
           <div className="flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             <p className="text-sm font-semibold">{toast.msg}</p>
           </div>
-          <button 
-            type="button" 
-            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer" 
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer"
             onClick={() => setToast(null)}
           >
             &times;
@@ -247,13 +246,8 @@ function OrdersContent() {
       {/* Header section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
-          <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011]">Đơn hàng</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e]">Quản lý Đơn hàng</h2>
-          <p className="text-sm text-[#5c403c]">Theo dõi trạng thái giao hàng, kiểm tra chi tiết thanh toán và doanh thu thực tế.</p>
+
         </div>
       </section>
 
@@ -261,21 +255,19 @@ function OrdersContent() {
       <div className="flex space-x-4 mb-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('physical')}
-          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'physical'
+          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'physical'
               ? 'border-[#b70011] text-[#b70011]'
               : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+            }`}
         >
           Sách Vật Lý
         </button>
         <button
           onClick={() => setActiveTab('audio')}
-          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'audio'
+          className={`py-2 px-4 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'audio'
               ? 'border-[#b70011] text-[#b70011]'
               : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+            }`}
         >
           Sách Nói
         </button>
@@ -335,8 +327,8 @@ function OrdersContent() {
           {/* Search bar */}
           <div style={{ position: "relative" }} className="w-full sm:w-64">
             <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm mã đơn, khách hàng..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
@@ -345,7 +337,7 @@ function OrdersContent() {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
           >
@@ -357,7 +349,7 @@ function OrdersContent() {
 
           {/* View Toggles */}
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('grid')}
               title="Dạng lưới"
@@ -365,7 +357,7 @@ function OrdersContent() {
             >
               <Grid className="w-4 h-4" />
             </button>
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('table')}
               title="Dạng bảng"
@@ -419,9 +411,9 @@ function OrdersContent() {
             const StatusIcon = status.icon;
             const orderDate = order.orderDate
               ? new Date(order.orderDate).toLocaleString("vi-VN", {
-                  day: "2-digit", month: "2-digit", year: "numeric",
-                  hour: "2-digit", minute: "2-digit",
-                })
+                day: "2-digit", month: "2-digit", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+              })
               : "—";
             const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
@@ -504,9 +496,9 @@ function OrdersContent() {
                   const StatusIcon = status.icon;
                   const orderDate = order.orderDate
                     ? new Date(order.orderDate).toLocaleString("vi-VN", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })
                     : "—";
                   const amount = new Intl.NumberFormat("vi-VN").format((order.totalAmount ?? 0) + (order.shippingFee ?? 0));
 
@@ -575,7 +567,7 @@ function OrdersContent() {
             Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filtered.length)} của {filtered.length} đơn hàng
           </p>
           <div className="flex items-center gap-1.5">
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
@@ -583,7 +575,7 @@ function OrdersContent() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             {(() => {
               let startPage = Math.max(1, currentPage - 2);
               let endPage = Math.min(totalPages, currentPage + 2);
@@ -592,11 +584,10 @@ function OrdersContent() {
               return Array.from({ length: Math.max(0, endPage - startPage + 1) }, (_, i) => startPage + i).map(page => (
                 <button
                   key={page}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                    currentPage === page 
-                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${currentPage === page
+                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                   onClick={() => setCurrentPage(page)}
                 >
                   {page}
@@ -604,7 +595,7 @@ function OrdersContent() {
               ));
             })()}
 
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}

@@ -140,15 +140,13 @@ function CustomersContent() {
 
   const filtered = searchQuery
     ? customers.filter(
-        (u) =>
-          u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.phone?.includes(searchQuery)
-      )
+      (u) =>
+        u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.phone?.includes(searchQuery)
+    )
     : customers;
-
-  // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedCustomers = filtered.slice(startIndex, startIndex + itemsPerPage);
@@ -161,7 +159,7 @@ function CustomersContent() {
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
-      
+
       const dataToExport = customers.map(item => {
         const classification = getCustomerClassification(item.totalSpending);
         return {
@@ -178,7 +176,7 @@ function CustomersContent() {
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Khách hàng');
-      
+
       XLSX.writeFile(wb, `Danh_sach_khach_hang_Libris_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err: any) {
       console.error('Error exporting customers:', err);
@@ -221,18 +219,17 @@ function CustomersContent() {
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
       {/* Toast Alert */}
       {toast && (
-        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
-          toast.type === 'success' 
-            ? 'bg-green-50 text-green-800 border-green-200' 
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${toast.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-200'
             : 'bg-red-50 text-red-800 border-red-200'
-        }`}>
+          }`}>
           <div className="flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             <p className="text-sm font-semibold">{toast.msg}</p>
           </div>
-          <button 
-            type="button" 
-            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer" 
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer"
             onClick={() => setToast(null)}
           >
             &times;
@@ -247,16 +244,11 @@ function CustomersContent() {
         </div>
       )}
 
-      {/* Header & Breadcrumbs */}
+      {/* Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
-          <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011]">Khách hàng</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Khách hàng</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Xem thông tin chi tiết, lịch sử mua hàng và quản lý trạng thái tài khoản của khách hàng.</p>
+
         </div>
       </section>
 
@@ -312,8 +304,8 @@ function CustomersContent() {
           {/* Search bar */}
           <div style={{ position: "relative" }} className="w-full sm:w-64">
             <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
-            <input 
-              type="search" 
+            <input
+              type="search"
               style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm kiếm khách hàng..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
@@ -322,7 +314,7 @@ function CustomersContent() {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
           >
@@ -332,16 +324,17 @@ function CustomersContent() {
 
 
 
+
           {/* View Toggles */}
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('grid')}
               title="Dạng lưới"
             >
               <Grid className="w-4 h-4" />
             </button>
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('table')}
               title="Dạng bảng"
@@ -356,8 +349,8 @@ function CustomersContent() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedCustomers.map((item) => (
-            <div 
-              key={item.username} 
+            <div
+              key={item.username}
               className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4 cursor-pointer hover:border-[#b70011]/30"
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -403,19 +396,18 @@ function CustomersContent() {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                  item.active 
-                    ? "bg-green-50 text-green-800 border-green-200" 
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${item.active
+                    ? "bg-green-50 text-green-800 border-green-200"
                     : "bg-red-50 text-red-800 border-red-200"
-                }`}>
+                  }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${item.active ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
                   {item.active ? "Hoạt động" : "Đã khóa"}
                 </span>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 action-button">
-                <Link 
-                  href={`/admin/customers/${item.username}/history`} 
+                <Link
+                  href={`/admin/customers/${item.username}/history`}
                   className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold"
                   title="Xem lịch sử mua hàng"
                   onClick={(e) => e.stopPropagation()}
@@ -424,10 +416,10 @@ function CustomersContent() {
                   <span>Lịch sử</span>
                 </Link>
                 <div onClick={(e) => e.stopPropagation()}>
-                  <ToggleStatusButton 
-                    username={item.username} 
-                    isActive={item.active} 
-                    onToggleSuccess={refreshCustomers} 
+                  <ToggleStatusButton
+                    username={item.username}
+                    isActive={item.active}
+                    onToggleSuccess={refreshCustomers}
                     onShowToast={(msg, type) => setToast({ msg, type })}
                   />
                 </div>
@@ -457,8 +449,8 @@ function CustomersContent() {
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
                 {paginatedCustomers.map((item) => (
-                  <tr 
-                    key={item.username} 
+                  <tr
+                    key={item.username}
                     className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -503,19 +495,18 @@ function CustomersContent() {
                       {new Intl.NumberFormat("vi-VN").format(item.totalSpending)} đ
                     </td>
                     <td className="px-6 py-4" style={{ textAlign: "center" }}>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                        item.active 
-                          ? 'bg-green-50 text-green-800 border-green-200' 
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${item.active
+                          ? 'bg-green-50 text-green-800 border-green-200'
                           : 'bg-red-50 text-red-800 border-red-200'
-                      }`}>
+                        }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${item.active ? 'bg-green-600 animate-pulse' : 'bg-red-500'}`} />
                         {item.active ? 'Hoạt động' : 'Đã khóa'}
                       </span>
                     </td>
                     <td className="px-6 py-4" style={{ textAlign: "center" }}>
                       <div className="flex justify-center items-center gap-2 action-button">
-                        <Link 
-                          href={`/admin/customers/${item.username}/history`} 
+                        <Link
+                          href={`/admin/customers/${item.username}/history`}
                           className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold"
                           title="Xem lịch sử mua hàng"
                           onClick={(e) => e.stopPropagation()}
@@ -524,10 +515,10 @@ function CustomersContent() {
                           <span>Lịch sử</span>
                         </Link>
                         <div onClick={(e) => e.stopPropagation()}>
-                          <ToggleStatusButton 
-                            username={item.username} 
-                            isActive={item.active} 
-                            onToggleSuccess={refreshCustomers} 
+                          <ToggleStatusButton
+                            username={item.username}
+                            isActive={item.active}
+                            onToggleSuccess={refreshCustomers}
                             onShowToast={(msg, type) => setToast({ msg, type })}
                           />
                         </div>
@@ -555,7 +546,7 @@ function CustomersContent() {
             Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filtered.length)} của {filtered.length} khách hàng
           </p>
           <div className="flex items-center gap-1.5">
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
@@ -563,7 +554,7 @@ function CustomersContent() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             {(() => {
               let startPage = Math.max(1, currentPage - 2);
               let endPage = Math.min(totalPages, currentPage + 2);
@@ -572,11 +563,10 @@ function CustomersContent() {
               return Array.from({ length: Math.max(0, endPage - startPage + 1) }, (_, i) => startPage + i).map(page => (
                 <button
                   key={page}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                    currentPage === page 
-                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${currentPage === page
+                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                   onClick={() => setCurrentPage(page)}
                 >
                   {page}
@@ -584,7 +574,7 @@ function CustomersContent() {
               ));
             })()}
 
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}

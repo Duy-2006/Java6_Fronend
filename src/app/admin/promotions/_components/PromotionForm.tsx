@@ -189,13 +189,6 @@ export default function PromotionForm({
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">
             {isEdit ? "Chỉnh sửa Khuyến mãi" : "Tạo chương trình Khuyến mãi"}
           </h2>
-          <nav className="flex items-center gap-1.5 text-xs text-[#5c403c] mt-1.5">
-            <Link href="/admin/promotions" className="hover:text-[#b70011] transition-colors">Khuyến mãi</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011] font-bold">
-              {isEdit ? "Cập nhật" : "Tạo mới"}
-            </span>
-          </nav>
         </div>
         <div className="flex items-center gap-3">
           <Link

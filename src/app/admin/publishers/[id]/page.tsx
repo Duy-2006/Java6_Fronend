@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Edit, Sparkles, Phone, MapPin, Building2, BookOpen, Ban, CheckCircle } from "lucide-react";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
 import { getPublisherById, updatePublisher, Publisher } from "@/services/publishersService";
 import { getAllBooks, Book } from "@/services/booksService";
 import PublisherBooksList from "../_components/PublisherBooksList";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PublisherDetailPage() {
   const params = useParams();
@@ -19,6 +21,8 @@ export default function PublisherDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!id) {
@@ -53,35 +57,42 @@ export default function PublisherDetailPage() {
     loadData();
   }, [id]);
 
-  const handleToggleStatus = async () => {
+  const handleToggleStatusClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmToggle = async () => {
     if (!publisher || !id) return;
 
     const isCurrentlyActive = publisher.active;
-    const message = isCurrentlyActive
-      ? `Bạn có chắc chắn muốn ngưng hoạt động nhà xuất bản "${publisher.name}"?`
-      : `Bạn có chắc chắn muốn kích hoạt hoạt động lại nhà xuất bản "${publisher.name}"?`;
+    try {
+      setUpdating(true);
+      const updatedData = {
+        name: publisher.name,
+        address: publisher.address || "",
+        phone: publisher.phone || "",
+        active: !isCurrentlyActive
+      };
 
-    if (window.confirm(message)) {
-      try {
-        setUpdating(true);
-        const updatedData = {
-          name: publisher.name,
-          address: publisher.address || "",
-          phone: publisher.phone || "",
-          active: !isCurrentlyActive
-        };
-
-        const res = await updatePublisher(id, updatedData);
-        setPublisher(res);
-        alert(isCurrentlyActive ? "Đã ngưng hoạt động nhà xuất bản thành công!" : "Đã kích hoạt hoạt động nhà xuất bản thành công!");
-      } catch (err) {
-        console.error("Error toggling publisher status:", err);
-        alert("Cập nhật trạng thái nhà xuất bản thất bại.");
-      } finally {
-        setUpdating(false);
-      }
+      const res = await updatePublisher(id, updatedData);
+      setPublisher(res);
+      toast({
+        title: "Thành công",
+        description: isCurrentlyActive ? "Đã ngưng hoạt động nhà xuất bản thành công!" : "Đã kích hoạt hoạt động nhà xuất bản thành công!",
+      });
+    } catch (err) {
+      console.error("Error toggling publisher status:", err);
+      toast({
+        title: "Lỗi",
+        description: "Cập nhật trạng thái nhà xuất bản thất bại.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(false);
+      setShowConfirmModal(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -135,7 +146,7 @@ export default function PublisherDetailPage() {
           </Link>
 
           <button
-            onClick={handleToggleStatus}
+            onClick={handleToggleStatusClick}
             disabled={updating}
             className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-white transition-all px-4 py-2.5 rounded-lg shadow-md active:scale-[0.98] cursor-pointer border-0 ${
               publisher.active 
@@ -246,6 +257,16 @@ export default function PublisherDetailPage() {
         />
       </div>
 
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmToggle}
+        title="Xác Nhận Trạng Thái"
+        message={publisher?.active 
+          ? `Bạn có chắc chắn muốn ngưng hoạt động nhà xuất bản "${publisher.name}"?`
+          : `Bạn có chắc chắn muốn kích hoạt hoạt động lại nhà xuất bản "${publisher?.name}"?`
+        }
+      />
     </div>
   );
 }

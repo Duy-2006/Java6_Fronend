@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { useState, useEffect } from "react";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +20,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Banner {
   id?: number;
@@ -40,10 +42,12 @@ interface BannerDetailClientProps {
 
 export default function BannerDetailClient({ id }: BannerDetailClientProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [banner, setBanner] = useState<Banner | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [toggling, setToggling] = useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [imageMeta, setImageMeta] = useState<{ width: number, height: number, sizeKB: number | string, format: string } | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
@@ -123,7 +127,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
   }, [banner, API_URL]);
 
   const handleDelete = async () => {
-    if (!confirm("Bạn có chắc chắn muốn xóa banner này?")) return;
+    setShowDeleteModal(false);
 
     try {
       const res = await authFetch(`${API_URL}/api/banners/${id}`, {
@@ -131,7 +135,10 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
       });
 
       if (res.ok) {
-        window.alert("Xóa banner thành công!");
+        toast({
+          title: "Thành công",
+          description: "Xóa banner thành công!",
+        });
         router.push("/admin/banners");
       } else {
         setAlert({ msg: "Có lỗi xảy ra khi xóa banner.", type: "error" });
@@ -338,7 +345,7 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
               <span>Chỉnh sửa</span>
             </Link>
             <button 
-              onClick={handleDelete} 
+              onClick={() => setShowDeleteModal(true)} 
               className="px-3 py-1.5 bg-[#dc2626] text-white font-semibold text-xs rounded-lg hover:bg-[#b70011] transition-all flex items-center gap-1.5 shadow-sm border-0 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -517,6 +524,14 @@ export default function BannerDetailClient({ id }: BannerDetailClientProps) {
         </div>
 
       </div>
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Xóa Banner"
+        message="Bạn có chắc chắn muốn xóa banner này không? Hành động này không thể hoàn tác."
+      />
     </div>
   );
 }

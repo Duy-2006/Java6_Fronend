@@ -2,7 +2,7 @@
 import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 
 import { useState, useEffect } from "react";
-import { Edit, Save, AlertCircle, Check, X } from "lucide-react";
+import { Edit, Save, AlertCircle, Check, X, AlertTriangle } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; allowedNext: string[] }> = {
   PENDING:   { label: "Chờ xác nhận", allowedNext: ["CONFIRMED", "CANCELLED"] },
@@ -27,6 +27,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatu
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Reset when status updates
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatu
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderId) {
       setMessage({ type: 'error', text: "Mã đơn hàng không hợp lệ." });
@@ -70,12 +71,14 @@ export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatu
     
     // Check if it is an online paid order
     if (status === "CANCELLED" && paymentStatus === "PAID" && (paymentMethod === "VNPAY" || paymentMethod === "PAYOS")) {
-      const confirmRefund = window.confirm(
-        "Đơn hàng này đã được thanh toán online.\n\nSau khi hủy, cửa hàng cần liên hệ trực tiếp với khách hàng để xử lý hoàn tiền.\n\nBạn có chắc chắn muốn hủy đơn hàng không?"
-      );
-      if (!confirmRefund) return;
+      setShowConfirmModal(true);
+      return;
     }
 
+    executeSubmit();
+  };
+
+  const executeSubmit = async () => {
     if (!isLoggedIn()) {
       setMessage({ type: 'error', text: "Bạn chưa đăng nhập." });
       return;
@@ -153,7 +156,7 @@ export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatu
             <span>Cập nhật trạng thái</span>
           </h6>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="order-status" className="text-xs font-bold text-slate-400 uppercase tracking-wide">Trạng thái đơn hàng:</label>
               <select
@@ -208,6 +211,46 @@ export default function UpdateOrderStatus({ orderId, currentStatus, paymentStatu
           </form>
         </div>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate__animated animate__fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md p-6 animate__animated animate__zoomIn">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-[#b70011]" />
+              </div>
+              <h3 className="font-bold text-xl text-[#191c1e]">Cảnh báo hoàn tiền</h3>
+              <p className="text-sm font-medium text-slate-500 mt-1">Mã đơn: #{orderId}</p>
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-700 font-medium leading-relaxed">
+                Đơn hàng này đã được thanh toán online qua <strong>{paymentMethod}</strong>. Sau khi hủy, cửa hàng cần liên hệ trực tiếp với khách hàng để xử lý hoàn tiền thủ công.
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-4 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 transition-colors shadow-sm"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Không, giữ đơn
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-4 bg-[#b70011] text-white rounded-lg font-bold text-sm hover:bg-[#93000a] transition-colors shadow-sm shadow-[#b70011]/20"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  executeSubmit();
+                }}
+              >
+                Xác nhận hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -203,6 +203,28 @@ export async function deleteChapterAudio(bookId: number, chapterId: number, lang
   return await res.json();
 }
 
+// Approve specific language audio (change from PENDING_REVIEW to SUCCESS)
+export async function approveLanguageAudio(bookId: number, chapterId: number, langCode: string): Promise<Chapter> {
+    if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/${bookId}/chapters/${chapterId}/audio/${langCode}/approve`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    throw new Error(`Duyệt audio ngôn ngữ ${langCode} thất bại (Status: ${res.status})`);
+  }
+  return await res.json();
+}
+
 // Regenerate single language audio for a specific chapter
 export async function regenerateLanguageAudio(
   bookId: number,
@@ -463,5 +485,34 @@ export async function getMediaPlayerChapters(bookId: number): Promise<Chapter[]>
     }
     throw err;
   }
+}
+
+// Parse a docx file on backend and return plain text
+export async function parseDocxFile(file: File): Promise<string> {
+  if (!isLoggedIn()) {
+    throw new Error("401: Chưa đăng nhập");
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await authFetch(`${BASE_URL}/api/admin/books/parse-docx`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    credentials: 'include',
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    throw new Error("401: Hết hạn phiên làm việc");
+  }
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Phân tích file Word thất bại (Status: ${res.status})`);
+  }
+  
+  const data = await res.json();
+  return data.text || "";
 }
 

@@ -158,14 +158,9 @@ function AuthorsContent() {
         </div>
       )}
 
-      {/* Tiêu đề & Breadcrumb */}
+      {/* Tiêu đề */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
-          <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011]">Tác giả</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Tác giả</h2>
         </div>
         <Link 
@@ -298,7 +293,7 @@ function AuthorsContent() {
                     <Edit className="w-4.5 h-4.5" />
                   </Link>
                   <div onClick={(e) => e.stopPropagation()}>
-                    <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                    <DeleteAuthorButton authorId={item.id} bookCount={item.bookCount} onSuccess={() => loadAuthors(true)} />
                   </div>
                 </div>
               </div>
@@ -377,7 +372,7 @@ function AuthorsContent() {
                           <Edit className="w-4.5 h-4.5" />
                         </Link>
                         <div onClick={(e) => e.stopPropagation()}>
-                          <DeleteAuthorButton authorId={item.id} onSuccess={() => loadAuthors(true)} />
+                          <DeleteAuthorButton authorId={item.id} bookCount={item.bookCount} onSuccess={() => loadAuthors(true)} />
                         </div>
                       </div>
                     </td>

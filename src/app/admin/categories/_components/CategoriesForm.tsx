@@ -1,10 +1,20 @@
 "use client";
 import { authFetch } from "@/lib/authFetch";
-
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { validateCategory } from "@/services/validation";
 import FieldError from "@/components/layout/FieldError";
+import { getAllCategories } from "@/services/categoriesService";
+import {
+  ArrowLeft,
+  Save,
+  Tag,
+  Image as ImageIcon,
+  ChevronRight,
+  FolderPlus,
+  Edit
+} from "lucide-react";
 
 interface Category {
   id?: number | null;
@@ -63,10 +73,26 @@ export default function CategoryForm({ category }: { category?: Category }) {
 
     setLoading(true);
 
-
     try {
+      // Kiểm tra trùng tên thể loại trên client trước khi gửi lên server
+      try {
+        const existingCategories = await getAllCategories();
+        const trimmedName = name.trim().toLowerCase();
+        const duplicate = existingCategories.find(
+          (c) => c.name.trim().toLowerCase() === trimmedName && (!isEdit || c.id !== category?.id)
+        );
+
+        if (duplicate) {
+          setErrors({ name: "Tên thể loại này đã tồn tại. Vui lòng nhập tên khác." });
+          setLoading(false);
+          return;
+        }
+      } catch (checkErr) {
+        console.warn("Lỗi khi kiểm tra danh sách thể loại trùng:", checkErr);
+      }
+
       const formData = new FormData();
-      formData.append("name", name);
+      formData.append("name", name.trim());
       if (imageFile) {
         formData.append("image", imageFile);
       }
@@ -78,9 +104,8 @@ export default function CategoryForm({ category }: { category?: Category }) {
 
       const response = await authFetch(endpoint, {
         method,
-        headers: {
-          },
-        body: formData, // Không set Content-Type, browser tự thêm boundary
+        headers: {},
+        body: formData,
       });
 
       if (response.ok) {
@@ -99,12 +124,23 @@ export default function CategoryForm({ category }: { category?: Category }) {
           try {
             const errorData = await response.json();
             if (errorData.message) errorText = errorData.message;
+            else if (typeof errorData === "string") errorText = errorData;
             else if (Array.isArray(errorData)) errorText = errorData.join(", ");
           } catch {
             // Bỏ qua nếu response không phải JSON
           }
         }
-        setApiError(errorText);
+
+        if (
+          errorText.toLowerCase().includes("trùng") ||
+          errorText.toLowerCase().includes("exist") ||
+          errorText.toLowerCase().includes("already") ||
+          response.status === 409
+        ) {
+          setErrors({ name: "Tên thể loại này đã tồn tại. Vui lòng nhập tên khác." });
+        } else {
+          setApiError(errorText);
+        }
       }
     } catch (err) {
       console.error("Network error:", err);
@@ -115,115 +151,133 @@ export default function CategoryForm({ category }: { category?: Category }) {
   };
 
   return (
-    <div className="container-fluid p-0 animate__animated animate__fadeIn">
-      <div className="row justify-content-center">
-        <div className="col-lg-8">
-          <div className="card border-0 shadow-lg mt-4">
-            <div
-              className="card-header text-white py-3 bg-gradient-to-br from-[#b70011] to-[#8a000d] rounded-t-lg"
-            >
-              <h5 className="m-0 fw-bold text-uppercase d-flex align-items-center">
-                {isEdit ? (
-                  <i className="fa-solid fa-pen-to-square me-2" />
-                ) : (
-                  <i className="fa-solid fa-circle-plus me-2" />
-                )}
-                {isEdit ? "Cập Nhật Thể Loại" : "Thêm Thể Loại Mới"}
-              </h5>
+    <div className="max-w-2xl mx-auto p-4 space-y-6 animate__animated animate__fadeIn font-sans">
+      {/* Header */}
+      <section className="space-y-2">
+        <h2 className="text-2xl font-bold text-[#191c1e] font-sans">
+          {isEdit ? "Cập Nhật Thể Loại" : "Thêm Thể Loại Mới"}
+        </h2>
+      </section>
+
+      {/* Main Form Card */}
+      <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm">
+        {/* Header Block with linear gradient */}
+        <div className="bg-gradient-to-r from-[#b70011] to-[#bf0715] p-5 text-white flex items-center gap-2.5">
+          {isEdit ? (
+            <Edit className="w-5.5 h-5.5" />
+          ) : (
+            <FolderPlus className="w-5.5 h-5.5" />
+          )}
+          <h3 className="font-bold text-sm uppercase tracking-wide">
+            {isEdit ? `Chỉnh sửa: ${category?.name}` : "Thông tin hồ sơ thể loại"}
+          </h3>
+        </div>
+
+        {/* Card Body */}
+        <div className="p-6 bg-white space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            {/* API Error alert */}
+            {apiError && (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm flex items-start gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-red-600 mt-1.5 flex-shrink-0 animate-pulse" />
+                <p className="font-medium">{apiError}</p>
+              </div>
+            )}
+
+            {/* Input Tên Thể Loại */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-700">
+                Tên Thể Loại <span className="text-red-500">*</span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <Tag className="w-4.5 h-4.5 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  type="text"
+                  style={{ paddingLeft: "2.5rem" }}
+                  className={`w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2.5 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none ${
+                    errors.name ? "ring-2 ring-red-500" : ""
+                  }`}
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setErrors({});
+                    setApiError(null);
+                  }}
+                  onBlur={() => setErrors(validateCategory({ name }))}
+                  placeholder="Nhập tên thể loại (VD: Sách Kinh Tế, Tiểu Thuyết)..."
+                  maxLength={50}
+                  disabled={loading}
+                />
+              </div>
+              {errors.name && <FieldError msg={errors.name} />}
+              <div className="flex justify-between items-center text-[11px] text-slate-400 font-semibold px-0.5">
+                <span>Nhập tên hiển thị chính thức của thể loại</span>
+                <span>{name.length}/50</span>
+              </div>
             </div>
 
-            <div className="card-body p-4 bg-white">
-              <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
-                {apiError && (
-                  <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-                    <i className="fa-solid fa-circle-exclamation me-2"></i>
-                    {apiError}
-                    <button
-                      type="button"
-                      className="btn-close"
-                      onClick={() => setApiError(null)}
-                      aria-label="Close"
-                    ></button>
-                  </div>
-                )}
-
-                <div className="mb-4">
-                  <label htmlFor="categoryName" className="form-label fw-bold text-secondary">
-                    Tên Thể Loại <span className="text-danger">*</span>
-                  </label>
-                  <input
-                      id="categoryName"
-                      type="text"
-                      className={`form-control form-control-lg ${errors.name ? "border-danger" : ""}`}
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        setErrors({});
-                        setApiError(null);
-                      }}
-                      onBlur={() => setErrors(validateCategory({ name }))}
-                      placeholder="Ví dụ: Sách Kinh Tế, Tiểu Thuyết..."
-                      maxLength={50}
-                      disabled={loading}
-                    />
-                  <FieldError msg={errors.name} />
-                  <div className="d-flex justify-content-between mt-1">
-                    <div className="form-text text-muted small ms-1">
-                      Tên thể loại nên ngắn gọn và rõ nghĩa.
-                    </div>
-                    <small className="text-muted">{name.length}/50</small>
-                  </div>
-                </div>
-
-                {/* Upload ảnh */}
-                <div className="mb-4">
-                  <label htmlFor="categoryImage" className="form-label fw-bold text-secondary">Hình ảnh danh mục</label>
-                  <input
-                      id="categoryImage"
-                      ref={fileInputRef}
-                      type="file"
-                      className="form-control"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleFileChange}
-                      disabled={loading}
-                    />
-                  <div className="form-text text-muted small mt-1">
-                    Chọn ảnh đại diện (JPEG, PNG, WebP, tối đa 2MB). Nếu không chọn, ảnh cũ sẽ được giữ nguyên (khi sửa).
-                  </div>
-                  {previewUrl && (
-                    <div className="mt-3 d-flex align-items-start gap-3">
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="img-thumbnail max-h-[120px] max-w-[120px] object-cover"
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={handleRemoveImage}
-                      >
-                        <i className="fa-solid fa-trash-alt me-1"></i> Xóa ảnh
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="d-flex gap-2 justify-content-end mt-5">
-                  <a href="/admin/categories" className="btn btn-light border fw-bold px-4">
-                    <i className="fa-solid fa-arrow-left me-1" /> Quay lại
-                  </a>
+            {/* Input Hình Ảnh Danh Mục */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-700">
+                Hình ảnh danh mục <span className="text-slate-400 font-normal text-xs">(Tùy chọn)</span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <ImageIcon className="w-4.5 h-4.5 text-slate-400" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                <input
+                  id="categoryImage"
+                  ref={fileInputRef}
+                  type="file"
+                  style={{ paddingLeft: "2.5rem" }}
+                  className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-white file:text-slate-700 hover:file:bg-slate-100 cursor-pointer"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  disabled={loading}
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 font-semibold px-0.5">
+                Chọn ảnh đại diện (JPEG, PNG, WebP, tối đa 2MB). Nếu không chọn, ảnh cũ sẽ được giữ nguyên (khi sửa).
+              </p>
+              {previewUrl && (
+                <div className="mt-3 flex items-center gap-3 bg-slate-50 p-2.5 border border-slate-200 rounded-lg w-fit">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="h-14 w-14 rounded-md object-cover border border-slate-200"
+                  />
                   <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn btn-primary fw-bold px-4 shadow-sm"
+                    type="button"
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold bg-white border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                    onClick={handleRemoveImage}
                   >
-                    <i className="fa-solid fa-floppy-disk me-1" />
-                    {loading ? "Đang lưu..." : isEdit ? "Cập nhật" : "Lưu mới"}
+                    Xóa ảnh
                   </button>
                 </div>
-              </form>
+              )}
             </div>
-          </div>
+
+            {/* Actions Footer */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <Link
+                href="/admin/categories"
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+              </Link>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-5 py-2 bg-[#b70011] text-white hover:bg-[#b70011]/90 disabled:opacity-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-[#b70011]/15 transition-all cursor-pointer border-0"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>{loading ? "Đang lưu..." : isEdit ? "Cập nhật" : "Lưu hồ sơ"}</span>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

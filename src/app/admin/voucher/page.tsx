@@ -5,11 +5,13 @@ import { authFetch, isLoggedIn } from "@/lib/authFetch";;
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  Ticket, Plus, Search, Edit, Trash2, 
+import {
+  Ticket, Plus, Search, Edit, Trash2,
   Tag, AlertCircle, CheckCircle2, XCircle, Clock,
   TrendingUp, Download, RefreshCw, ChevronRight, FileSpreadsheet, Eye
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
 
 interface Voucher {
   id: number;
@@ -29,9 +31,9 @@ interface Voucher {
 const formatDateRange = (startStr: string, endStr: string) => {
   const start = new Date(startStr);
   const end = new Date(endStr);
-  
+
   const pad = (n: number) => n.toString().padStart(2, '0');
-  
+
   const startDay = pad(start.getDate());
   const startMonth = pad(start.getMonth() + 1);
   const startYear = start.getFullYear();
@@ -54,20 +56,22 @@ export default function VoucherListPage() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [deletingVoucher, setDeletingVoucher] = useState<{ id: number, code: string } | null>(null);
+  const { toast } = useToast();
 
   const fetchVouchers = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     setError("");
 
-        if (!isLoggedIn()) {
+    if (!isLoggedIn()) {
       router.push("/admin/login");
       return;
     }
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
       const res = await authFetch(`${API_URL}/api/vouchers/admin`, {
-        headers: { },
+        headers: {},
       });
       if (!res.ok) throw new Error("Không thể tải danh sách voucher");
       const data = await res.json();
@@ -84,18 +88,20 @@ export default function VoucherListPage() {
     fetchVouchers();
   }, []);
 
-  const handleDelete = async (id: number, code: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa voucher "${code}"?`)) return;
-        try {
+  const handleDeleteConfirm = async () => {
+    if (!deletingVoucher) return;
+    try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
-      const res = await authFetch(`${API_URL}/api/vouchers/admin/${id}`, {
+      const res = await authFetch(`${API_URL}/api/vouchers/admin/${deletingVoucher.id}`, {
         method: "DELETE",
-        headers: { },
+        headers: {},
       });
       if (!res.ok) throw new Error("Xóa thất bại");
       fetchVouchers(true);
     } catch (err: any) {
-      alert(err.message);
+      setError(err.message);
+    } finally {
+      setDeletingVoucher(null);
     }
   };
 
@@ -121,7 +127,11 @@ export default function VoucherListPage() {
       XLSX.writeFile(wb, `Danh_sach_Voucher_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err: any) {
       console.error("Error exporting excel:", err);
-      alert("Không thể xuất file Excel: " + err.message);
+      toast({
+        title: "Lỗi xuất file",
+        description: "Không thể xuất file Excel: " + err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -134,7 +144,7 @@ export default function VoucherListPage() {
       INACTIVE: { text: "Tạm dừng", bg: "bg-rose-50 border-rose-200", textCol: "text-rose-700", dot: "bg-rose-700", icon: XCircle },
     };
     const s = statusConfig[status] || { text: status, bg: "bg-gray-50 border-gray-200", textCol: "text-gray-700", dot: "bg-gray-700", icon: AlertCircle };
-    
+
     return (
       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${s.bg} ${s.textCol}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}></span>
@@ -164,7 +174,7 @@ export default function VoucherListPage() {
       const pA = getStatusPriority(a.status);
       const pB = getStatusPriority(b.status);
       if (pA !== pB) return pA - pB;
-      
+
       // Nếu cùng trạng thái, ưu tiên thời gian gần nhất lên trước (mới nhất lên trên)
       return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
     });
@@ -192,18 +202,11 @@ export default function VoucherListPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
-      {/* Header section with breadcrumbs */}
+      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <nav className="flex items-center gap-1 text-[#5c403c] text-xs mb-1.5">
-            <span className="font-semibold cursor-pointer hover:underline">Admin</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold cursor-pointer hover:underline">Khuyến mãi</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold text-[#b70011]">Voucher</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Voucher</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Tạo và quản lý các mã giảm giá cho khách hàng mua hàng trên hệ thống.</p>
+
         </div>
         <div className="flex items-center gap-3">
 
@@ -284,7 +287,7 @@ export default function VoucherListPage() {
           {/* Status Dropdown */}
           <div className="flex items-center gap-2 bg-[#f2f4f6] px-3 py-1.5 rounded-lg border border-[#e6bdb8]/50">
             <label htmlFor="statusFilter" className="text-xs font-semibold text-[#5c403c]">Trạng thái:</label>
-            <select 
+            <select
               id="statusFilter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -312,9 +315,9 @@ export default function VoucherListPage() {
             />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-2 border border-[#e6bdb8] rounded-lg font-semibold text-xs text-[#5c403c] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
           >
@@ -344,8 +347,8 @@ export default function VoucherListPage() {
             </thead>
             <tbody className="divide-y divide-[#e6bdb8]/10">
               {filteredVouchers.map((v) => (
-                <tr 
-                  key={v.id} 
+                <tr
+                  key={v.id}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.closest('.action-btn')) return;
@@ -383,7 +386,7 @@ export default function VoucherListPage() {
                     </div>
                     {/* Progress bar */}
                     <div className="w-20 h-1.5 bg-[#f2f4f6] rounded-full mt-2 mx-auto overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full rounded-full ${v.usedCount >= v.usageLimit ? 'bg-[#b70011]' : 'bg-[#dc2626]'}`}
                         ref={node => {
                           if (node) {
@@ -411,7 +414,7 @@ export default function VoucherListPage() {
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button
-                        onClick={() => handleDelete(v.id, v.code)}
+                        onClick={() => setDeletingVoucher({ id: v.id, code: v.code })}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors action-btn"
                         title="Xóa"
                       >
@@ -432,7 +435,7 @@ export default function VoucherListPage() {
             </div>
             <h3 className="text-base font-bold text-[#191c1e] mb-1">Chưa có voucher nào</h3>
             <p className="text-[#5c403c] text-xs max-w-sm mb-6">
-              {searchTerm 
+              {searchTerm
                 ? `Không tìm thấy voucher nào phù hợp với từ khóa "${searchTerm}"`
                 : "Bạn chưa tạo bất kỳ mã giảm giá nào. Hãy tạo mã đầu tiên để thu hút khách hàng!"}
             </p>
@@ -448,6 +451,14 @@ export default function VoucherListPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={deletingVoucher !== null}
+        onClose={() => setDeletingVoucher(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Xóa Voucher"
+        message={`Bạn có chắc muốn xóa voucher "${deletingVoucher?.code}"? Hành động này không thể hoàn tác.`}
+      />
     </div>
   );
 }

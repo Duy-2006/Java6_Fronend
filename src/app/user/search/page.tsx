@@ -49,6 +49,7 @@ function SearchContent() {
   // Image search states synced with sessionStorage
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isImageSearch, setIsImageSearch] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
@@ -87,6 +88,7 @@ function SearchContent() {
       const preview = sessionStorage.getItem("searchImageBase64");
       setIsImageSearch(active);
       setImagePreview(preview);
+      setIsInitialized(true);
     };
 
     syncImageSearch();
@@ -99,7 +101,12 @@ function SearchContent() {
   // 2. Perform image search on backend when image is loaded
   useEffect(() => {
     async function performImageSearch() {
-      if (!isImageSearch || !imagePreview) return;
+      if (!isImageSearch || !imagePreview) {
+        if (isImageSearch && !imagePreview) {
+          setLoading(false);
+        }
+        return;
+      }
 
       try {
         setLoading(true);
@@ -126,9 +133,13 @@ function SearchContent() {
     performImageSearch();
   }, [imagePreview, isImageSearch, baseUrl]);
 
-  // 3. Sync text search or filter raw image books client-side by keyword
+  // 3. Sau khi Effect 2 xong và set rawImageBooks, Effect này tự chạy lại
+  //    nhờ rawImageBooks nằm trong dependency array → sửa race condition
   useEffect(() => {
+    if (!isInitialized) return;
+
     if (isImageSearch) {
+      // rawImageBooks vừa được cập nhật từ Effect 2 → sync sang books
       if (!keyword.trim()) {
         setBooks(rawImageBooks);
       } else {
@@ -137,10 +148,11 @@ function SearchContent() {
         );
         setBooks(filtered);
       }
-      setLoading(false);
+      // Không cần setLoading ở đây vì Effect 2 đã quản lý loading
       return;
     }
 
+    // Chế độ tìm kiếm bằng từ khóa thông thường
     async function searchBooks() {
       if (!keyword.trim()) {
         setBooks([]);
@@ -163,7 +175,7 @@ function SearchContent() {
       }
     }
     searchBooks();
-  }, [keyword, baseUrl, isImageSearch, rawImageBooks]);
+  }, [keyword, baseUrl, isImageSearch, rawImageBooks, isInitialized]);
 
   return (
     <div className="bg-[#f0f0f0] min-h-screen">
@@ -196,7 +208,7 @@ function SearchContent() {
           </div>
         )}
 
-        {loading ? (
+        {(!isInitialized || loading) ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
             <div className="w-10 h-10 border-4 border-[#b70011]/20 border-t-[#b70011] rounded-full animate-spin mx-auto mb-3"></div>
             <p className="text-sm font-medium text-gray-600">Đang tìm kiếm dữ liệu sách...</p>

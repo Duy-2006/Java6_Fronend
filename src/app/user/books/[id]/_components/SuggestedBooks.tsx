@@ -1,43 +1,62 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { authFetch, isLoggedIn } from "@/lib/authFetch";
+import BookCard from "@/components/BookCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
-interface Book {
-  id: number;
-  title: string;
-  price: number;
-  imageUrl?: string;
-}
+export default function SuggestedBooks({ books }: { books: any[] }) {
+  const router = useRouter();
+  const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
 
-export default function SuggestedBooks({ books }: { books: Book[] }) {
-  if (!books.length) return null;
+  if (!books || !books.length) return null;
+
+  const showToast = (message: string, isError: boolean = false) => {
+    setToast({ message, isError });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const addToCart = async (book: any, redirectToCheckout: boolean = false) => {
+    if (!isLoggedIn()) {
+      showToast("Vui lòng đăng nhập để thêm vào giỏ hàng", true);
+      router.push("/auth/login");
+      return;
+    }
+    try {
+      const response = await authFetch(`${API_URL}/api/cart/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id, quantity: 1 }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Thêm vào giỏ thất bại");
+      showToast(`Đã thêm "${book.title}" vào giỏ hàng!`);
+      window.dispatchEvent(new Event('cartUpdated'));
+      if (redirectToCheckout) router.push("/user/cart");
+    } catch (error: any) {
+      console.error("Add to cart error:", error);
+      showToast(error.message, true);
+    }
+  };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-      {books.map((book) => (
-        <Link key={book.id} href={`/user/books/${book.id}`} className="group block space-y-3">
-          <div className="aspect-[3/4] relative rounded-2xl overflow-hidden bg-[#f5f5f7] border border-gray-100 flex items-center justify-center p-4 transition-transform duration-200 group-hover:scale-[1.02]">
-            <img
-              src={`${API_URL}/uploads/books/${book.imageUrl?.replace(/^books\//, '') || 'default.jpg'}`}
-              alt={book.title}
-              className="max-h-full max-w-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/images/book-default.jpg';
-              }}
-            />
-          </div>
-          <div className="space-y-1 px-1">
-            <h3 className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#C92127] transition">
-              {book.title}
-            </h3>
-            <p className="text-sm font-black text-[#C92127]">
-              {new Intl.NumberFormat('vi-VN').format(book.price)} đ
-            </p>
-          </div>
-        </Link>
-      ))}
-    </div>
+    <>
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-full shadow-2xl text-sm font-bold flex items-center gap-2 animate-fade-in ${toast.isError ? "bg-[#ba1a1a] text-white" : "bg-emerald-600 text-white"}`}>
+          <span className="material-symbols-outlined text-[18px]">
+            {toast.isError ? "error" : "check_circle"}
+          </span>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        {books.map((book) => (
+          <BookCard key={book.id} b={book} onAddToCart={addToCart} />
+        ))}
+      </div>
+    </>
   );
 }

@@ -3,9 +3,11 @@ import { authFetch } from "@/lib/authFetch";
 
 import { useState } from "react";
 import { EyeOff } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function DeleteBookButton({ bookId, onSuccess }: { bookId: number; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
   const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const handleDelete = async () => {
@@ -21,10 +23,18 @@ export default function DeleteBookButton({ bookId, onSuccess }: { bookId: number
           if (text.startsWith("{")) errorMsg = JSON.parse(text).message || errorMsg;
           else if (text.length < 200) errorMsg = text;
         } catch { }
-        alert(errorMsg);
+        toast({
+          title: "Lỗi",
+          description: errorMsg,
+          variant: "destructive",
+        });
       }
     } catch {
-      alert("Lỗi kết nối.");
+      toast({
+        title: "Lỗi",
+        description: "Lỗi kết nối.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

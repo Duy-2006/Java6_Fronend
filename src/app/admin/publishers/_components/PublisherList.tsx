@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
+import { useToast } from "@/components/ui/use-toast";
+import { Edit, Eye, EyeOff, Search, Download, Grid, List, Plus } from "lucide-react";
 
 interface Publisher {
     id?: number;
@@ -18,6 +21,9 @@ const PublisherList: React.FC = () => {
     const [books, setBooks] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+    const [confirmId, setConfirmId] = useState<number | null>(null);
+    const { toast } = useToast();
 
     const BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
     const API_URL = `${BASE_URL}/api/admin/publishers`;
@@ -72,44 +78,58 @@ const PublisherList: React.FC = () => {
         fetchBooks();
     }, []);
 
-    const handleDelete = async (id?: number) => {
-        if (!id) return;
-        const pubToUpdate = publishers.find(p => p.id === id);
-        if (!pubToUpdate) return;
+    const handleToggleConfirmClick = (id: number) => {
+        setConfirmId(id);
+    };
+
+    const handleConfirmToggle = async () => {
+        if (!confirmId) return;
+        const pubToUpdate = publishers.find(p => p.id === confirmId);
+        if (!pubToUpdate) {
+            setConfirmId(null);
+            return;
+        }
 
         const isCurrentlyActive = pubToUpdate.active;
-        const message = isCurrentlyActive
-            ? `Bạn có chắc chắn muốn ngưng hoạt động nhà xuất bản "${pubToUpdate.name}"?`
-            : `Bạn có chắc chắn muốn kích hoạt hoạt động lại nhà xuất bản "${pubToUpdate.name}"?`;
-
-        if (window.confirm(message)) {
-            try {
-                const updatedData = {
-                    name: pubToUpdate.name,
-                    address: pubToUpdate.address || "",
-                    phone: pubToUpdate.phone || "",
-                    active: !isCurrentlyActive
-                };
-                
-                const response = await fetch(`${API_URL}/${id}`, { 
-                    method: "PUT",
-                    headers: {
-                        ...getAuthHeaders(true),
-                    },
-                    body: JSON.stringify(updatedData)
+        try {
+            const updatedData = {
+                name: pubToUpdate.name,
+                address: pubToUpdate.address || "",
+                phone: pubToUpdate.phone || "",
+                active: !isCurrentlyActive
+            };
+            
+            const response = await fetch(`${API_URL}/${confirmId}`, { 
+                method: "PUT",
+                headers: {
+                    ...getAuthHeaders(true),
+                },
+                body: JSON.stringify(updatedData)
+            });
+            
+            if (response.ok) {
+                toast({
+                    title: "Thành công",
+                    description: isCurrentlyActive ? "Đã ngưng hoạt động nhà xuất bản thành công!" : "Đã kích hoạt hoạt động nhà xuất bản thành công!",
                 });
-                
-                if (response.ok) {
-                    alert(isCurrentlyActive ? "Đã ngưng hoạt động nhà xuất bản thành công!" : "Đã kích hoạt hoạt động nhà xuất bản thành công!");
-                    fetchPublishers();
-                } else if (response.status === 401) {
-                    alert("Bạn không có quyền thực hiện hành động này!");
-                } else {
-                    alert("Cập nhật trạng thái thất bại.");
-                }
-            } catch (error) {
-                console.error("Lỗi cập nhật trạng thái NXB:", error);
+                fetchPublishers();
+            } else if (response.status === 401) {
+                toast({
+                    title: "Lỗi",
+                    description: "Bạn không có quyền thực hiện hành động này!",
+                    variant: "destructive"
+                });
+            } else {
+                toast({
+                    title: "Lỗi",
+                    description: "Cập nhật trạng thái thất bại.",
+                    variant: "destructive"
+                });
             }
+        } catch (error) {
+            console.error("Lỗi cập nhật trạng thái NXB:", error);
+        } finally {
+            setConfirmId(null);
         }
     };
 
@@ -150,6 +170,26 @@ const PublisherList: React.FC = () => {
         );
     };
 
+    const handleExportExcel = () => {
+        const headers = ["Mã NXB", "Tên NXB", "Số điện thoại", "Địa chỉ", "Trạng thái"];
+        const rows = filteredPublishers.map(p => [
+            `PUB-${String(p.id).padStart(3, '0')}`,
+            `"${p.name.replace(/"/g, '""')}"`,
+            `"${(p.phone || '').replace(/"/g, '""')}"`,
+            `"${(p.address || '').replace(/"/g, '""')}"`,
+            p.active ? "Hoạt động" : "Ngưng hoạt động"
+        ]);
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `danh_sach_nxb_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const filteredPublishers = publishers.filter(pub => 
         pub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (pub.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -161,22 +201,9 @@ const PublisherList: React.FC = () => {
 
     return (
         <div className="space-y-6 font-sans">
-            {/* Breadcrumb & Header Section */}
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <nav aria-label="Breadcrumb" className="flex mb-2">
-                        <ol className="inline-flex items-center space-x-1 md:space-x-2">
-                            <li className="inline-flex items-center">
-                                <Link className="text-xs font-semibold text-gray-500 hover:text-[#b70011] transition-colors text-decoration-none" href="/admin/dashboard">Dashboard</Link>
-                            </li>
-                            <li>
-                                <div className="flex items-center">
-                                    <span className="material-symbols-outlined text-sm text-gray-400 mr-1">chevron_right</span>
-                                    <span className="text-xs font-bold text-[#b70011]">Publishers</span>
-                                </div>
-                            </li>
-                        </ol>
-                    </nav>
                     <h1 className="text-2xl font-bold text-gray-900 font-sans">Quản lý Nhà xuất bản</h1>
                 </div>
                 <Link 
@@ -226,141 +253,267 @@ const PublisherList: React.FC = () => {
                 </div>
             </div>
 
-            {/* List Table Container */}
-            <div className="bg-white border border-gray-250 rounded-xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white">
-                    <h3 className="font-bold text-base text-gray-800">Danh sách Nhà xuất bản</h3>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                        {/* Search Input */}
-                        <div style={{ position: "relative" }} className="w-full sm:w-64">
-                            <span style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="material-symbols-outlined text-gray-400 text-lg">search</span>
-                            <input
-                                type="search"
-                                style={{ paddingLeft: '2.5rem' }}
-                                placeholder="Tìm kiếm nhà xuất bản..."
-                                className="w-full bg-[#f2f4f6]/80 border border-gray-200 rounded-lg py-2 pr-4 text-xs focus:bg-white focus:ring-1 focus:ring-[#b70011] transition-all outline-none"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                        <button className="p-2 border border-gray-250 rounded-lg hover:bg-gray-50 transition-colors bg-transparent" title="Bộ lọc">
-                            <span className="material-symbols-outlined text-gray-500 text-lg">filter_list</span>
-                        </button>
-                        <button className="p-2 border border-gray-250 rounded-lg hover:bg-gray-50 transition-colors bg-transparent" title="Xuất dữ liệu">
-                            <span className="material-symbols-outlined text-gray-500 text-lg">download</span>
-                        </button>
+            {/* Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#e6bdb8]/20 shadow-sm">
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    {/* Search bar */}
+                    <div style={{ position: "relative" }} className="w-full sm:w-64">
+                        <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
+                        <input 
+                            type="search" 
+                            style={{ paddingLeft: "2.5rem" }}
+                            placeholder="Tìm kiếm nhà xuất bản..."
+                            className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
-                </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider w-[120px]" style={{ textAlign: "center" }}>Mã NXB</th>
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider">Nhà xuất bản</th>
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Số điện thoại</th>
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Số đầu sách</th>
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Trạng thái</th>
-                                <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-gray-700 text-sm">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="text-center py-8 text-gray-500">Đang tải danh sách nhà xuất bản...</td>
-                                </tr>
-                            ) : filteredPublishers.map((pub) => {
-                                const bookCount = books.filter(b => (b.publisherIds && b.publisherIds.includes(pub.id)) || (b.publisher === pub.name)).length;
-                                return (
-                                    <tr 
-                                        key={pub.id} 
-                                        onClick={() => router.push(`/admin/publishers/${pub.id}`)}
-                                        className="hover:bg-gray-50 transition-colors group cursor-pointer"
-                                    >
-                                        <td className="px-6 py-4 font-mono text-xs text-gray-500" style={{ textAlign: "center" }}>PUB-{String(pub.id).padStart(3, '0')}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                {getLogoElement(pub.name, pub.id)}
-                                                <span className="font-bold text-gray-900">{pub.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500" style={{ textAlign: "center" }}>
-                                            {pub.phone || "---"}
-                                        </td>
-                                        <td className="px-6 py-4 font-semibold text-gray-700" style={{ textAlign: "center" }}>
-                                            {bookCount} tác phẩm
-                                        </td>
-                                        <td className="px-6 py-4" style={{ textAlign: "center" }}>
-                                            {pub.active ? (
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                                                    Hoạt động
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span>
-                                                    Ngưng hoạt động
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4" style={{ textAlign: "center" }}>
-                                            <div className="flex justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                <Link 
-                                                    href={`/admin/publishers/${pub.id}/edit`}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border-0 bg-transparent flex items-center justify-center text-decoration-none" 
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <span className="material-symbols-outlined text-lg">edit</span>
-                                                </Link>
-                                                <button 
-                                                    className={`p-1.5 rounded-lg transition-colors border-0 bg-transparent flex items-center justify-center ${
-                                                        pub.active 
-                                                            ? "text-[#b70011] hover:bg-red-50" 
-                                                            : "text-green-600 hover:bg-green-50"
-                                                    }`} 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(pub.id);
-                                                    }}
-                                                    title={pub.active ? "Ngưng hoạt động" : "Kích hoạt lại"}
-                                                >
-                                                    <span className="material-symbols-outlined text-lg">
-                                                        {pub.active ? "block" : "check_circle"}
-                                                    </span>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            {!loading && filteredPublishers.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="text-center py-8 text-gray-500">
-                                        {searchQuery ? `Không tìm thấy nhà xuất bản nào khớp với "${searchQuery}"` : "Chưa có dữ liệu nhà xuất bản."}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                    <button 
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Xuất File</span>
+                    </button>
 
-                {/* Pagination */}
-                <div className="px-6 py-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <span className="text-xs text-gray-500">
-                        Hiển thị <span className="font-bold text-gray-700">1 - {filteredPublishers.length}</span> của <span className="font-bold text-gray-700">{filteredPublishers.length}</span> nhà xuất bản
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <button className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-50 bg-transparent" disabled>
-                            <span className="material-symbols-outlined text-lg">chevron_left</span>
+                    {/* View Toggles */}
+                    <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
+                        <button 
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            onClick={() => setViewMode('grid')}
+                            title="Dạng lưới"
+                        >
+                            <Grid className="w-4 h-4" />
                         </button>
-                        <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#b70011] text-white text-xs font-bold shadow-sm border-0">1</button>
-                        <button className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-50 bg-transparent" disabled>
-                            <span className="material-symbols-outlined text-lg">chevron_right</span>
+                        <button 
+                            className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            onClick={() => setViewMode('table')}
+                            title="Dạng bảng"
+                        >
+                            <List className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
             </div>
+
+            {viewMode === 'grid' ? (
+                /* Grid View */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredPublishers.map((pub) => {
+                        const bookCount = books.filter(b => (b.publisherIds && b.publisherIds.includes(pub.id)) || (b.publisher === pub.name)).length;
+                        return (
+                            <div 
+                                key={pub.id}
+                                onClick={() => router.push(`/admin/publishers/${pub.id}`)}
+                                className="bg-white border border-[#e6bdb8]/30 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-[#b70011]/40 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                            >
+                                <div>
+                                    <div className="flex items-start justify-between gap-3 mb-4">
+                                        <div className="flex items-center gap-3">
+                                            {getLogoElement(pub.name, pub.id)}
+                                            <div>
+                                                <h3 className="font-bold text-slate-800 group-hover:text-[#b70011] transition-colors line-clamp-1">{pub.name}</h3>
+                                                <span className="font-mono text-xs text-slate-400">PUB-{String(pub.id).padStart(3, '0')}</span>
+                                            </div>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                            pub.active ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'
+                                        }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${pub.active ? 'bg-green-600 animate-pulse' : 'bg-red-400'}`} />
+                                            {pub.active ? 'Hoạt động' : 'Tạm ngưng'}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-1.5 text-xs text-slate-500 mb-4">
+                                        <p className="flex items-center gap-2">
+                                            <span className="font-semibold text-slate-400">SĐT:</span> {pub.phone || "---"}
+                                        </p>
+                                        {pub.address && (
+                                            <p className="flex items-center gap-2 line-clamp-1">
+                                                <span className="font-semibold text-slate-400">Địa chỉ:</span> {pub.address}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                                    <span className="inline-flex items-center gap-1.5 bg-[#f2f4f6] border border-slate-200/50 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-slate-600">
+                                        {bookCount} tác phẩm
+                                    </span>
+
+                                    <div className="flex items-center gap-1.5 action-button">
+                                        <Link 
+                                            href={`/admin/publishers/${pub.id}/edit`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60 flex items-center justify-center text-decoration-none" 
+                                            title="Chỉnh sửa"
+                                        >
+                                            <Edit className="w-4.5 h-4.5" />
+                                        </Link>
+                                        <button 
+                                            className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors border border-slate-200/60 flex items-center justify-center cursor-pointer bg-white" 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (pub.id) handleToggleConfirmClick(pub.id);
+                                            }}
+                                            title={pub.active ? "Ẩn nhà xuất bản (Ngưng hoạt động)" : "Hiện nhà xuất bản (Kích hoạt lại)"}
+                                        >
+                                            {pub.active ? (
+                                                <Eye className="w-4.5 h-4.5 text-emerald-600" />
+                                            ) : (
+                                                <EyeOff className="w-4.5 h-4.5 text-slate-400" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {/* Bento Add New Placeholder */}
+                    <Link 
+                        href="/admin/publishers/new" 
+                        className="border-2 border-dashed border-[#e6bdb8]/50 hover:border-[#b70011] rounded-xl flex flex-col items-center justify-center p-6 bg-slate-50/50 hover:bg-red-50/20 group cursor-pointer transition-all duration-300 min-h-[170px] text-decoration-none"
+                    >
+                        <div className="w-12 h-12 rounded-full bg-slate-200/50 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:bg-[#ffdad6] group-hover:text-[#b70011] text-slate-500 transition-all">
+                            <Plus className="w-6 h-6" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-700 group-hover:text-[#b70011] transition-colors">Thêm NXB mới</p>
+                        <p className="text-xs text-slate-400 text-center mt-1.5 max-w-[200px]">
+                            Mở rộng hệ thống bằng cách thêm nhà xuất bản mới.
+                        </p>
+                    </Link>
+                </div>
+            ) : (
+                /* List Table Container */
+                <div className="bg-white border border-gray-250 rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider w-[120px]" style={{ textAlign: "center" }}>Mã NXB</th>
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider">Nhà xuất bản</th>
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Số điện thoại</th>
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Số đầu sách</th>
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Trạng thái</th>
+                                    <th className="px-6 py-3.5 font-bold text-xs uppercase tracking-wider" style={{ textAlign: "center" }}>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-gray-700 text-sm">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={6} className="text-center py-8 text-gray-500">Đang tải danh sách nhà xuất bản...</td>
+                                    </tr>
+                                ) : filteredPublishers.map((pub) => {
+                                    const bookCount = books.filter(b => (b.publisherIds && b.publisherIds.includes(pub.id)) || (b.publisher === pub.name)).length;
+                                    return (
+                                        <tr 
+                                            key={pub.id} 
+                                            onClick={() => router.push(`/admin/publishers/${pub.id}`)}
+                                            className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                                        >
+                                            <td className="px-6 py-4 font-mono text-xs text-gray-500" style={{ textAlign: "center" }}>PUB-{String(pub.id).padStart(3, '0')}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    {getLogoElement(pub.name, pub.id)}
+                                                    <span className="font-bold text-gray-900">{pub.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500" style={{ textAlign: "center" }}>
+                                                {pub.phone || "---"}
+                                            </td>
+                                            <td className="px-6 py-4 font-semibold text-gray-700" style={{ textAlign: "center" }}>
+                                                {bookCount} tác phẩm
+                                            </td>
+                                            <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                                                {pub.active ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                                        Hoạt động
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span>
+                                                        Ngưng hoạt động
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4" style={{ textAlign: "center" }}>
+                                                <div className="flex justify-center items-center gap-1.5 action-button">
+                                                    <Link 
+                                                        href={`/admin/publishers/${pub.id}/edit`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60 flex items-center justify-center text-decoration-none" 
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit className="w-4.5 h-4.5" />
+                                                    </Link>
+                                                    <button 
+                                                        className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors border border-slate-200/60 flex items-center justify-center cursor-pointer bg-white" 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (pub.id) handleToggleConfirmClick(pub.id);
+                                                        }}
+                                                        title={pub.active ? "Ẩn nhà xuất bản (Ngưng hoạt động)" : "Hiện nhà xuất bản (Kích hoạt lại)"}
+                                                    >
+                                                        {pub.active ? (
+                                                            <Eye className="w-4.5 h-4.5 text-emerald-600" />
+                                                        ) : (
+                                                            <EyeOff className="w-4.5 h-4.5 text-slate-400" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {!loading && filteredPublishers.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="text-center py-8 text-gray-500">
+                                            {searchQuery ? `Không tìm thấy nhà xuất bản nào khớp với "${searchQuery}"` : "Chưa có dữ liệu nhà xuất bản."}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="px-6 py-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <span className="text-xs text-gray-500">
+                            Hiển thị <span className="font-bold text-gray-700">1 - {filteredPublishers.length}</span> của <span className="font-bold text-gray-700">{filteredPublishers.length}</span> nhà xuất bản
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-50 bg-transparent" disabled>
+                                <span className="material-symbols-outlined text-lg">chevron_left</span>
+                            </button>
+                            <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#b70011] text-white text-xs font-bold shadow-sm border-0">1</button>
+                            <button className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors disabled:opacity-50 bg-transparent" disabled>
+                                <span className="material-symbols-outlined text-lg">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <ConfirmModal
+                isOpen={confirmId !== null}
+                onClose={() => setConfirmId(null)}
+                onConfirm={handleConfirmToggle}
+                title="Xác Nhận Trạng Thái"
+                message={
+                    confirmId
+                        ? (() => {
+                            const p = publishers.find(x => x.id === confirmId);
+                            if (!p) return "";
+                            return p.active 
+                                ? `Bạn có chắc chắn muốn ngưng hoạt động nhà xuất bản "${p.name}"?`
+                                : `Bạn có chắc chắn muốn kích hoạt hoạt động lại nhà xuất bản "${p.name}"?`;
+                          })()
+                        : ""
+                }
+            />
         </div>
     );
 };

@@ -4,7 +4,6 @@ import { authFetch } from "@/lib/authFetch";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, Shield, Bell, Settings, HelpCircle } from "lucide-react";
 
 export default function AdminTopbar() {
   const [adminName, setAdminName] = useState("");
@@ -63,13 +62,6 @@ export default function AdminTopbar() {
     return "Admin Panel";
   };
 
-  const toggleSidebar = () => {
-    const sidebar = document.querySelector(".sidebar");
-    if (sidebar) {
-      sidebar.classList.toggle("open");
-    }
-  };
-
   if (isLoading) {
     return (
       <nav className="navbar px-4 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between">
@@ -84,15 +76,6 @@ export default function AdminTopbar() {
   return (
     <nav className="navbar px-6 py-2 bg-white shadow-sm border-b border-[#e6bdb8]/20 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        {/* Mobile menu toggle */}
-        <button 
-          onClick={toggleSidebar}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 d-md-none border border-slate-200/50"
-          aria-label="Toggle Sidebar"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
         {/* Breadcrumb / Title */}
         <div className="flex items-center gap-1.5">
           <span className="text-slate-400 font-medium text-xs">Dashboard</span>
@@ -103,28 +86,6 @@ export default function AdminTopbar() {
 
       {/* Connection Status & Quick Info */}
       <div className="flex items-center gap-3">
-        {/* Quick Action Icons */}
-        <div className="flex items-center gap-1.5 text-slate-500 mr-1">
-          {/* Bell Icon with Red Notification Dot */}
-          <button className="relative p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Notifications">
-            <Bell className="w-4.5 h-4.5 text-slate-600" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
-          </button>
-          
-          {/* Settings Icon */}
-          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Settings">
-            <Settings className="w-4.5 h-4.5 text-slate-600" />
-          </button>
-          
-          {/* Help Icon */}
-          <button className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" aria-label="Help">
-            <HelpCircle className="w-4.5 h-4.5 text-slate-600" />
-          </button>
-        </div>
-
-        {/* Vertical Divider */}
-        <div className="w-px h-5 bg-[#e6bdb8]/30 mx-1"></div>
-
         {/* Admin Panel & Connected Status */}
         <div className="text-right flex flex-col justify-center">
           <span className="text-xs font-bold text-slate-800 leading-tight">Admin Panel</span>

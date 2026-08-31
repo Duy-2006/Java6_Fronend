@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { toggleCustomerStatus } from "@/services/customersService";
 import { Lock, Unlock, Loader2 } from "lucide-react";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
 
 interface Props {
   username: string;
@@ -13,23 +14,19 @@ interface Props {
 
 export default function ToggleStatusButton({ username, isActive, onToggleSuccess, onShowToast }: Props) {
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  const handleToggle = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleToggleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-
     if (!username) {
       onShowToast("Username không hợp lệ.", "error");
       return;
     }
+    setShowModal(true);
+  };
 
-    const confirmed = window.confirm(
-      isActive
-        ? `Xác nhận KHÓA tài khoản của khách hàng "${username}"?`
-        : `Xác nhận MỞ KHÓA tài khoản của khách hàng "${username}"?`
-    );
-    if (!confirmed) return;
-
+  const handleToggleConfirm = async () => {
     setLoading(true);
     try {
       const result = await toggleCustomerStatus(username);
@@ -39,17 +36,19 @@ export default function ToggleStatusButton({ username, isActive, onToggleSuccess
       onShowToast(error.message || "Không thể thay đổi trạng thái tài khoản.", "error");
     } finally {
       setLoading(false);
+      setShowModal(false);
     }
   };
 
   return (
+    <>
     <button
       type="button"
       className={`px-3 py-1.5 rounded-lg border flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold transition-all duration-200 ${isActive
         ? "bg-red-50 text-[#b70011] hover:bg-red-100 border-[#e6bdb8]/50 active:scale-95"
         : "bg-green-50 text-green-700 hover:bg-green-100 border-green-200 active:scale-95"
         } disabled:opacity-50`}
-      onClick={handleToggle}
+      onClick={handleToggleClick}
       disabled={loading}
       title={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
     >
@@ -60,9 +59,16 @@ export default function ToggleStatusButton({ username, isActive, onToggleSuccess
       ) : (
         <Unlock className="w-3.5 h-3.5" />
       )}
-      <span>
-        {isActive ? "Khóa" : "Mở khóa"}
-      </span>
     </button>
+      <ConfirmModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleToggleConfirm}
+        title={isActive ? "Khóa Tài Khoản" : "Mở Khóa Tài Khoản"}
+        message={isActive
+          ? `Xác nhận KHÓA tài khoản của khách hàng "${username}"? Họ sẽ không thể đăng nhập.`
+          : `Xác nhận MỞ KHÓA tài khoản của khách hàng "${username}"?`}
+      />
+    </>
   );
 }

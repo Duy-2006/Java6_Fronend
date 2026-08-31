@@ -202,8 +202,8 @@ export default function UserAudiobookPlayer() {
     if (searchParams.get("payment") === "success") {
       alert("Thanh toán sách nói thành công! Toàn bộ chương đã được mở khóa.");
       router.replace(`/user/books/${bookId}/audiobook`); // Clean up URL
-    } else if (searchParams.get("payment") === "failure") {
-      alert("Thanh toán sách nói thất bại hoặc đã bị hủy.");
+    } else if (searchParams.get("payment") === "failure" || searchParams.get("payment") === "cancelled") {
+      alert("Thanh toán sách nói không thành công hoặc đã bị hủy.");
       router.replace(`/user/books/${bookId}/audiobook`); // Clean up URL
     }
   }, [bookId, searchParams, router]);
@@ -520,7 +520,7 @@ export default function UserAudiobookPlayer() {
       });
 
       const checkoutData = await checkoutRes.json();
-      if (!checkoutRes.ok) throw new Error(checkoutData.message || "Tạo đơn hàng thất bại");
+      if (!checkoutRes.ok) throw new Error(checkoutData.message || checkoutData.error || "Tạo đơn hàng thất bại");
 
       // 3. Create PayOS Payment
       const paymentRes = await authFetch(`${API_URL}/api/pay-os/create`, {
@@ -569,14 +569,6 @@ export default function UserAudiobookPlayer() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f0f12]">
-        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   // Tập hợp tất cả ngôn ngữ có sẵn trong toàn bộ sách
   const availableLanguages = Array.from(
     new Set(
@@ -586,6 +578,12 @@ export default function UserAudiobookPlayer() {
     )
   ) as string[];
 
+  useEffect(() => {
+    if (availableLanguages.length > 0 && !availableLanguages.includes(selectedLanguage)) {
+      setSelectedLanguage(availableLanguages[0]);
+    }
+  }, [availableLanguages, selectedLanguage]);
+
   // Lọc các segment của chapter hiện tại theo ngôn ngữ được chọn
   const activeSegments = (currentChapter?.audioSegments || [])
     .filter(s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined")
@@ -593,6 +591,26 @@ export default function UserAudiobookPlayer() {
     .sort((a, b) => ((a as any).sequenceOrder ?? 0) - ((b as any).sequenceOrder ?? 0));
 
   const currentSegment = activeSegments[currentSegmentIndex] ?? currentChapter?.audioSegments?.[currentSegmentIndex];
+
+  const getChapterDurationForLang = (ch: Chapter, lang: string) => {
+    const segs = (ch.audioSegments || []).filter(
+      s => s.audioUrl && s.audioUrl !== "null" && s.audioUrl !== "undefined" && ((s as any).languageCode || "vi") === lang
+    );
+    if (segs.length === 0) return "Chưa có âm thanh";
+    const totalSeconds = segs.reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
+    if (totalSeconds === 0 && ch.duration && ch.duration !== "—") return ch.duration;
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f12]">
+        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -638,8 +656,8 @@ export default function UserAudiobookPlayer() {
             </div>
 
             <div className="flex items-center gap-6">
-              {/* Language Selector — only shown when the book has multiple languages */}
-              {availableLanguages.length > 1 && (
+              {/* Language Selector */}
+              {availableLanguages.length > 0 && (
                 <div className="flex items-center gap-2 bg-[#1c1c1e] rounded-full px-3 h-[32px] border border-white/10">
                   <span className="material-symbols-outlined text-[16px] text-gray-400">translate</span>
                   <select
@@ -796,7 +814,7 @@ export default function UserAudiobookPlayer() {
                                 <span className="shrink-0 text-[9px] font-bold bg-green-600/30 border border-green-500/40 text-green-400 px-1.5 py-0.5 rounded-full">MIỄN PHÍ</span>
                               )}
                             </div>
-                            <span className="text-sm text-gray-500 mt-1">{chapter.duration || "Đang cập nhật"}</span>
+                            <span className="text-sm text-gray-500 mt-1">{getChapterDurationForLang(chapter, selectedLanguage)}</span>
                           </div>
                           <button className="w-10 h-10 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center shrink-0" aria-label={isPlaying ? "Tạm dừng" : "Phát"}>
                             <span className="material-symbols-outlined text-[18px]">
@@ -821,7 +839,7 @@ export default function UserAudiobookPlayer() {
                                 <span className="shrink-0 text-[9px] font-bold bg-green-600/30 border border-green-500/40 text-green-400 px-1.5 py-0.5 rounded-full">MIỄN PHÍ</span>
                               )}
                             </div>
-                            <span className="text-sm text-gray-500 mt-1">{chapter.duration || "Đang cập nhật"}</span>
+                            <span className="text-sm text-gray-500 mt-1">{getChapterDurationForLang(chapter, selectedLanguage)}</span>
                           </div>
                           <button className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border transition-all
                             ${isLocked

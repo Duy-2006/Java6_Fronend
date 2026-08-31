@@ -14,6 +14,7 @@ import {
   X
 } from "lucide-react";
 import { validateBanner, BannerFields, FieldErrors } from "@/services/validation";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Banner {
   id?: number;
@@ -35,6 +36,7 @@ interface BannerFormProps {
 
 export default function BannerForm({ id }: BannerFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const isEditing = id !== undefined;
   const [formData, setFormData] = useState<Banner>({
     title: "",
@@ -176,7 +178,10 @@ export default function BannerForm({ id }: BannerFormProps) {
       });
 
       if (res.ok) {
-        alert(isEditing ? "Cập nhật banner thành công!" : "Thêm mới banner thành công!");
+        toast({
+          title: "Thành công",
+          description: isEditing ? "Cập nhật banner thành công!" : "Thêm mới banner thành công!",
+        });
         router.push("/admin/banners");
       } else {
         try {
@@ -237,15 +242,8 @@ export default function BannerForm({ id }: BannerFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        {/* Breadcrumbs & Header */}
+        {/* Header */}
         <div>
-          <nav className="flex items-center gap-2 text-xs text-[#545f73] mb-2 font-medium">
-            <Link className="hover:text-[#b70011] transition-colors text-decoration-none" href="/admin/dashboard">Marketing</Link>
-            <ChevronRight className="w-3.5 h-3.5 text-[#545f73]" />
-            <Link className="hover:text-[#b70011] transition-colors text-decoration-none" href="/admin/banners">Quản lý Banner</Link>
-            <ChevronRight className="w-3.5 h-3.5 text-[#545f73]" />
-            <span className="text-[#191c1e] font-semibold">{isEditing ? "Cập nhật" : "Thêm mới"}</span>
-          </nav>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
             <div>
@@ -425,7 +423,7 @@ export default function BannerForm({ id }: BannerFormProps) {
                   {imageFile ? `Đã chọn: ${imageFile.name}` : "Kéo thả hoặc nhấn để tải lên"}
                 </p>
                 <p className="text-xs text-[#545f73]">
-                  {imageFile ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB` : "Tối ưu 1920x1080px (Max 5MB)"}
+                  {imageFile ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB` : "Bắt buộc: 1920x820px (Tỷ lệ 21:9) - Tối đa 5MB"}
                 </p>
                 <input
                   id="banner-image-file-input"

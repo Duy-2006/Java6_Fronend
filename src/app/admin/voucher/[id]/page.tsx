@@ -8,6 +8,7 @@ import {
   ArrowLeft, Ticket, Edit, PowerOff, Power, Calendar, Settings2, BarChart2,
   AlertCircle, ShoppingBag, ExternalLink, Hourglass, PackageCheck, Truck, CheckSquare, Ban
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Voucher {
   id: number;
@@ -40,6 +41,7 @@ export default function VoucherDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
+  const { toast } = useToast();
 
   // Lịch sử đơn hàng sử dụng voucher
   const [orders, setOrders] = useState<any[]>([]);
@@ -107,8 +109,16 @@ export default function VoucherDetailPage() {
       
       const updated = await res.json();
       setVoucher(updated);
+      toast({
+        title: "Thông báo",
+        description: !voucher.active ? "Đã bật voucher thành công!" : "Đã tắt voucher thành công!",
+      });
     } catch (err: any) {
-      alert(err.message);
+      toast({
+        title: "Lỗi",
+        description: err.message,
+        variant: "destructive",
+      });
     } finally {
       setToggling(false);
     }

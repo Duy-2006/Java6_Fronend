@@ -160,14 +160,15 @@ export default function CategoryBooksList({ books = [], categoryName, baseUrl }:
       {/* Advanced Filter Toolbar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="relative w-full md:w-80" style={{ position: "relative" }}>
+          <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
           <input
             type="text"
+            style={{ paddingLeft: "2.5rem" }}
             placeholder="Tìm kiếm sách hoặc tác giả..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-lg py-2 pl-9 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all outline-none"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 focus:border-[#b70011] transition-all outline-none"
           />
         </div>
 

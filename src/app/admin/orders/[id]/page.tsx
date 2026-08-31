@@ -130,16 +130,9 @@ function OrderDetailContent() {
         </div>
       )}
 
-      {/* Breadcrumbs and Actions */}
+      {/* Header and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div className="space-y-1">
-          <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span>Đơn hàng</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011]">{order.orderCode || `#${order.id}`}</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e]">Chi tiết Đơn hàng</h2>
         </div>
 

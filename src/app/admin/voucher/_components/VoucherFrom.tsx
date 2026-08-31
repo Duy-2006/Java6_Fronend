@@ -57,33 +57,30 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
     }
   }, [initialData]);
 
-  useEffect(() => {
-    const perc = Number(form.discountValue);
-    if (!perc || perc <= 0) return;
+  const handleDiscountChange = (val: string) => {
+    const perc = Number(val);
+    const updates: Partial<VoucherFormData> = { discountValue: val };
 
-    // Đề xuất dựa trên logic backend VoucherService.suggestVoucherSettings
-    const suggest = (percentage: number): { minOrderValue: number; maxDiscount: number } => {
-      if (percentage <= 10) {
-        return { minOrderValue: 200000, maxDiscount: 100000 };
-      } else if (percentage <= 15) {
-        return { minOrderValue: 300000, maxDiscount: 200000 };
-      } else if (percentage <= 20) {
-        return { minOrderValue: 400000, maxDiscount: 250000 };
-      } else if (percentage <= 25) {
-        return { minOrderValue: 500000, maxDiscount: 250000 };
-      } else if (percentage <= 30) {
-        return { minOrderValue: 600000, maxDiscount: 300000 };
+    if (perc > 0) {
+      let minOrder = 200000;
+      if (perc <= 15) {
+        minOrder = 200000;
+      } else if (perc <= 25) {
+        minOrder = 300000;
       } else {
-        return { minOrderValue: 1000000, maxDiscount: 500000 };
+        minOrder = 500000;
       }
-    };
+      updates.minOrderValue = minOrder;
+    }
 
-
-    const { minOrderValue: suggestedMin, maxDiscount: suggestedMax } = suggest(perc);
-    // Chỉ tự động điền nếu admin chưa nhập giá trị
-    if (!form.minOrderValue) setField('minOrderValue', suggestedMin);
-    if (!form.maxDiscount) setField('maxDiscount', suggestedMax);
-  }, [form.discountValue]);
+    setForm((prev) => ({ ...prev, ...updates }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.discountValue;
+      delete newErrors.minOrderValue;
+      return newErrors;
+    });
+  };
 
   const setField = (field: keyof VoucherFormData, value: any) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -110,59 +107,10 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const validate = (): Record<string, string> => {
-    const errs: Record<string, string> = {};
-    if (!form.code.trim()) errs.code = "Mã voucher không được để trống";
-    if (!form.discountValue || Number(form.discountValue) <= 0)
-      errs.discountValue = "Giá trị giảm phải lớn hơn 0";
-    if (form.discountType === "PERCENT" && (Number(form.discountValue) < 10 || Number(form.discountValue) > 50))
-      errs.discountValue = "Phần trăm giảm phải nằm trong khoảng 10% - 50%";
-    if (!form.startDate) errs.startDate = "Vui lòng chọn ngày bắt đầu";
-    if (!form.endDate) errs.endDate = "Vui lòng chọn ngày kết thúc";
-    if (form.startDate && form.endDate && new Date(form.startDate) >= new Date(form.endDate))
-      errs.endDate = "Ngày kết thúc phải sau ngày bắt đầu";
-    if (form.usageLimit && Number(form.usageLimit) <= 0)
-      errs.usageLimit = "Số lượt sử dụng phải lớn hơn 0";
-    // Kiểm tra giá trị đơn hàng tối thiểu và tính hợp lý với % giảm
-    if (form.minOrderValue) {
-      const minVal = Number(form.minOrderValue);
-      if (minVal < 50000) {
-        errs.minOrderValue = "Đơn hàng tối thiểu phải ≥ 50.000đ";
-      } else if (minVal > 5000000) {
-        errs.minOrderValue = "Đơn hàng tối thiểu phải ≤ 5.000.000đ";
-      } else if (form.discountValue) {
-        const perc = Number(form.discountValue);
-        let requiredMin = 0;
-        if (perc <= 15) {
-          requiredMin = 200000;
-        } else if (perc <= 25) {
-          requiredMin = 300000;
-        } else {
-          requiredMin = 500000;
-        }
-        if (minVal < requiredMin) {
-          errs.minOrderValue = `Đơn hàng tối thiểu phải ≥ ${requiredMin.toLocaleString('vi-VN')}đ cho mức giảm ${perc}%`;
-        }
-      }
-    }
-    // Kiểm tra mức giảm tối đa so với phần trăm và đơn hàng tối thiểu
-    if (form.maxDiscount && form.minOrderValue && form.discountValue) {
-      const maxAllowed = (Number(form.minOrderValue) * Number(form.discountValue)) / 100;
-      if (Number(form.maxDiscount) > maxAllowed) {
-        errs.maxDiscount = `Mức giảm tối đa không được vượt quá ${maxAllowed.toLocaleString('vi-VN')}đ`;
-      }
-    }
-    return errs;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
+    setErrors({});
 
     if (!isLoggedIn()) {
       setServerError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
@@ -202,6 +150,9 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
       try {
         const data = await res.json();
         if (!res.ok) {
+          if (data && typeof data === "object" && data.errors && typeof data.errors === "object" && !Array.isArray(data.errors)) {
+            setErrors(data.errors);
+          }
           errorMessage = data.error || data.message || (isEdit ? "Cập nhật thất bại" : "Tạo voucher thất bại");
         } else {
           router.push("/admin/voucher");
@@ -252,13 +203,6 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">
             {isEdit ? "Chỉnh sửa Voucher" : "Thêm Voucher mới"}
           </h2>
-          <nav className="flex items-center gap-1.5 text-xs text-[#5c403c] mt-1.5">
-            <Link href="/admin/voucher" className="hover:text-[#b70011] transition-colors">Vouchers</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011] font-bold">
-              {isEdit ? "Cập nhật" : "Tạo mới"}
-            </span>
-          </nav>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -356,9 +300,6 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
               </div>
               <h3 className="text-sm font-bold text-[#191c1e]">Cấu hình giảm giá</h3>
             </div>
-
-            {/* Đã loại bỏ lựa chọn Loại giảm giá, voucher luôn là PERCENT */}
-
             {/* Discount Value */}
             <div>
               <label htmlFor="discountValue" className="block text-xs font-bold text-[#5c403c] mb-2 uppercase tracking-wide">
@@ -370,7 +311,7 @@ export default function VoucherForm({ initialData, isEdit = false }: Props) {
                   type="number"
                   step="any"
                   value={form.discountValue}
-                  onChange={(e) => setField("discountValue", e.target.value)}
+                  onChange={(e) => handleDiscountChange(e.target.value)}
                   placeholder={form.discountType === "PERCENT" ? "Ví dụ: 15 (15%)" : "Ví dụ: 50000"}
                   className={`w-full bg-slate-50 border ${errors.discountValue ? 'border-red-500' : 'border-[#e6bdb8]/50'} rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011]/20`}
                 />

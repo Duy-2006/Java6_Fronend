@@ -10,8 +10,9 @@ import type { Metadata } from "next";
 import { Manrope, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-
+import { Toaster } from "@/components/ui/toaster";
 import Chatbot from "@/components/chatbot/Chatbot";
+import BodyCleanup from "@/components/layout/BodyCleanup";
 
 // Khai bao font Geist (sans-serif) lam font chinh, gan vao bien CSS --font-sans
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -37,8 +38,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${manrope.className} bg-[#f0f0f0] text-gray-800 antialiased`}>
+        <BodyCleanup />
         {children}
         <Chatbot />
+        <Toaster />
       </body>
     </html>
   );

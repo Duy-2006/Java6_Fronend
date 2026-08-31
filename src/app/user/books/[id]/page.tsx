@@ -220,7 +220,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
               <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-[0_1px_4px_rgba(20,22,26,0.08)] space-y-6">
 
                 {/* Title */}
-                 <div className="space-y-3">
+                <div className="space-y-3">
                   <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight">{book.title}</h1>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
                     <p>Tác giả: <span className="text-gray-800 font-bold">{authorName}</span></p>
@@ -256,9 +256,6 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
                   {hasDiscount && (
                     <div className="flex flex-col gap-1">
                       <p className="text-xs text-green-600 font-semibold">✓ Tiết kiệm thêm {(originalPrice - finalPrice).toLocaleString('vi-VN')} đ</p>
-                      {usageLimit && (
-                        <p className="text-xs text-[#C92127] font-bold">⚠️ Chỉ áp dụng giá ưu đãi tối đa {usageLimit} sản phẩm/đơn hàng</p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -267,17 +264,14 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
 
                 {/* Warranty/Perks Card */}
                 <div className="bg-[#f5f5f7] rounded-2xl p-4 space-y-3 text-xs text-gray-600">
-                  <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">local_shipping</span>
-                    <span className="font-semibold">Miễn phí giao hàng toàn quốc từ 500.000 đ</span>
-                  </div>
+
                   <div className="flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">verified_user</span>
                     <span className="font-semibold">Đảm bảo sách chính hãng 100% từ NXB</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-sm text-[#C92127] font-bold">assignment_return</span>
-                    <span className="font-semibold">Đổi trả dễ dàng miễn phí trong vòng 30 ngày</span>
+                    <span className="font-semibold">Đổi trả dễ dàng miễn phí trong vòng 7 ngày</span>
                   </div>
                 </div>
 

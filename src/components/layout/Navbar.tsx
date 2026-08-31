@@ -11,7 +11,7 @@
 "use client";
 import { authFetch, isLoggedIn } from "@/lib/authFetch";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import BookCard from "@/components/BookCard";
@@ -27,6 +27,10 @@ export default function Navbar() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [keyword, setKeyword] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // States for Integrated Image Search
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -120,6 +124,49 @@ export default function Navbar() {
       window.removeEventListener("imageSearchUpdated", syncImageSearch);
     };
   }, [searchParams]);
+
+  // Debounced search for Autocomplete suggestions
+  useEffect(() => {
+    if (!keyword.trim()) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      try {
+        const res = await authFetch(`${API_URL}/api/search?keyword=${encodeURIComponent(keyword.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          const booksArray = Array.isArray(data) ? data : (data?.data || data?.content || []);
+          // Extract unique titles
+          const titles = Array.from(new Set(booksArray.map((b: any) => b.title))) as string[];
+          setSuggestions(titles.slice(0, 8));
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error("Error fetching suggestions:", err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [keyword, API_URL]);
+
+  // Click outside to close Autocomplete dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,7 +280,7 @@ export default function Navbar() {
           </div>
 
           {/* Search bar - flex-1 and max-w-[650px] to expand beautifully */}
-          <div className="flex-1 max-w-[650px] hidden md:block">
+          <div ref={searchContainerRef} className="flex-1 max-w-[650px] hidden md:block relative">
             <form onSubmit={handleSearch} className="relative w-full flex items-center">
               {/* Image Preview Thumbnail (Shopee style) */}
               {isImageSearch && imagePreview ? (
@@ -258,6 +305,16 @@ export default function Navbar() {
               <input
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
+                onFocus={() => {
+                  if (keyword.trim() && suggestions.length > 0) {
+                    setShowDropdown(true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setShowDropdown(false);
+                  }
+                }}
                 className={`!py-2.5 !pr-12 bg-[#f2f4f6] border border-transparent rounded-full focus:ring-1 focus:ring-[#b70011] focus:bg-white w-full text-sm outline-none transition-all duration-300 placeholder:text-gray-400 ${
                   isImageSearch && imagePreview ? "!pl-14" : "!pl-12"
                 }`}
@@ -271,6 +328,35 @@ export default function Navbar() {
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
               </label>
             </form>
+
+            {/* Suggestions Dropdown */}
+            {showDropdown && (suggestions.length > 0 || loadingSuggestions) && (
+              <div className="absolute top-[105%] left-0 right-0 bg-white rounded-2xl border border-[#eceef0] shadow-2xl overflow-hidden z-[70] animate-fade-in">
+                {loadingSuggestions ? (
+                  <div className="flex items-center justify-center py-5 gap-3">
+                    <div className="w-4 h-4 border-2 border-[#b70011]/20 border-t-[#b70011] rounded-full animate-spin"></div>
+                    <span className="text-xs text-gray-500 font-medium">Đang tìm kiếm...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col py-2">
+                    {suggestions.map((title: string, idx: number) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setKeyword(title);
+                          setShowDropdown(false);
+                          router.push(`/user/search?keyword=${encodeURIComponent(title)}`);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] transition-colors duration-200 cursor-pointer text-sm text-[#191c1e] font-medium"
+                      >
+                        <span className="material-symbols-outlined text-gray-400 text-[18px]">search</span>
+                        <span className="truncate">{title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

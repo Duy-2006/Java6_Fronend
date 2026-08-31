@@ -28,6 +28,7 @@ export interface Book {
   authorNames?: string[];
   categoryName?: string;
   soldCount?: number;
+  isPurchased?: boolean;
 }
 
 // Lay toan bo danh sach sach tu backend (dung cho trang quan ly sach Admin)

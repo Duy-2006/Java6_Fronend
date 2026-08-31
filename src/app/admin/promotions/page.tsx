@@ -10,6 +10,7 @@ import {
   Plus, Search, Edit, Tag, AlertCircle, CheckCircle2, Clock, Calendar,
   TrendingUp, RefreshCw, ChevronRight, FileSpreadsheet, Globe, BookOpen, Layers, Eye
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PromotionsPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function PromotionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [applyFilter, setApplyFilter] = useState("ALL");
+  const { toast } = useToast();
 
   const fetchPromotions = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -59,7 +61,7 @@ export default function PromotionsPage() {
         "Danh sách thể loại": p.categoryNames?.join(", ") || "",
         "Ngày bắt đầu": p.startDate || "Chưa thiết lập",
         "Ngày kết thúc": p.endDate || "Chưa thiết lập",
-        "Trạng thái": p.computedStatus === "ACTIVE" ? "Đang diễn ra" : p.computedStatus === "UPCOMING" ? "Sắp diễn ra" : p.computedStatus === "EXPIRED" ? "Đã kết thúc" : "Chưa đặt ngày"
+        "Trạng thái": p.computedStatus === "ACTIVE" ? "Đang diễn ra" : p.computedStatus === "UPCOMING" ? "Sắp diễn ra" : p.computedStatus === "EXPIRED" ? "Đã kết thúc" : p.computedStatus === "PAUSED" ? "Tạm dừng" : "Chưa đặt ngày"
       }));
 
       const ws = XLSX.utils.json_to_sheet(data);
@@ -68,7 +70,11 @@ export default function PromotionsPage() {
       XLSX.writeFile(wb, `Danh_sach_Khuyen_mai_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err: any) {
       console.error("Error exporting excel:", err);
-      alert("Không thể xuất file Excel: " + err.message);
+      toast({
+        title: "Lỗi xuất file",
+        description: "Không thể xuất file Excel: " + err.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -78,6 +84,7 @@ export default function PromotionsPage() {
       UPCOMING: { text: "Sắp diễn ra", bg: "bg-blue-50 border-blue-200", textCol: "text-blue-700", dot: "bg-blue-700" },
       EXPIRED: { text: "Đã kết thúc", bg: "bg-slate-50 border-slate-200", textCol: "text-slate-600", dot: "bg-slate-600" },
       UNKNOWN: { text: "Chưa đặt ngày", bg: "bg-amber-50 border-amber-200", textCol: "text-amber-700", dot: "bg-amber-700" },
+      PAUSED: { text: "Tạm dừng", bg: "bg-orange-50 border-orange-200", textCol: "text-orange-700", dot: "bg-orange-700" },
     };
     const s = statusConfig[status] || { text: status, bg: "bg-gray-50 border-gray-200", textCol: "text-gray-700", dot: "bg-gray-700" };
 
@@ -133,9 +140,9 @@ export default function PromotionsPage() {
     const matchesApply = applyFilter === "ALL" || p.applyType === applyFilter;
     return matchesSearch && matchesStatus && matchesApply;
   }).sort((a, b) => {
-    const statusPriority: any = { ACTIVE: 1, UPCOMING: 2, EXPIRED: 3, UNKNOWN: 4 };
-    const pA = statusPriority[a.computedStatus || "UNKNOWN"] || 5;
-    const pB = statusPriority[b.computedStatus || "UNKNOWN"] || 5;
+    const statusPriority: any = { ACTIVE: 1, UPCOMING: 2, PAUSED: 3, EXPIRED: 4, UNKNOWN: 5 };
+    const pA = statusPriority[a.computedStatus || "UNKNOWN"] || 6;
+    const pB = statusPriority[b.computedStatus || "UNKNOWN"] || 6;
     if (pA !== pB) return pA - pB;
     const timeA = new Date(a.startDate || 0).getTime();
     const timeB = new Date(b.startDate || 0).getTime();
@@ -167,18 +174,11 @@ export default function PromotionsPage() {
 
   return (
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
-      {/* Header section with breadcrumbs */}
+      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <nav className="flex items-center gap-1 text-[#5c403c] text-xs mb-1.5">
-            <span className="font-semibold cursor-pointer hover:underline">Admin</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold cursor-pointer hover:underline">Khuyến mãi</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold text-[#b70011]">Danh sách khuyến mãi</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Danh sách Khuyến mãi</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Quản lý và theo dõi các chương trình ưu đãi giảm giá sản phẩm sách trên hệ thống.</p>
+
         </div>
         <div className="flex items-center gap-3">
 
@@ -270,6 +270,7 @@ export default function PromotionsPage() {
               <option value="ALL">Tất cả</option>
               <option value="ACTIVE">Đang diễn ra</option>
               <option value="UPCOMING">Sắp diễn ra</option>
+              <option value="PAUSED">Tạm dừng</option>
               <option value="EXPIRED">Đã kết thúc</option>
               <option value="UNKNOWN">Chưa đặt ngày</option>
             </select>
@@ -340,8 +341,8 @@ export default function PromotionsPage() {
               {filteredPromotions.map((p) => {
                 const isAll = p.applyType === "ALL";
                 return (
-                  <tr 
-                    key={p.id} 
+                  <tr
+                    key={p.id}
                     className="hover:bg-[#b70011]/5 transition-colors group cursor-pointer"
                     onClick={() => router.push(`/admin/promotions/${p.id}`)}
                   >

@@ -131,6 +131,10 @@ export default function MyOrdersPage() {
   const [orderToCancel, setOrderToCancel] = useState<any>(null);
   const [cancelReason, setCancelReason] = useState("");
 
+  // Receive Confirm Modal State
+  const [confirmReceiveModalVisible, setConfirmReceiveModalVisible] = useState(false);
+  const [orderToConfirmReceive, setOrderToConfirmReceive] = useState<number | null>(null);
+
   // Profile data for sidebar
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -300,10 +304,11 @@ export default function MyOrdersPage() {
     }
   };
 
-  const confirmReceived = async (id: number) => {
-        const userId = getUserIdFromToken();
+  const executeConfirmReceived = async () => {
+    if (!orderToConfirmReceive) return;
+    const id = orderToConfirmReceive;
+    const userId = getUserIdFromToken();
     if (!isLoggedIn() || !userId) return;
-    if (!confirm("Xác nhận bạn đã nhận được hàng?")) return;
 
     try {
       const res = await authFetch(
@@ -322,12 +327,14 @@ export default function MyOrdersPage() {
             return timeB - timeA;
           });
         });
-        alert("Cảm ơn bạn đã xác nhận nhận hàng!");
       } else {
         alert(`Lỗi: ${await res.text()}`);
       }
     } catch {
       alert("Lỗi kết nối đến máy chủ.");
+    } finally {
+      setConfirmReceiveModalVisible(false);
+      setOrderToConfirmReceive(null);
     }
   };
 
@@ -620,7 +627,10 @@ export default function MyOrdersPage() {
                         )}
                         {order.status === "DELIVERED" && (
                           <button
-                            onClick={() => confirmReceived(order.id)}
+                            onClick={() => {
+                              setOrderToConfirmReceive(order.id);
+                              setConfirmReceiveModalVisible(true);
+                            }}
                             className="inline-flex items-center gap-1 px-3.5 py-2 bg-emerald-700 text-white hover:bg-emerald-800 rounded-full text-xs font-bold transition active:scale-95 duration-150 shadow-sm"
                           >
                             <span className="material-symbols-outlined text-xs">check_circle</span>
@@ -696,6 +706,40 @@ export default function MyOrdersPage() {
                 className="flex-1 py-3 rounded-xl bg-[#b70011] text-white font-bold hover:bg-[#93000b] transition-all text-[14px]"
               >
                 Xác nhận hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Receive Modal */}
+      {confirmReceiveModalVisible && orderToConfirmReceive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 transition-opacity duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-[420px] p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center text-center">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+              <span className="material-symbols-outlined text-[28px]">check_circle</span>
+            </div>
+            
+            <h3 className="text-[20px] font-bold text-[#191c1e] mb-2">Xác nhận nhận hàng</h3>
+            <p className="text-[14px] text-gray-600 mb-6 px-4">
+              Xác nhận bạn đã nhận được hàng? Hành động này không thể hoàn tác.
+            </p>
+            
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => {
+                  setConfirmReceiveModalVisible(false);
+                  setOrderToConfirmReceive(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-gray-50 text-[#191c1e] font-bold hover:bg-gray-100 transition-all text-[14px]"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={executeConfirmReceived}
+                className="flex-1 py-3 rounded-xl bg-[#dc2626] text-white font-bold hover:bg-[#b70011] transition-all text-[14px]"
+              >
+                Đồng ý
               </button>
             </div>
           </div>

@@ -8,8 +8,7 @@
 import type { Metadata } from "next";
 import AdminSidebar from "@/app/admin/_components/AdminSidebar";
 import AdminTopbar from "@/app/admin/_components/AdminTopbar";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "@/app/globals.css";
+import GlobalAudioTracker from "@/app/admin/_components/GlobalAudioTracker";
 import "@/app/admin/globals-admin.css";
 
 // Metadata SEO cho cac trang Admin
@@ -24,7 +23,8 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="d-flex vh-100">
+    <div className="admin-container d-flex vh-100">
+      <GlobalAudioTracker />
       {/* Thanh dieu huong ben trai - hien thi menu quan ly */}
       <AdminSidebar />
       <div className="flex-grow-1 d-flex flex-column admin-main-wrapper">

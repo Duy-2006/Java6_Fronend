@@ -21,7 +21,8 @@ import {
   TrendingDown,
   RefreshCw,
   Download,
-  Database
+  Database,
+  AlertTriangle
 } from 'lucide-react';
 import { authFetch } from '@/lib/authFetch';
 import { getDashboardStats } from '@/services/statsService';
@@ -46,12 +47,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'year' | 'custom'>('all');
   const [selectedYear, setSelectedYear] = useState('');
   const [isRebuilding, setIsRebuilding] = useState(false);
+  const [showAIConfirmModal, setShowAIConfirmModal] = useState(false);
 
   // States
   const [stats, setStats] = useState({
@@ -91,6 +94,7 @@ export default function AdminDashboard() {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     setError(null);
+    setSuccessMsg(null);
 
     try {
       // Fetch stats, orders, books and authors
@@ -211,15 +215,15 @@ export default function AdminDashboard() {
       XLSX.writeFile(wb, `Bao_cao_dashboard_BookStore_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err: any) {
       console.error('Error exporting report:', err);
-      alert('Không thể xuất báo cáo: ' + err.message);
+      setError('Không thể xuất báo cáo: ' + err.message);
     }
   };
 
-  const handleRebuildIndex = async () => {
-    if (!confirm('Bạn có chắc chắn muốn cập nhật lại toàn bộ dữ liệu sách vào hệ thống AI không? Quá trình này có thể mất một lúc.')) {
-      return;
-    }
-    
+  const handleRebuildIndexClick = () => {
+    setShowAIConfirmModal(true);
+  };
+
+  const executeRebuildIndex = async () => {
     setIsRebuilding(true);
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -231,10 +235,10 @@ export default function AdminDashboard() {
         throw new Error('Lỗi khi cập nhật dữ liệu AI');
       }
       
-      alert('Đã cập nhật dữ liệu AI thành công! Chatbot hiện đã có thể trả lời các câu hỏi về sách.');
+      setSuccessMsg('Đã cập nhật dữ liệu AI thành công! Chatbot hiện đã có thể trả lời các câu hỏi về sách.');
     } catch (err: any) {
       console.error('Error rebuilding index:', err);
-      alert('Lỗi: ' + err.message);
+      setError('Lỗi: ' + err.message);
     } finally {
       setIsRebuilding(false);
     }
@@ -252,11 +256,11 @@ export default function AdminDashboard() {
       return;
     }
     if (!customStartDate || !customEndDate) {
-      alert('Vui lòng chọn cả từ ngày và đến ngày, hoặc để trống cả hai để xem tất cả thời gian.');
+      setError('Vui lòng chọn cả từ ngày và đến ngày, hoặc để trống cả hai để xem tất cả thời gian.');
       return;
     }
     if (new Date(customStartDate) > new Date(customEndDate)) {
-      alert('Từ ngày không được lớn hơn đến ngày.');
+      setError('Từ ngày không được lớn hơn đến ngày.');
       return;
     }
     setTimeRange('custom');
@@ -326,7 +330,7 @@ export default function AdminDashboard() {
                       setTimeRange('custom');
                       loadDashboardData(true, 'custom', start, end);
                     } else {
-                      alert('Vui lòng nhập năm hợp lệ (4 chữ số).');
+                      setError('Vui lòng nhập năm hợp lệ (4 chữ số).');
                     }
                   }}
                   className="px-3 py-1 bg-[#b70011] text-white rounded text-xs font-semibold shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"
@@ -364,7 +368,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
           <button 
-            onClick={handleRebuildIndex}
+            onClick={handleRebuildIndexClick}
             disabled={isRebuilding}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-700 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -382,8 +386,16 @@ export default function AdminDashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 shadow-sm text-sm font-sans">
-          {error}
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 shadow-sm text-sm font-sans flex justify-between items-center animate__animated animate__fadeIn">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-bold px-2 py-1 leading-none rounded hover:bg-red-100">&times;</button>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg border border-green-200 shadow-sm text-sm font-sans flex justify-between items-center animate__animated animate__fadeIn">
+          <span>{successMsg}</span>
+          <button onClick={() => setSuccessMsg(null)} className="text-green-500 hover:text-green-700 font-bold px-2 py-1 leading-none rounded hover:bg-green-100">&times;</button>
         </div>
       )}
 
@@ -573,6 +585,46 @@ export default function AdminDashboard() {
           </table>
         </div>
       </div>
+
+      {showAIConfirmModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate__animated animate__fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md p-6 animate__animated animate__zoomIn">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="font-bold text-xl text-[#191c1e]">Xác nhận cập nhật AI</h3>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-center">
+              <p className="text-sm text-blue-700 font-medium leading-relaxed">
+                Bạn có chắc chắn muốn cập nhật lại toàn bộ dữ liệu sách vào hệ thống AI không?<br />
+                <strong className="mt-1 block">Quá trình này có thể mất một lúc.</strong>
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-4 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 transition-colors shadow-sm"
+                onClick={() => setShowAIConfirmModal(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20"
+                onClick={() => {
+                  setShowAIConfirmModal(false);
+                  executeRebuildIndex();
+                }}
+              >
+                Đồng ý cập nhật
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -159,11 +159,9 @@ function BookCard({ b, onAddToCart }: BookCardProps) {
             </div>
             
             {/* CHỈ HIỂN THỊ GIÁ AUDIO KHI SẢN PHẨM THỰC SỰ KHẢ DỤNG AUDIO */}
-            {isAudioAvailable && (
-              <div className="text-[#b70011] text-xs font-semibold">
-                Giá Audio: {formattedAudioPrice} ₫
-              </div>
-            )}
+            <div className={`text-[#b70011] text-xs font-semibold ${isAudioAvailable ? '' : 'invisible'}`}>
+              Giá Audio: {formattedAudioPrice} ₫
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-[#f2f4f6]">
@@ -264,7 +262,7 @@ export default function HomePage() {
   const fetchNewBooks = async (page: number, isLoadMore = false) => {
     try {
       setLoadingNewBooks(true);
-      const res = await authFetch(`${API_URL}/api/books/new?page=${page}&size=10&t=${Date.now()}`);
+      const res = await authFetch(`${API_URL}/api/books/new?page=${page}&size=100&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         let content = data.content || (Array.isArray(data) ? data : []);
@@ -295,12 +293,12 @@ export default function HomePage() {
           return book;
         });
 
-        content = content.filter((book: any) => !flashMap.has(book.id));
+        const filteredContent = content.filter((book: any) => !flashMap.has(book.id));
 
         if (isLoadMore) {
-          setNewBooks(prev => [...prev, ...content]);
+          setNewBooks(prev => [...prev, ...filteredContent]);
         } else {
-          setNewBooks(content);
+          setNewBooks(filteredContent);
         }
         setNewBooksTotalPages(totalPages);
       }
@@ -314,7 +312,7 @@ export default function HomePage() {
   const fetchBestSellers = async (page: number, isLoadMore = false) => {
     try {
       setLoadingBestSellers(true);
-      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10`);
+      const res = await fetch(`${API_URL}/api/books/best-sellers?page=${page}&size=10&t=${Date.now()}`);
       let books: any[] = [];
       let totalPages = 0;
       if (res.ok) {
@@ -479,7 +477,7 @@ export default function HomePage() {
 
   const scrollAudio = (direction: "left" | "right") => {
     if (audioScrollRef.current) {
-      const scrollAmount = direction === "left" ? -400 : 400;
+      const scrollAmount = direction === "left" ? -audioScrollRef.current.offsetWidth : audioScrollRef.current.offsetWidth;
       audioScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
@@ -543,13 +541,13 @@ export default function HomePage() {
                 router.push(targetLink);
               }
             }}
-            className="relative rounded-3xl overflow-hidden aspect-auto w-full h-auto min-h-[300px] max-h-[500px] group shadow-2xl bg-[#191c1e] cursor-pointer"
+            className="relative rounded-3xl overflow-hidden w-full aspect-[16/9] md:aspect-[21/9] group shadow-2xl bg-[#191c1e] cursor-pointer"
           >
             {currentBanner ? (
               <>
                 <img
                   alt="Promotion Banner"
-                  className="w-full h-auto max-h-full object-contain object-center brightness-105 transition-transform duration-[1500ms] ease-out group-hover:scale-[1.01]"
+                  className="w-full h-full object-cover object-center brightness-105 transition-transform duration-[1500ms] ease-out group-hover:scale-[1.01]"
                   src={currentBanner.image_url.startsWith("http") ? currentBanner.image_url : `${API_URL}${currentBanner.image_url}`}
                   loading="lazy"
                 />
@@ -678,17 +676,26 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    const container = document.getElementById('flash-sale-carousel');
-                    if (container) {
-                      container.scrollBy({ left: container.offsetWidth, behavior: 'smooth' });
-                    }
-                  }}
-                  className="text-[#0066cc] font-medium text-[13px] md:text-sm flex items-center hover:underline mt-3 md:mt-0 self-end md:self-auto cursor-pointer"
-                >
-                  Xem tất cả <span className="material-symbols-outlined text-[14px] ml-0.5 font-bold">chevron_right</span>
-                </button>
+                <div className="flex gap-2 mt-3 md:mt-0 self-end md:self-auto">
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('flash-sale-carousel');
+                      if (container) container.scrollBy({ left: -container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-9 h-9 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('flash-sale-carousel');
+                      if (container) container.scrollBy({ left: container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-9 h-9 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  </button>
+                </div>
               </div>
 
               <div id="flash-sale-carousel" className="flex overflow-x-auto gap-3 md:gap-4 relative z-10 scroll-smooth no-scrollbar pb-2 snap-x snap-mandatory">
@@ -711,28 +718,37 @@ export default function HomePage() {
                   <h2 className="font-extrabold text-2xl md:text-3xl text-[#191c1e] font-headline-lg">Bán Chạy Nhất</h2>
                   <div className="w-12 h-1 bg-[#b70011] mt-2 rounded-full"></div>
                 </div>
-                <Link href="/user/catalog" className="text-[#b70011] font-bold text-xs hover:underline flex items-center gap-1 uppercase tracking-wider">
-                  Xem tất cả <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </Link>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('best-sellers-carousel');
+                      if (container) container.scrollBy({ left: -container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
+                  >
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('best-sellers-carousel');
+                      if (container) container.scrollBy({ left: container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+              <div id="best-sellers-carousel" className="flex overflow-x-auto gap-3 md:gap-4 relative z-10 scroll-smooth no-scrollbar pb-2 snap-x snap-mandatory">
                 {bestSellers.map(book => (
-                  <BookCard key={book.id} b={book} onAddToCart={addToCart} />
+                  <div key={book.id} className="min-w-[160px] w-[calc(50%-6px)] md:min-w-[200px] md:w-[calc(25%-12px)] lg:min-w-[220px] lg:w-[calc(20%-13px)] shrink-0 snap-start">
+                    <BookCard b={book} onAddToCart={addToCart} />
+                  </div>
                 ))}
               </div>
 
-              {bestSellersPage + 1 < bestSellersTotalPages && (
-                <div className="flex justify-center mt-10 pt-4">
-                  <button
-                    onClick={handleLoadMoreBest}
-                    disabled={loadingBestSellers}
-                    className="px-8 py-3 bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white rounded-full text-xs font-bold transition-all duration-300 shadow-sm border border-transparent hover:shadow-md cursor-pointer"
-                  >
-                    {loadingBestSellers ? "Đang tải..." : "Xem Thêm Siêu Phẩm"}
-                  </button>
-                </div>
-              )}
+
             </div>
           </section>
         )}
@@ -788,25 +804,35 @@ export default function HomePage() {
                   <h2 className="font-extrabold text-2xl md:text-3xl text-[#191c1e] font-headline-lg">Sách Mới Cập Nhật</h2>
                   <div className="w-12 h-1 bg-[#b70011] mt-2 rounded-full"></div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-                {newBooks.map(book => (
-                  <BookCard key={book.id} b={book} onAddToCart={addToCart} />
-                ))}
-              </div>
-
-              {newBooksPage + 1 < newBooksTotalPages && (
-                <div className="flex justify-center mt-10 pt-4">
-                  <button
-                    onClick={handleLoadMoreNew}
-                    disabled={loadingNewBooks}
-                    className="px-8 py-3 bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white rounded-full text-xs font-bold transition-all duration-300 shadow-sm border border-transparent hover:shadow-md cursor-pointer"
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('new-books-carousel');
+                      if (container) container.scrollBy({ left: -container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
                   >
-                    {loadingNewBooks ? "Đang tải..." : "Tải Thêm Sách Mới"}
+                    <span className="material-symbols-outlined">chevron_left</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('new-books-carousel');
+                      if (container) container.scrollBy({ left: container.offsetWidth, behavior: 'smooth' });
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#f2f4f6] hover:bg-[#b70011] text-[#191c1e] hover:text-white flex items-center justify-center transition-all duration-300 cursor-pointer border border-[#e2e8f0] hover:border-transparent"
+                  >
+                    <span className="material-symbols-outlined">chevron_right</span>
                   </button>
                 </div>
-              )}
+              </div>
+
+              <div id="new-books-carousel" className="flex overflow-x-auto gap-3 md:gap-4 relative z-10 scroll-smooth no-scrollbar pb-2 snap-x snap-mandatory">
+                {newBooks.map(book => (
+                  <div key={book.id} className="min-w-[160px] w-[calc(50%-6px)] md:min-w-[200px] md:w-[calc(25%-12px)] lg:min-w-[220px] lg:w-[calc(20%-13px)] shrink-0 snap-start">
+                    <BookCard b={book} onAddToCart={addToCart} />
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}

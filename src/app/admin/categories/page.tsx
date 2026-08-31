@@ -14,6 +14,8 @@ import {
   Download,
   Filter,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Layers,
   Sparkles,
   RefreshCw,
@@ -32,6 +34,8 @@ function CategoriesContent() {
   const [alert, setAlert] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -117,6 +121,15 @@ function CategoriesContent() {
     cat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, viewMode]);
+
+  const totalItems = filteredCategories.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCategories = filteredCategories.slice(startIndex, startIndex + itemsPerPage);
+
   // Export categories to Excel using SheetJS
   const handleExportExcel = async () => {
     try {
@@ -156,8 +169,8 @@ function CategoriesContent() {
       {/* Alert Banners */}
       {alert && (
         <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${alert.type === 'success'
-            ? 'bg-green-50 text-green-800 border-green-200'
-            : 'bg-red-50 text-red-800 border-red-200'
+          ? 'bg-green-50 text-green-800 border-green-200'
+          : 'bg-red-50 text-red-800 border-red-200'
           }`}>
           <div className="flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${alert.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
@@ -176,12 +189,9 @@ function CategoriesContent() {
       {/* Header & Stats section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-[#b70011] mb-1">
-            <FolderKanban className="w-5 h-5" />
-            <span className="text-xs font-bold uppercase tracking-widest">Danh mục hệ thống</span>
-          </div>
+
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Thể loại</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Tổ chức và phân loại kho sách của bạn theo các chủ đề khoa học.</p>
+
         </div>
 
         {/* Total Categories Stat Card */}
@@ -257,11 +267,11 @@ function CategoriesContent() {
       {/* Categories Content Grid / Table */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredCategories.map((item) => {
+          {paginatedCategories.map((item) => {
             const imgSrc = getImageUrl(item.imageUrl);
             return (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between cursor-pointer hover:border-[#b70011]/30"
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -346,7 +356,7 @@ function CategoriesContent() {
         <div className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-[#e6bdb8]/20 bg-slate-50/50 flex items-center justify-between">
             <h4 className="text-sm font-bold text-slate-800">Danh sách chi tiết</h4>
-            <span className="text-xs text-slate-500">Hiển thị {filteredCategories.length} thể loại</span>
+            <span className="text-xs text-slate-500">Hiển thị {paginatedCategories.length} trên tổng {filteredCategories.length} thể loại</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -359,11 +369,11 @@ function CategoriesContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10">
-                {filteredCategories.map((item) => {
+                {paginatedCategories.map((item) => {
                   const imgSrc = getImageUrl(item.imageUrl);
                   return (
-                    <tr 
-                      key={item.id} 
+                    <tr
+                      key={item.id}
                       className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
                       onClick={(e) => {
                         if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -424,6 +434,45 @@ function CategoriesContent() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 bg-white border border-[#e6bdb8]/30 rounded-xl p-4 shadow-sm">
+          <span className="text-sm text-slate-500 font-medium">
+            Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, totalItems)} của {totalItems} thể loại
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 flex items-center justify-center rounded border text-sm font-bold cursor-pointer transition-colors ${currentPage === page
+                  ? "bg-[#b70011] text-white border-[#b70011]"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

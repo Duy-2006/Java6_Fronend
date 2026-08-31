@@ -16,7 +16,6 @@ interface Book {
   publisherIds: number[]; 
   categoryId?: number | string;
   price: number | string; 
-
   quantity: number | string; 
   active: boolean;
   description?: string; 
@@ -46,7 +45,7 @@ export default function BookForm({ book, authors, publishers, categories }: Book
   const API_BASE = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
   const getFullImageUrl = (imageUrl?: string) => {
-    if (!imageUrl) return "https://placehold.co/200x300?text=Preview";
+    if (!imageUrl) return "";
     if (imageUrl.startsWith("http")) return imageUrl;
     if (imageUrl.startsWith("books/")) return `${API_BASE}/uploads/${imageUrl}`;
     return `${API_BASE}/uploads/books/${imageUrl}`;
@@ -67,7 +66,6 @@ export default function BookForm({ book, authors, publishers, categories }: Book
       : (book?.publishers && book.publishers.length > 0 ? [book.publishers[0].id] : []),
     categoryId: book?.categoryId ?? "",
     price: book?.price ?? "",
-
     quantity: book?.quantity ?? 0,
     active: book?.active ?? true,
     description: book?.description ?? "",
@@ -90,7 +88,6 @@ export default function BookForm({ book, authors, publishers, categories }: Book
         if (pRes.ok) {
           const fetchedPubs: Publisher[] = await pRes.json();
           setClientPublishers(fetchedPubs);
-          // Nếu chưa chọn NXB nào thì tự động chọn NXB đầu tiên trong danh sách
           if (fetchedPubs.length > 0 && form.publisherIds.length === 0) {
             setForm(f => ({ ...f, publisherIds: [fetchedPubs[0].id] }));
           }
@@ -144,14 +141,14 @@ export default function BookForm({ book, authors, publishers, categories }: Book
       fd.append("isbn", form.isbn ?? "");
       form.authorIds.forEach(id => fd.append("authorIds", String(id)));
       
-      // Gửi duy nhất 1 ID Nhà xuất bản được chọn
       const singlePublisherId = form.publisherIds[0];
       fd.append("publisherIds", String(singlePublisherId));
       fd.append("publisherId", String(singlePublisherId));
 
-      fd.append("categoryId", String(form.categoryId ?? ""));
+      if (form.categoryId) {
+        fd.append("categoryId", String(form.categoryId));
+      }
       fd.append("price", String(form.price));
-
       fd.append("quantity", String(form.quantity));
       fd.append("active", String(form.active));
       fd.append("description", form.description ?? "");
@@ -177,247 +174,311 @@ export default function BookForm({ book, authors, publishers, categories }: Book
 
   const selectedPublisherId = form.publisherIds.length > 0 ? form.publisherIds[0] : "";
 
+  const toggleAuthorSelection = (authorId: number) => {
+    const exists = form.authorIds.includes(authorId);
+    let updated: number[];
+    if (exists) {
+      updated = form.authorIds.filter(id => id !== authorId);
+    } else {
+      updated = [...form.authorIds, authorId];
+    }
+    setField("authorIds", updated);
+  };
+
   return (
-    <div className="container-fluid p-0 animate__animated animate__fadeIn">
-      <div className="row justify-content-center">
-        <div className="col-lg-10">
-          <div className="card border-0 shadow-lg mt-3 mb-5">
-            <div className="card-header text-white py-3 bg-gradient-to-br from-primary to-primary-dark rounded-t-lg">
-              <h5 className="m-0 fw-bold text-uppercase">
-                {isEdit ? "Cập Nhật Thông Tin Sách" : "Nhập Sách Mới"}
-              </h5>
+    <div className="w-full bg-white p-6 rounded-lg min-h-screen">
+      {/* Top Breadcrumb */}
+      <div className="text-xs text-gray-400 font-normal mb-6">
+        <span>Dashboard</span> / <span className="text-gray-600">Sách</span>
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
+        
+        {/* ══════════════════════════════════════
+           SECTION 1: THÔNG TIN CHUNG
+        ══════════════════════════════════════ */}
+        <div className="mb-8">
+          <h6 className="text-[#2563eb] font-bold text-xs tracking-wider uppercase mb-5">
+            THÔNG TIN CHUNG
+          </h6>
+
+          <div className="grid grid-cols-12 gap-6">
+            {/* Tên sách */}
+            <div className="col-span-12 md:col-span-8">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="title">
+                Tên sách <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="title"
+                type="text"
+                className={`w-full bg-[#f8fafc] border border-slate-200 rounded-md text-xs px-3 py-2.5 text-gray-800 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors ${errors.title ? "border-red-500" : ""}`}
+                value={form.title}
+                onChange={e => setField("title", e.target.value)}
+                placeholder="Nhập tên sách..."
+                maxLength={200}
+              />
+              <FieldError msg={errors.title} />
+              <div className="flex justify-end mt-1">
+                <small className="text-gray-400 text-[11px]">{form.title.length}/200</small>
+              </div>
             </div>
 
-            <div className="card-body p-4 bg-white">
-              <form onSubmit={handleSubmit} noValidate encType="multipart/form-data">
-
-                {/* THÔNG TIN CHUNG */}
-                <h6 className="text-primary fw-bold mb-3 text-uppercase border-bottom pb-2">Thông tin chung</h6>
-                
-                <div className="row">
-                  {/* Tên sách */}
-                  <div className="col-md-8 mb-3">
-                    <label className="form-label" htmlFor="title">Tên sách <span className="text-danger">*</span></label>
-                    <input
-                      id="title"
-                      type="text"
-                      className={`form-control ${errors.title ? "border-danger" : ""}`}
-                      value={form.title}
-                      onChange={e => setField("title", e.target.value)}
-                      placeholder="Nhập tên sách..."
-                      maxLength={200}
-                    />
-                    <FieldError msg={errors.title} />
-                    <div className="d-flex justify-content-end"><small className="text-muted">{form.title.length}/200</small></div>
-                  </div>
-
-                  {/* Mã ISBN */}
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label" htmlFor="isbn">Mã ISBN</label>
-                    <div className="input-group">
-                      <input
-                        id="isbn"
-                        type="text"
-                        className="form-control"
-                        value={form.isbn}
-                        onChange={e => setField("isbn", e.target.value)}
-                        placeholder="Mã vạch..."
-                      />
-                      {!isEdit && (
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary"
-                          onClick={() => setField("isbn", generateISBN())}
-                        >
-                          Tạo mã
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="row">
-                  {/* Tác giả */}
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label font-bold text-gray-700">Tác giả <span className="text-danger">*</span></label>
-                    
-                    {/* Danh sách đã chọn */}
-                    <div className="border rounded-lg p-2 mb-2 bg-gray-50 min-h-[45px] flex flex-wrap gap-1.5 align-items-center">
-                      {form.authorIds.length === 0 ? (
-                        <span className="text-gray-400 text-xs ps-1">Chưa chọn tác giả nào...</span>
-                      ) : (
-                        form.authorIds.map(id => {
-                          const author = clientAuthors.find(a => a.id === id);
-                          if (!author) return null;
-                          return (
-                            <span key={id} className="inline-flex items-center gap-1 bg-[#b70011]/10 text-[#b70011] border border-[#b70011]/20 px-2.5 py-1 rounded-full text-xs font-bold transition-all hover:bg-[#b70011]/15">
-                              {author.name}
-                              <button 
-                                type="button" 
-                                onClick={() => {
-                                  const updated = form.authorIds.filter(aid => aid !== id);
-                                  setField("authorIds", updated);
-                                }}
-                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#b70011]/20 border-0 bg-transparent text-[#b70011] font-bold text-[10px] p-0 cursor-pointer"
-                                aria-label="Xóa"
-                              >
-                                &times;
-                              </button>
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Danh sách lựa chọn */}
-                    <div className="border rounded-lg overflow-y-auto max-h-[140px] bg-white divide-y divide-gray-100 shadow-inner">
-                      {clientAuthors.filter(a => !form.authorIds.includes(a.id)).length === 0 ? (
-                        <div className="text-gray-400 text-xs p-3 text-center">Đã chọn tất cả tác giả</div>
-                      ) : (
-                        clientAuthors.filter(a => !form.authorIds.includes(a.id)).map(author => (
-                          <div 
-                            key={author.id}
-                            onClick={() => {
-                              setField("authorIds", [...form.authorIds, author.id]);
-                            }}
-                            className="p-2 cursor-pointer hover:bg-gray-50 text-xs transition-colors text-gray-700 flex items-center gap-1.5"
-                          >
-                            <span className="text-green-600 font-bold text-sm">+</span>
-                            <span>{author.name}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <FieldError msg={errors.authorIds} />
-                  </div>
-
-                  {/* CHỌN DUY NHẤT 1 NHÀ XUẤT BẢN */}
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label font-bold text-gray-700" htmlFor="publisherSelect">
-                      Nhà xuất bản <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      id="publisherSelect"
-                      className={`form-select ${errors.publisherIds ? "border-danger" : ""}`}
-                      value={selectedPublisherId}
-                      onChange={e => {
-                        const val = Number(e.target.value);
-                        setField("publisherIds", val ? [val] : []);
-                      }}
-                    >
-                      <option value="">-- Chọn 1 Nhà xuất bản --</option>
-                      {clientPublishers.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FieldError msg={errors.publisherIds} />
-                  </div>
-
-                  {/* Thể loại */}
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label" htmlFor="categoryId">Thể loại</label>
-                    <select id="categoryId" className="form-select" value={form.categoryId} onChange={e => setField("categoryId", e.target.value)}>
-                      <option value="">-- Chọn thể loại --</option>
-                      {clientCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                {/* DỮ LIỆU KINH DOANH */}
-                <h6 className="text-primary fw-bold mb-3 mt-4 text-uppercase border-bottom pb-2">Dữ liệu Kinh doanh</h6>
-                <div className="row">
-                  {/* Giá bán */}
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label" htmlFor="price">Giá bán <span className="text-danger">*</span></label>
-                    <div className="input-group">
-                      <input
-                        id="price"
-                        type="number"
-                        className={`form-control fw-bold text-end text-danger ${errors.price ? "border-danger" : ""}`}
-                        value={form.price}
-                        onChange={e => setField("price", e.target.value)}
-                        min={0}
-                        step={1000}
-                      />
-                      <span className="input-group-text bg-light fw-bold">VNĐ</span>
-                    </div>
-                    <FieldError msg={errors.price} />
-                  </div>
-
-                  {/* Số lượng tồn kho */}
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label" htmlFor="quantity">Số lượng tồn kho <span className="text-danger">*</span></label>
-                    <input
-                      id="quantity"
-                      type="number"
-                      className={`form-control fw-bold ${errors.quantity ? "border-danger" : ""}`}
-                      value={form.quantity}
-                      onChange={e => setField("quantity", e.target.value)}
-                      min={0}
-                    />
-                    <FieldError msg={errors.quantity} />
-                  </div>
-
-                  {/* Trạng thái */}
-                  <div className="col-md-3 mb-3">
-                    <div className="form-check form-switch mt-4 ps-5">
-                      <input
-                        className="form-check-input scale-[1.3]"
-                        type="checkbox"
-                        role="switch"
-                        id="activeSwitch"
-                        checked={form.active}
-                        onChange={e => setField("active", e.target.checked)}
-                      />
-                      <label className="form-check-label fw-bold ms-2 text-success" htmlFor="activeSwitch">Đang kinh doanh</label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* HÌNH ẢNH & NỘI DUNG */}
-                <h6 className="text-primary fw-bold mb-3 mt-4 text-uppercase border-bottom pb-2">Hình ảnh & Nội dung</h6>
-                <div className="row">
-                  <div className="col-md-4 mb-3">
-                    <label className="form-label" htmlFor="imageFile">Ảnh bìa (JPG/PNG, tối đa 5MB)</label>
-                    <input id="imageFile" type="file" ref={fileRef} className="form-control" accept="image/*" onChange={handleFileChange} />
-                    <div className="mt-3 text-center border rounded p-2 bg-light d-flex align-items-center justify-content-center min-h-[200px]">
-                      <img
-                        src={preview}
-                        alt="Preview"
-                        className="img-fluid rounded shadow-sm max-h-[250px] object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/200x300?text=Preview"; }}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-md-8 mb-3">
-                    <label className="form-label" htmlFor="description">Mô tả chi tiết</label>
-                    <textarea
-                      id="description"
-                      className="form-control"
-                      rows={10}
-                      value={form.description}
-                      onChange={e => setField("description", e.target.value)}
-                      placeholder="Viết mô tả về nội dung sách..."
-                    />
-                    <div className="d-flex justify-content-end"><small className="text-muted">{(form.description ?? "").length} ký tự</small></div>
-                  </div>
-                </div>
-
-                {/* Nút hành động */}
-                <div className="d-flex gap-2 justify-content-end pt-3 border-top">
-                  <a href="/admin/books" className="btn btn-light border fw-bold px-4">Hủy bỏ</a>
-                  <button type="submit" disabled={loading} className="btn btn-primary fw-bold px-4 shadow-sm cursor-pointer">
-                    {loading ? "Đang lưu..." : "Lưu Sách"}
+            {/* Mã ISBN */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="isbn">
+                Mã ISBN
+              </label>
+              <div className="flex">
+                <input
+                  id="isbn"
+                  type="text"
+                  className="flex-1 bg-[#f8fafc] border border-slate-200 rounded-l-md text-xs px-3 py-2.5 text-gray-800 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors"
+                  value={form.isbn}
+                  onChange={e => setField("isbn", e.target.value)}
+                  placeholder="978-1-50072-569-3"
+                />
+                {!isEdit && (
+                  <button
+                    type="button"
+                    className="bg-white border border-l-0 border-slate-200 hover:bg-gray-50 text-gray-700 text-xs px-3.5 rounded-r-md font-normal transition-colors cursor-pointer"
+                    onClick={() => setField("isbn", generateISBN())}
+                  >
+                    Tạo mã
                   </button>
-                </div>
+                )}
+              </div>
+            </div>
+          </div>
 
-              </form>
+          <div className="grid grid-cols-12 gap-6 mt-4">
+            {/* Tác giả */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2">
+                Tác giả <span className="text-red-500">*</span>
+              </label>
+              
+              {/* Display Box for Selected / Placeholder */}
+              <div className="bg-[#f8fafc] border border-slate-200 rounded-md text-xs px-3 py-2 text-gray-400 mb-2 min-h-[38px] flex items-center">
+                {form.authorIds.length === 0 ? (
+                  <span>Chưa chọn tác giả nào...</span>
+                ) : (
+                  <span className="text-gray-700 font-medium">
+                    Đã chọn {form.authorIds.length} tác giả
+                  </span>
+                )}
+              </div>
+
+              {/* Scrollable list box matching screenshot */}
+              <div className="border border-slate-200 rounded-md bg-white p-2.5 max-h-[140px] overflow-y-auto space-y-1.5 shadow-inner">
+                {clientAuthors.length === 0 ? (
+                  <div className="text-gray-400 text-xs py-1 italic">Đang tải danh sách tác giả...</div>
+                ) : (
+                  clientAuthors.map(author => {
+                    const isSelected = form.authorIds.includes(author.id);
+                    return (
+                      <div
+                        key={author.id}
+                        onClick={() => toggleAuthorSelection(author.id)}
+                        className={`flex items-center gap-2 text-xs py-1 px-1.5 rounded cursor-pointer transition-colors ${isSelected ? "text-blue-600 font-semibold bg-blue-50/60" : "text-gray-700 hover:bg-gray-50"}`}
+                      >
+                        <span className={`text-[13px] ${isSelected ? "text-blue-600 font-bold" : "text-gray-500"}`}>•</span>
+                        <span>{author.name}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <FieldError msg={errors.authorIds} />
+            </div>
+
+            {/* Nhà xuất bản */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="publisherSelect">
+                Nhà xuất bản <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="publisherSelect"
+                className={`w-full bg-[#f8fafc] border border-slate-200 rounded-md text-xs px-3 py-2.5 text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors ${errors.publisherIds ? "border-red-500" : ""}`}
+                value={selectedPublisherId}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  setField("publisherIds", val ? [val] : []);
+                }}
+              >
+                <option value="">Nhà xuất bản Tri Thức Xanh</option>
+                {clientPublishers.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError msg={errors.publisherIds} />
+            </div>
+
+            {/* Thể loại */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="categoryId">
+                Thể loại
+              </label>
+              <select 
+                id="categoryId" 
+                className="w-full bg-[#f8fafc] border border-slate-200 rounded-md text-xs px-3 py-2.5 text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors" 
+                value={form.categoryId} 
+                onChange={e => setField("categoryId", e.target.value)}
+              >
+                <option value="">- Chọn thể loại -</option>
+                {clientCategories.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* ══════════════════════════════════════
+           SECTION 2: DỮ LIỆU KINH DOANH
+        ══════════════════════════════════════ */}
+        <div className="mb-8 pt-4 border-t border-slate-100">
+          <h6 className="text-[#2563eb] font-bold text-xs tracking-wider uppercase mb-5">
+            DỮ LIỆU KINH DOANH
+          </h6>
+
+          <div className="grid grid-cols-12 gap-6 items-end">
+            {/* Giá bán */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="price">
+                Giá bán <span className="text-red-500">*</span>
+              </label>
+              <div className="flex">
+                <input
+                  id="price"
+                  type="number"
+                  className={`flex-1 bg-[#f8fafc] border border-slate-200 rounded-l-md text-xs px-3 py-2.5 text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors ${errors.price ? "border-red-500" : ""}`}
+                  value={form.price}
+                  onChange={e => setField("price", e.target.value)}
+                  min={0}
+                  step={1000}
+                  placeholder="0"
+                />
+                <span className="bg-[#f1f5f9] border border-l-0 border-slate-200 text-gray-500 text-xs px-3.5 py-2.5 rounded-r-md font-medium flex items-center">
+                  VNĐ
+                </span>
+              </div>
+              <FieldError msg={errors.price} />
+            </div>
+
+            {/* Số lượng tồn kho */}
+            <div className="col-span-12 md:col-span-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="quantity">
+                Số lượng tồn kho <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="quantity"
+                type="number"
+                className={`w-full bg-[#f8fafc] border border-slate-200 rounded-md text-xs px-3 py-2.5 text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors ${errors.quantity ? "border-red-500" : ""}`}
+                value={form.quantity}
+                onChange={e => setField("quantity", e.target.value)}
+                min={0}
+                placeholder="0"
+              />
+              <FieldError msg={errors.quantity} />
+            </div>
+
+            {/* Trạng thái (Toggle Switch) */}
+            <div className="col-span-12 md:col-span-4 pb-1">
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={form.active}
+                    onChange={e => setField("active", e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2563eb]"></div>
+                </label>
+                <span className="text-xs font-bold text-[#2563eb]">
+                  Đang kinh doanh
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════
+           SECTION 3: HÌNH ẢNH & NỘI DUNG
+        ══════════════════════════════════════ */}
+        <div className="mb-8 pt-4 border-t border-slate-100">
+          <h6 className="text-[#2563eb] font-bold text-xs tracking-wider uppercase mb-5">
+            HÌNH ẢNH & NỘI DUNG
+          </h6>
+
+          <div className="grid grid-cols-12 gap-6">
+            {/* Left Column: Image Upload & Gray Box */}
+            <div className="col-span-12 md:col-span-5">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="imageFile">
+                Ảnh bìa (JPG/PNG, tối đa 5MB)
+              </label>
+              
+              <div className="flex items-center gap-2 mb-3">
+                <input 
+                  id="imageFile" 
+                  type="file" 
+                  ref={fileRef} 
+                  className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50 cursor-pointer" 
+                  accept="image/*" 
+                  onChange={handleFileChange} 
+                />
+              </div>
+
+              {/* Large Gray Placeholder Box matching screenshot */}
+              <div className="w-full h-44 bg-[#e2e8f0] rounded-xl flex items-center justify-center overflow-hidden">
+                {preview ? (
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="max-h-full max-w-full object-contain p-2"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="text-gray-400 text-xs"></div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Description */}
+            <div className="col-span-12 md:col-span-7">
+              <label className="block text-xs font-semibold text-gray-600 mb-2" htmlFor="description">
+                Mô tả chi tiết
+              </label>
+              <textarea
+                id="description"
+                className="w-full bg-[#f8fafc] border border-slate-200 rounded-md text-xs p-3 text-gray-800 placeholder-gray-400 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors"
+                rows={7}
+                value={form.description}
+                onChange={e => setField("description", e.target.value)}
+                placeholder="Viết mô tả về nội dung sách..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+          <a href="/admin/books" className="bg-white border border-slate-200 text-gray-600 text-xs font-medium px-5 py-2.5 rounded-md hover:bg-gray-50 transition-colors">
+            Hủy bỏ
+          </a>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="bg-[#2563eb] hover:bg-blue-700 text-white text-xs font-medium px-6 py-2.5 rounded-md shadow-sm transition-colors border-0 cursor-pointer"
+          >
+            {loading ? "Đang lưu..." : isEdit ? "Cập nhật sách" : "Lưu Sách"}
+          </button>
+        </div>
+
+      </form>
     </div>
   );
 }

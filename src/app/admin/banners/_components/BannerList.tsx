@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { useState, useEffect } from "react";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -41,6 +42,7 @@ export default function BannerList() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 8;
 
@@ -79,10 +81,10 @@ export default function BannerList() {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Bạn có chắc chắn muốn xóa banner này?")) {
+  const handleDeleteConfirm = async () => {
+    if (deletingId) {
       try {
-        const res = await authFetch(`${API_URL}/api/banners/${id}`, { method: "DELETE" });
+        const res = await authFetch(`${API_URL}/api/banners/${deletingId}`, { method: "DELETE" });
         if (res.ok) {
           setToast({ msg: "Xóa banner thành công!", type: "success" });
           fetchBanners(true);
@@ -92,6 +94,8 @@ export default function BannerList() {
       } catch (error) {
         console.error("Lỗi xóa banner:", error);
         setToast({ msg: "Lỗi kết nối máy chủ khi xóa banner.", type: "error" });
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -245,18 +249,17 @@ export default function BannerList() {
     <div className="space-y-6 max-w-[1600px] w-full mx-auto p-4 animate__animated animate__fadeIn font-sans">
       {/* Toast Alert */}
       {toast && (
-        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${
-          toast.type === 'success' 
-            ? 'bg-green-50 text-green-800 border-green-200' 
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate__animated animate__fadeInDown transition-all ${toast.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-200'
             : 'bg-red-50 text-red-800 border-red-200'
-        }`}>
+          }`}>
           <div className="flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             <p className="text-sm font-semibold">{toast.msg}</p>
           </div>
-          <button 
-            type="button" 
-            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer" 
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-600 transition-colors text-lg font-bold leading-none cursor-pointer"
             onClick={() => setToast(null)}
           >
             &times;
@@ -264,19 +267,14 @@ export default function BannerList() {
         </div>
       )}
 
-      {/* Header & Breadcrumbs */}
+      {/* Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
-          <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#b70011]">Banner</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Quản lý Banner</h2>
-          <p className="text-sm text-[#5c403c] font-sans">Cài đặt, cập nhật các banner và lập lịch chương trình quảng cáo trên hệ thống.</p>
+
         </div>
-        <Link 
-          href="/admin/banners/new" 
+        <Link
+          href="/admin/banners/new"
           className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer border-0 text-decoration-none"
         >
           <Plus className="w-4 h-4" />
@@ -336,8 +334,8 @@ export default function BannerList() {
           {/* Search bar */}
           <div style={{ position: "relative" }} className="w-full sm:w-64">
             <Search style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} className="w-4 h-4 text-slate-400" />
-            <input 
-              type="search" 
+            <input
+              type="search"
               style={{ paddingLeft: "2.5rem" }}
               placeholder="Tìm kiếm banner..."
               className="w-full bg-[#f2f4f6]/80 border-none rounded-lg py-2 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-[#b70011]/20 transition-all outline-none"
@@ -346,7 +344,7 @@ export default function BannerList() {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleExportExcel}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-colors border border-slate-200 cursor-pointer"
           >
@@ -356,14 +354,14 @@ export default function BannerList() {
 
           {/* View Toggles */}
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden p-0.5 bg-slate-50">
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'grid' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('grid')}
               title="Dạng lưới"
             >
               <Grid className="w-4 h-4" />
             </button>
-            <button 
+            <button
               className={`p-1.5 rounded transition-colors cursor-pointer ${viewMode === 'table' ? 'bg-white text-[#b70011] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               onClick={() => setViewMode('table')}
               title="Dạng bảng"
@@ -378,8 +376,8 @@ export default function BannerList() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedBanners.map((item) => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               className="bg-white border border-[#e6bdb8]/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between p-5 space-y-4 cursor-pointer hover:border-[#b70011]/30"
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -388,9 +386,9 @@ export default function BannerList() {
             >
               <div className="relative aspect-[16/8] rounded-lg overflow-hidden border border-slate-200/60 bg-slate-100">
                 {item.image_url ? (
-                  <img 
-                    src={getImageUrl(item.image_url)} 
-                    alt={item.title || "Banner"} 
+                  <img
+                    src={getImageUrl(item.image_url)}
+                    alt={item.title || "Banner"}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&auto=format&fit=crop&q=60";
@@ -433,22 +431,20 @@ export default function BannerList() {
                 })()}
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 action-button" onClick={(e) => e.stopPropagation()}>
-                <Link 
-                  href={`/admin/banners/${item.id}/edit`} 
-                  className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold text-decoration-none"
+              <div className="pt-2 flex items-center justify-end gap-1.5 border-t border-slate-100 action-button" onClick={(e) => e.stopPropagation()}>
+                <Link
+                  href={`/admin/banners/${item.id}/edit`}
+                  className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60 flex items-center justify-center text-decoration-none"
                   title="Chỉnh sửa banner"
                 >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span>Sửa</span>
+                  <Edit className="w-4.5 h-4.5" />
                 </Link>
-                <button 
-                  onClick={() => item.id && handleDelete(item.id)}
-                  className="px-3 py-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors border border-red-100 flex items-center gap-1.5 text-xs font-semibold cursor-pointer bg-white"
+                <button
+                  onClick={() => item.id && setDeletingId(item.id)}
+                  className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors border border-red-200/50 flex items-center justify-center cursor-pointer bg-white"
                   title="Xóa banner"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Xóa</span>
+                  <Trash2 className="w-4.5 h-4.5" />
                 </button>
               </div>
             </div>
@@ -477,8 +473,8 @@ export default function BannerList() {
               </thead>
               <tbody className="divide-y divide-[#e6bdb8]/10 text-sm">
                 {paginatedBanners.map((item) => (
-                  <tr 
-                    key={item.id} 
+                  <tr
+                    key={item.id}
                     className="hover:bg-[#b70011]/5 transition-colors duration-150 group cursor-pointer"
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest('.action-button')) return;
@@ -488,9 +484,9 @@ export default function BannerList() {
                     <td className="px-6 py-4">
                       <div className="w-24 h-11 rounded-lg border border-[#e6bdb8]/30 overflow-hidden shadow-sm bg-slate-50 group-hover:scale-105 transition-transform duration-200">
                         {item.image_url ? (
-                          <img 
-                            src={getImageUrl(item.image_url)} 
-                            alt={item.title || "Banner"} 
+                          <img
+                            src={getImageUrl(item.image_url)}
+                            alt={item.title || "Banner"}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&auto=format&fit=crop&q=60";
@@ -524,22 +520,20 @@ export default function BannerList() {
                       })()}
                     </td>
                     <td className="px-6 py-4" style={{ textAlign: "center" }}>
-                      <div className="flex justify-center items-center gap-2 action-button" onClick={(e) => e.stopPropagation()}>
-                        <Link 
+                      <div className="flex justify-center items-center gap-1.5 action-button" onClick={(e) => e.stopPropagation()}>
+                        <Link
                           href={`/admin/banners/${item.id}/edit`}
-                          className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-[#b70011] transition-colors border border-slate-200/60 flex items-center gap-1.5 text-xs font-semibold text-decoration-none"
+                          className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors border border-slate-200/60 flex items-center justify-center text-decoration-none"
                           title="Chỉnh sửa banner"
                         >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>Sửa</span>
+                          <Edit className="w-4.5 h-4.5" />
                         </Link>
-                        <button 
-                          onClick={() => item.id && handleDelete(item.id)}
-                          className="px-3 py-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors border border-red-100 flex items-center gap-1.5 text-xs font-semibold cursor-pointer bg-white"
+                        <button
+                          onClick={() => item.id && setDeletingId(item.id)}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors border border-red-200/50 flex items-center justify-center cursor-pointer bg-white"
                           title="Xóa banner"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Xóa</span>
+                          <Trash2 className="w-4.5 h-4.5" />
                         </button>
                       </div>
                     </td>
@@ -565,7 +559,7 @@ export default function BannerList() {
             Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredBanners.length)} của {filteredBanners.length} banner
           </p>
           <div className="flex items-center gap-1.5">
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
@@ -573,7 +567,7 @@ export default function BannerList() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             {(() => {
               let startPage = Math.max(1, currentPage - 2);
               let endPage = Math.min(totalPages, currentPage + 2);
@@ -582,11 +576,10 @@ export default function BannerList() {
               return Array.from({ length: Math.max(0, endPage - startPage + 1) }, (_, i) => startPage + i).map(page => (
                 <button
                   key={page}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                    currentPage === page 
-                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15' 
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer transition-all ${currentPage === page
+                      ? 'bg-[#b70011] text-white shadow-md shadow-[#b70011]/15'
                       : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                    }`}
                   onClick={() => setCurrentPage(page)}
                 >
                   {page}
@@ -594,7 +587,7 @@ export default function BannerList() {
               ));
             })()}
 
-            <button 
+            <button
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
@@ -612,6 +605,14 @@ export default function BannerList() {
           © 2026 Libris Management System. All Rights Reserved.
         </p>
       </footer>
+
+      <ConfirmModal
+        isOpen={deletingId !== null}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Xóa Banner"
+        message="Bạn có chắc chắn muốn xóa banner này không? Hành động này không thể hoàn tác."
+      />
     </div>
   );
 }

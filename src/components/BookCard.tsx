@@ -148,11 +148,9 @@ export default function BookCard({ b, onAddToCart, showFormatBadges = true }: Bo
             </div>
             
             {/* CHỈ HIỂN THỊ GIÁ AUDIO KHI SẢN PHẨM THỰC SỰ KHẢ DỤNG AUDIO */}
-            {isAudioAvailable && (
-              <div className="text-[#b70011] text-xs font-semibold">
-                Giá Audio: {formattedAudioPrice} ₫
-              </div>
-            )}
+            <div className={`text-[#b70011] text-xs font-semibold ${isAudioAvailable ? '' : 'invisible'}`}>
+              Giá Audio: {formattedAudioPrice} ₫
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-[#f2f4f6]">

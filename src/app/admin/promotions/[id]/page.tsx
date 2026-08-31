@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getPromotionById, PromotionDTO } from "@/services/promotionServices";
-import { ChevronRight, Edit, Calendar, Globe, BookOpen, Layers, Tag, Percent, Info, ShieldAlert } from "lucide-react";
+import { getPromotionById, updatePromotion, PromotionDTO } from "@/services/promotionServices";
+import { ChevronRight, Edit, Calendar, Globe, BookOpen, Layers, Tag, Percent, Info, ShieldAlert, PauseCircle, PlayCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const APPLY_BADGE: Record<string, { label: string; bg: string; textCol: string; icon: any }> = {
   ALL:      { label: "Toàn sàn",      bg: "bg-rose-50 border-rose-100", textCol: "text-[#b70011]", icon: Globe },
@@ -17,6 +18,7 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; textCol: string;
   ACTIVE:   { label: "Đang diễn ra",  bg: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", dot: "bg-emerald-700" },
   EXPIRED:  { label: "Đã kết thúc",   bg: "bg-slate-50 border-slate-200", textCol: "text-slate-600", dot: "bg-slate-600" },
   UNKNOWN:  { label: "Chưa đặt ngày", bg: "bg-amber-50 border-amber-200", textCol: "text-amber-700", dot: "bg-amber-700" },
+  PAUSED:   { label: "Tạm dừng",      bg: "bg-orange-50 border-orange-200", textCol: "text-orange-700", dot: "bg-orange-700" },
 };
 
 export default function PromotionDetailsPage() {
@@ -25,7 +27,9 @@ export default function PromotionDetailsPage() {
 
   const [promo, setPromo] = useState<PromotionDTO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +45,33 @@ export default function PromotionDetailsPage() {
     };
     fetchPromo();
   }, [id]);
+
+  const handleToggleStatus = async () => {
+    if (!promo) return;
+    try {
+      setToggling(true);
+      const { id: _, computedStatus, bookTitles, categoryNames, ...payload } = promo;
+      const updatedPayload = { ...payload, status: !promo.status };
+      await updatePromotion(promo.id!, updatedPayload);
+      
+      // Re-fetch to get updated details
+      const data = await getPromotionById(promo.id!);
+      setPromo(data);
+      
+      toast({
+        title: "Thành công",
+        description: `Đã ${data.status ? 'kích hoạt' : 'tạm dừng'} chương trình khuyến mãi.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể thay đổi trạng thái",
+        variant: "destructive",
+      });
+    } finally {
+      setToggling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -67,14 +98,9 @@ export default function PromotionDetailsPage() {
 
   return (
     <div className="max-w-7xl mx-auto w-full p-4 md:p-6 animate__animated animate__fadeIn font-sans space-y-6">
-      {/* Header section with breadcrumbs */}
+      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <nav className="flex items-center gap-1 text-[#5c403c] text-xs mb-1.5">
-            <Link href="/admin/promotions" className="font-semibold cursor-pointer hover:underline hover:text-[#b70011] transition-colors">Khuyến mãi</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="font-semibold text-[#b70011]">Chi tiết</span>
-          </nav>
           <h2 className="text-2xl font-bold text-[#191c1e] font-sans">Chi tiết Khuyến mãi</h2>
         </div>
         <div className="flex items-center gap-3">
@@ -84,6 +110,18 @@ export default function PromotionDetailsPage() {
           >
             Quay lại
           </Link>
+          <button
+            onClick={handleToggleStatus}
+            disabled={toggling}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold text-xs shadow-sm transition-all cursor-pointer ${
+              promo.status 
+                ? 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100' 
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+            } ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {promo.status ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+            {toggling ? "Đang xử lý..." : promo.status ? "Tạm dừng" : "Tiếp tục"}
+          </button>
           <Link
             href={`/admin/promotions/${promo.id}/edit`}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#b70011] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#b70011]/90 transition-all cursor-pointer"

@@ -160,15 +160,8 @@ export default function CustomerHistoryPage() {
         </div>
       )}
 
-      {/* Navigation Breadcrumb */}
+      {/* Header section */}
       <div className="flex flex-col gap-2">
-        <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-          <Link href="/admin/dashboard" className="hover:text-[#b70011] transition-colors">Dashboard</Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <Link href="/admin/customers" className="hover:text-[#b70011] transition-colors">Khách hàng</Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <span className="text-[#b70011]">Hồ sơ chi tiết</span>
-        </nav>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-[#191c1e]">Chi tiết Khách hàng & Lịch sử</h2>

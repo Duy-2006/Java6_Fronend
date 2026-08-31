@@ -342,7 +342,6 @@ export default function CheckoutPage() {
     let total = 0;
     const items: any[] = [];
     let isAllAudiobooks = true;
-    const appliedPromos = new Set<number>();
 
     rawCartDetails.forEach((item) => {
       if (!item.isAudiobook) {
@@ -351,42 +350,24 @@ export default function CheckoutPage() {
       const promoInfo = flashSaleMap.get(item.bookId);
       if (promoInfo && promoInfo.price < item.price) {
         const isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
-        if (!isExhausted && !appliedPromos.has(promoInfo.promotionId)) {
-          appliedPromos.add(promoInfo.promotionId);
-          const promoQty = Math.min(item.quantity, 1);
-          const normalQty = item.quantity - promoQty;
-
-          if (promoQty > 0) {
-            const itemTotal = promoInfo.price * promoQty;
-            total += itemTotal;
-            items.push({
-              ...item,
-              quantity: promoQty,
-              displayPrice: promoInfo.price,
-              displayTotal: itemTotal,
-              isPromo: true,
-            });
-          }
-          if (normalQty > 0) {
-            const itemTotal = item.price * normalQty;
-            total += itemTotal;
-            items.push({
-              ...item,
-              quantity: normalQty,
-              displayPrice: item.price,
-              displayTotal: itemTotal,
-              isNormal: true,
-            });
-          }
+        if (!isExhausted) {
+          const itemTotal = promoInfo.price * item.quantity;
+          total += itemTotal;
+          items.push({
+            ...item,
+            displayPrice: promoInfo.price,
+            displayTotal: itemTotal,
+            isPromo: true,
+          });
         } else {
           const itemTotal = item.price * item.quantity;
           total += itemTotal;
-          items.push({ ...item, displayPrice: item.price, displayTotal: itemTotal });
+          items.push({ ...item, displayPrice: item.price, displayTotal: itemTotal, isPromo: false });
         }
       } else {
         const itemTotal = item.price * item.quantity;
         total += itemTotal;
-        items.push({ ...item, displayPrice: item.price, displayTotal: itemTotal });
+        items.push({ ...item, displayPrice: item.price, displayTotal: itemTotal, isPromo: false });
       }
     });
 
@@ -402,45 +383,18 @@ export default function CheckoutPage() {
   }, [totalAmount, shippingFee, discount, appliedVoucher]);
 
   const groupedDisplayItems = useMemo(() => {
-    const map = new Map<number, {
-      bookId: number;
-      title: string;
-      imageUrl: string;
-      authorName?: string;
-      isAudiobook?: boolean;
-      price: number;
-      promoPart?: { quantity: number; price: number; total: number };
-      normalPart?: { quantity: number; price: number; total: number };
-    }>();
-
-    displayItems.forEach((item) => {
-      if (!map.has(item.bookId)) {
-        map.set(item.bookId, {
-          bookId: item.bookId,
-          title: item.title,
-          imageUrl: item.imageUrl,
-          authorName: item.authorName,
-          isAudiobook: item.isAudiobook,
-          price: item.price,
-        });
-      }
-      const grouped = map.get(item.bookId)!;
-      if (item.isPromo) {
-        grouped.promoPart = {
-          quantity: item.quantity,
-          price: item.displayPrice,
-          total: item.displayTotal,
-        };
-      } else {
-        grouped.normalPart = {
-          quantity: item.quantity,
-          price: item.displayPrice,
-          total: item.displayTotal,
-        };
-      }
-    });
-
-    return Array.from(map.values());
+    return displayItems.map((item) => ({
+      bookId: item.bookId,
+      title: item.title,
+      imageUrl: item.imageUrl,
+      authorName: item.authorName,
+      isAudiobook: item.isAudiobook,
+      price: item.price,
+      quantity: item.quantity,
+      displayPrice: item.displayPrice,
+      displayTotal: item.displayTotal,
+      isPromo: item.isPromo,
+    }));
   }, [displayItems]);
 
   // 2.5 Tính toán phí vận chuyển GHTK khi thay đổi địa chỉ hoặc tổng tiền
@@ -1250,30 +1204,27 @@ export default function CheckoutPage() {
                             Tác giả: {item.authorName}
                           </p>
 
-                          {/* Tách ra sản phẩm không giảm giá và giảm giá ra riêng, chỉ ghi số lượng và giá tiền */}
                           <div className="mt-2 space-y-1 font-sans text-[11px]">
-                            {item.promoPart && (
+                            {item.isPromo ? (
                               <div className="flex justify-between items-center text-[#b70011] font-semibold">
-                                <span>Khuyến mãi (SL: {item.promoPart.quantity})</span>
-                                <span className="font-mono">{fmt(item.promoPart.total)}</span>
+                                <span>Khuyến mãi ({item.quantity} x {fmt(item.displayPrice)})</span>
+                                <span className="font-mono">{fmt(item.displayTotal)}</span>
                               </div>
-                            )}
-                            {item.normalPart && (
+                            ) : (
                               <div className="flex justify-between items-center text-[#545f73]">
-                                <span>Giá gốc (SL: {item.normalPart.quantity})</span>
-                                <span className="font-mono">{fmt(item.normalPart.total)}</span>
+                                <span>Giá ({item.quantity} x {fmt(item.displayPrice)})</span>
+                                <span className="font-mono">{fmt(item.displayTotal)}</span>
                               </div>
                             )}
                           </div>
 
-                          {/* Chỉ ghi chú phía dưới */}
                           <div className="flex items-center gap-1.5 mt-2">
                             {item.isAudiobook ? (
                               <span className="px-1.5 py-0.5 bg-[#6a7188] text-white text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách nói</span>
                             ) : (
                               <span className="px-1.5 py-0.5 bg-[#d5e0f8] text-[#586377] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Sách giấy</span>
                             )}
-                            {item.promoPart && (
+                            {item.isPromo && (
                               <span className="px-1.5 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[9px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Có khuyến mãi</span>
                             )}
                           </div>

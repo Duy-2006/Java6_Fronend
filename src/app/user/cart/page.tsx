@@ -356,23 +356,20 @@ export default function CartPage() {
     return `${API_BASE_URL}/uploads/books/${cleanUrl}`;
   };
 
-  // Tính toán số lượng khuyến mãi cho từng item để đảm bảo 1 promotionId chỉ được áp dụng 1 lần duy nhất trong toàn giỏ hàng
+  // Tính toán số lượng khuyến mãi cho từng item
   const promoQtyMap = useMemo(() => {
     const map = new Map<number, number>();
-    const appliedPromos = new Set<number>();
     
-    // Ưu tiên các item được chọn trước (nếu không chọn thì không tính là đã dùng khuyến mãi)
     items.forEach(item => {
       const promoInfo = flashSaleMap.get(item.bookId);
-      if (!item.selected || !promoInfo || promoInfo.price >= item.price) {
+      if (!promoInfo || promoInfo.price >= item.price) {
         map.set(item.cartDetailId, 0);
         return;
       }
       
       const isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
-      if (!isExhausted && !appliedPromos.has(promoInfo.promotionId)) {
-        map.set(item.cartDetailId, 1);
-        appliedPromos.add(promoInfo.promotionId);
+      if (!isExhausted) {
+        map.set(item.cartDetailId, item.quantity);
       } else {
         map.set(item.cartDetailId, 0);
       }
@@ -384,12 +381,11 @@ export default function CartPage() {
   const subTotal = items.reduce((sum, item) => {
     if (!item.selected) return sum;
     const promoInfo = flashSaleMap.get(item.bookId);
-    let itemTotal = item.price * item.quantity;
     const promoQty = promoQtyMap.get(item.cartDetailId) || 0;
     
+    let itemTotal = item.price * item.quantity;
     if (promoInfo && promoQty > 0) {
-      const normalQty = item.quantity - promoQty;
-      itemTotal = (promoQty * promoInfo.price) + (normalQty * item.price);
+      itemTotal = item.quantity * promoInfo.price;
     }
     return sum + itemTotal;
   }, 0);
@@ -486,13 +482,12 @@ export default function CartPage() {
 
                     if (promoInfo && promoInfo.price < item.price) {
                       isExhausted = promoInfo.limit !== null && promoInfo.usedCount >= promoInfo.limit;
-                      promoQty = promoQtyMap.get(item.cartDetailId) || 0;
+                      const promoQty = promoQtyMap.get(item.cartDetailId) || 0;
                       
                       if (promoQty > 0) {
                         hasDiscount = true;
                         promoPrice = promoInfo.price;
-                        normalQty = item.quantity - promoQty;
-                        itemTotal = (promoQty * promoPrice) + (normalQty * item.price);
+                        itemTotal = item.quantity * promoPrice;
                       }
                     }
 
@@ -539,22 +534,21 @@ export default function CartPage() {
                                       <span className="px-2 py-0.5 bg-[#e6e8ea] text-[#5c403c] text-[10px] font-medium font-mono rounded-[2px]">Bìa cứng</span>
                                     </>
                                   )}
+                                  {hasDiscount && (
+                                    <span className="px-2 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[10px] font-medium font-mono rounded-[2px] tracking-wide uppercase">Khuyến mãi</span>
+                                  )}
                                 </div>
                               </div>
                               
                               <div className="text-right flex-shrink-0">
                                 {hasDiscount ? (
                                   <div className="text-[13px] space-y-1 text-right font-sans">
-                                    {promoQty > 0 && (
-                                      <div className="text-[#b70011] font-semibold">
-                                        Khuyến mãi: {promoQty} x {fmt(promoPrice)}
-                                      </div>
-                                    )}
-                                    {normalQty > 0 && (
-                                      <div className="text-[#545f73]">
-                                        Giá gốc: {normalQty} x {fmt(item.price)}
-                                      </div>
-                                    )}
+                                    <div className="text-[#b70011] font-semibold">
+                                      Khuyến mãi: {item.quantity} x {fmt(promoPrice)}
+                                    </div>
+                                    <div className="text-[#545f73] line-through text-[12px]">
+                                      Giá gốc: {item.quantity} x {fmt(item.price)}
+                                    </div>
                                     <div className="font-semibold text-[20px] text-[#191c1e] mt-1 border-t border-[#eceef0] pt-1">
                                       {fmt(itemTotal)}
                                     </div>
@@ -569,17 +563,6 @@ export default function CartPage() {
                                 )}
                               </div>
                             </div>
-                            
-                            {hasDiscount && item.quantity > 1 && (
-                              <p className="text-[11px] text-[#ba1a1a] font-mono mt-2">
-                                * Khuyến mãi chỉ áp dụng cho 1 sản phẩm duy nhất/tài khoản. {normalQty} sản phẩm còn lại tính giá gốc.
-                              </p>
-                            )}
-                            {!hasDiscount && promoInfo && !isExhausted && promoInfo.price < item.price && item.selected && (
-                              <p className="text-[11px] text-[#ba1a1a] font-mono mt-2">
-                                * Khuyến mãi này đã được áp dụng cho một cuốn sách khác trong giỏ hàng.
-                              </p>
-                            )}
                           </div>
                           
                           <div className="pt-4 flex items-center justify-between border-t border-[#f2f4f6] mt-4">
@@ -604,12 +587,6 @@ export default function CartPage() {
 
                             {/* Action Buttons */}
                             <div className="flex gap-4">
-                              <button
-                                onClick={() => showToast("Đã lưu sách vào mục lưu trữ", "success")}
-                                className="text-[#b70011] font-mono text-[11px] flex items-center gap-1 hover:underline"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">bookmark</span> Lưu lại
-                              </button>
                               <button
                                 onClick={() => removeItem(item.cartDetailId)}
                                 className="text-[#ba1a1a] font-mono text-[11px] flex items-center gap-1 hover:underline disabled:opacity-50"

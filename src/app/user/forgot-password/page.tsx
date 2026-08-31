@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
       
       if (result.success) {
         setTimeout(() => {
-          router.push('/user/login');
+          router.push('/auth/login');
         }, 3000);
       }
     } catch (error: any) {

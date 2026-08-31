@@ -10,12 +10,12 @@ import {
     updateChapter,
     deleteChapter,
     deleteChapterAudio,
+    approveLanguageAudio,
     regenerateLanguageAudio,
     generateTTS,
     generateTTSBulk,
     stopTTS,
     getLanguagesWithVoices,
-    toggleAudioLanguageStatus,
     addLanguageTranslation,
     Chapter,
     AudioSegment,
@@ -31,7 +31,6 @@ import {
     Volume2,
     Cpu,
     ChevronRight,
-    Sparkles,
     FileText,
     Trash2,
     UploadCloud,
@@ -42,10 +41,15 @@ import {
     Barcode,
     Settings2,
     Music4,
-    Eye,
-    EyeOff,
     Plus,
+    Check,
+    X,
+    Edit3,
+    Paperclip,
+    Loader2,
 } from "lucide-react";
+import ConfirmModal from "@/app/admin/_components/ConfirmModal";
+import { useTranslationStore } from "@/store/useTranslationStore";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8080";
 
@@ -80,6 +84,8 @@ export default function BookDetailPage() {
     const router = useRouter();
     const { id } = useParams();
     const bookId = typeof id === "string" ? parseInt(id, 10) : null;
+    
+    const { addBook, lastCompletedBookId, clearCompletion } = useTranslationStore();
 
     // ── Core data ──
     const [book, setBook] = useState<Book | null>(null);
@@ -102,8 +108,10 @@ export default function BookDetailPage() {
     const [newChapterNumber, setNewChapterNumber] = useState("");
     const [newChapterTitle, setNewChapterTitle] = useState("");
     const [newChapterTextContent, setNewChapterTextContent] = useState("");
-    const [newChapterFile, setNewChapterFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadErrors, setUploadErrors] = useState<{ number?: string; title?: string; content?: string }>({});
+    const [isParsingFile, setIsParsingFile] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     // ── Edit modal ──
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
@@ -142,6 +150,14 @@ export default function BookDetailPage() {
     // ── Audio Price Form ──
     const [audioPriceInput, setAudioPriceInput] = useState("");
     const [isSubmittingPrice, setIsSubmittingPrice] = useState(false);
+    const [audioPriceError, setAudioPriceError] = useState<string | null>(null);
+    const [isEditingAudioPrice, setIsEditingAudioPrice] = useState(false);
+    const [tempAudioPrice, setTempAudioPrice] = useState("");
+    const [isSubmittingEditPrice, setIsSubmittingEditPrice] = useState(false);
+    const [editPriceError, setEditPriceError] = useState<string | null>(null);
+
+    const [deleteChapterId, setDeleteChapterId] = useState<number | null>(null);
+    const [deleteAudioConfirm, setDeleteAudioConfirm] = useState<{chapterId: number, langCode: string} | null>(null);
 
     // Ref to always read latest chapters inside interval without re-creating it
     const chaptersRef = useRef<Chapter[]>(chapters);
@@ -216,6 +232,15 @@ export default function BookDetailPage() {
         loadData();
     }, [loadData]);
 
+    // ─── Listen to Global Tracker Completion Event ───────────
+    useEffect(() => {
+        if (lastCompletedBookId === bookId && bookId !== null) {
+            // Re-fetch data if a translation completed globally while we are mounted
+            loadData();
+            clearCompletion();
+        }
+    }, [lastCompletedBookId, bookId, loadData, clearCompletion]);
+
     // ─── Polling (FIX: only recreate when bookId changes, read chapters via ref) ──
 
     useEffect(() => {
@@ -228,10 +253,7 @@ export default function BookDetailPage() {
             try {
                 const chapterList = await getChapters(bookId);
 
-                let autoPreviewChapter: Chapter | null = null;
-                let autoPreviewLangCode: string | null = null;
-
-                // Notify when a chapter finishes
+                // Notify when a chapter finishes and collect PENDING_REVIEW
                 chaptersRef.current.forEach((oldCh) => {
                     const newCh = chapterList.find((c) => c.id === oldCh.id);
                     if (oldCh.status === "processing" && newCh?.status === "completed") {
@@ -240,34 +262,9 @@ export default function BookDetailPage() {
                             "success"
                         );
                     }
-                    if (oldCh && newCh) {
-                        newCh.audioSegments.forEach(newSeg => {
-                            const oldSeg = oldCh.audioSegments.find(s => s.languageCode === newSeg.languageCode && s.sequenceOrder === newSeg.sequenceOrder);
-                            if (oldSeg && (oldSeg.ttsStatus === "PROCESSING" || oldSeg.ttsStatus === "pending") && newSeg.ttsStatus === "SUCCESS") {
-                                autoPreviewChapter = newCh;
-                                autoPreviewLangCode = newSeg.languageCode || null;
-                            }
-                        });
-                    }
                 });
 
                 setChapters(chapterList);
-                
-                if (autoPreviewChapter && autoPreviewLangCode) {
-                    setCurrentChapter(autoPreviewChapter);
-                    setCurrentPlayLanguage(autoPreviewLangCode);
-                    const chapterData = autoPreviewChapter as Chapter;
-                    const langData = autoPreviewLangCode as string;
-                    const filtered = chapterData.audioSegments
-                        .filter(seg => (seg.languageCode || "vi") === langData && seg.audioUrl && seg.audioUrl !== "null")
-                        .sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
-                    if (filtered.length > 0) {
-                        setPlaylist(filtered);
-                        setCurrentIndex(0);
-                        setIsPlaying(true);
-                        setPreviewingAudio({ chapterId: chapterData.id, langCode: langData });
-                    }
-                }
             } catch (e: any) {
                 const msg: string = e?.message ?? '';
                 if (msg.includes('401')) {
@@ -398,6 +395,13 @@ export default function BookDetailPage() {
                 return;
             }
 
+            const hasPending = readySegments.some(s => s.ttsStatus === "PENDING_REVIEW");
+            if (hasPending) {
+                setPreviewingAudio({ chapterId: chapter.id, langCode: languageCode });
+            } else {
+                setPreviewingAudio(null);
+            }
+
             setCurrentChapter(chapter);
             setCurrentPlayLanguage(languageCode);
             setPlaylist(readySegments);
@@ -442,6 +446,7 @@ export default function BookDetailPage() {
             if (!bookId) return;
             try {
                 showToast("Đang gửi yêu cầu dịch chương...", "info");
+                addBook(bookId); // Add to global tracker
                 const updatedChapter = await generateTTS(bookId, chapterId, selectedVoice, selectedSpeed);
                 setChapters((prev) =>
                     prev.map((ch) => (ch.id === chapterId ? { ...ch, ...updatedChapter } : ch))
@@ -491,7 +496,16 @@ export default function BookDetailPage() {
 
     const handleBulkTTS = useCallback(async () => {
         if (!bookId) return;
-        const toProcess = chapters.filter((c) => c.status === "pending" || c.status === "failed").length;
+        const toProcess = chapters.filter((c) => {
+            if (c.status === "failed") return true;
+            const hasProcessing = c.audioSegments?.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "pending");
+            const hasPendingReview = c.audioSegments?.some(s => s.ttsStatus === "PENDING_REVIEW");
+            const hasSuccess = c.audioSegments?.some(s => s.ttsStatus === "SUCCESS");
+            
+            if (hasSuccess || hasProcessing || hasPendingReview) return false;
+            
+            return c.status === "pending" || (!c.audioSegments || c.audioSegments.length === 0);
+        }).length;
         if (toProcess === 0) {
             showToast("Tất cả các chương đã hoàn thành chuyển đổi âm thanh.", "info");
             return;
@@ -501,6 +515,7 @@ export default function BookDetailPage() {
                 ` Đang gửi ${toProcess} chương lên hệ thống AI... Quá trình có thể mất vài phút.`,
                 "info"
             );
+            addBook(bookId); // Add to global tracker
             const updatedList = await generateTTSBulk(bookId, selectedVoice, selectedSpeed);
             setChapters(updatedList);
             showToast(`Đã gửi ${toProcess} chương. Theo dõi tiến trình trong bảng bên dưới.`, "success");
@@ -520,23 +535,22 @@ export default function BookDetailPage() {
         }
     }, [bookId, chapters, selectedVoice, selectedSpeed, showToast, handleAuthError]);
 
-    const handleDeleteChapter = useCallback(
-        async (chapterId: number) => {
-            if (!bookId) return;
-            // Replace native confirm with inline confirmation via toast pattern — avoids SSR issues
-            const confirmed = window.confirm("Bạn có chắc chắn muốn xóa chương sách này?");
-            if (!confirmed) return;
+    const handleDeleteChapterConfirm = useCallback(
+        async () => {
+            if (!bookId || !deleteChapterId) return;
             try {
-                await deleteChapter(bookId, chapterId);
-                setChapters((prev) => prev.filter((c) => c.id !== chapterId));
+                await deleteChapter(bookId, deleteChapterId);
+                setChapters((prev) => prev.filter((c) => c.id !== deleteChapterId));
                 showToast("Đã xóa chương sách thành công.", "success");
             } catch (e: any) {
                 console.error("Backend delete failed:", e);
                 showToast(e.message || "Xóa chương sách thất bại.", "error");
                 handleAuthError(e);
+            } finally {
+                setDeleteChapterId(null);
             }
         },
-        [bookId, showToast, handleAuthError]
+        [bookId, deleteChapterId, showToast, handleAuthError]
     );
 
     // ─── Translation & Granular Management Handlers ───────────────────────────
@@ -555,42 +569,10 @@ export default function BookDetailPage() {
         setIsAddTranslationModalOpen(true);
     }, [languages]);
 
-    const handleToggleLanguageStatus = useCallback(
-        async (chapterId: number, languageId: number | undefined, langCode: string) => {
-            if (!bookId || !languageId) return;
-            try {
-                // Find current status to determine next status (ACTIVE <-> INACTIVE)
-                const chapter = chapters.find(c => c.id === chapterId);
-                const segs = chapter?.audioSegments ?? [];
-                const langSegs = segs.filter(s => (s.languageCode || "vi") === langCode);
-                const isCurrentlyInactive = langSegs.some(s => s.ttsStatus === "INACTIVE");
-                const nextStatus = isCurrentlyInactive ? "SUCCESS" : "INACTIVE";
-
-                const updatedChapter = await toggleAudioLanguageStatus(bookId, chapterId, languageId);
-                
-                setChapters((prev) =>
-                    prev.map((c) => (c.id === chapterId ? updatedChapter : c))
-                );
-                
-                showToast(
-                    `Đã ${nextStatus === "SUCCESS" ? "hiện" : "ẩn"} bản dịch tiếng ${langCode.toUpperCase()} thành công.`,
-                    "success"
-                );
-            } catch (err: any) {
-                console.error("Failed to toggle language status:", err);
-                showToast(err.message || "Không thể thay đổi trạng thái bản dịch.", "error");
-                handleAuthError(err);
-            }
-        },
-        [bookId, chapters, showToast, handleAuthError]
-    );
-
-    const handleDeleteLanguageAudio = useCallback(
-        async (chapterId: number, langCode: string) => {
-            if (!bookId) return;
-            const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa mềm bản dịch tiếng ${langCode.toUpperCase()} của chương này?`);
-            if (!confirmed) return;
-            
+    const handleDeleteLanguageAudioConfirm = useCallback(
+        async () => {
+            if (!bookId || !deleteAudioConfirm) return;
+            const { chapterId, langCode } = deleteAudioConfirm;
             try {
                 showToast("Đang xóa mềm bản dịch...", "info");
                 const updatedChapter = await deleteChapterAudio(bookId, chapterId, langCode);
@@ -602,9 +584,11 @@ export default function BookDetailPage() {
                 console.error("Failed to delete language audio:", err);
                 showToast(err.message || "Không thể xóa mềm bản dịch.", "error");
                 handleAuthError(err);
+            } finally {
+                setDeleteAudioConfirm(null);
             }
         },
-        [bookId, showToast, handleAuthError]
+        [bookId, deleteAudioConfirm, showToast, handleAuthError]
     );
 
     const handleRegenerateLanguageAudio = useCallback(
@@ -612,6 +596,7 @@ export default function BookDetailPage() {
             if (!bookId || !languageId) return;
             try {
                 showToast(`Đang gửi yêu cầu dịch lại tiếng ${langCode.toUpperCase()}...`, "info");
+                addBook(bookId); // Add to global tracker
                 const updatedChapter = await regenerateLanguageAudio(bookId, chapterId, languageId);
                 setChapters((prev) =>
                     prev.map((c) => (c.id === chapterId ? updatedChapter : c))
@@ -636,6 +621,21 @@ export default function BookDetailPage() {
                 return;
             }
 
+            // Bắt lỗi: Nếu dịch lại tiếng Việt mà nội dung GIỐNG HỆT nguyên bản, yêu cầu phải thay đổi ít nhất 1 dấu chấm/phẩy
+            if (translationLanguage === "vi") {
+                const isIdentical = translationTextSegment.trim() === translationChapter.textContent?.trim();
+                // Check if there is already an existing translation (assuming 'vi' is the default if languageCode is missing)
+                const hasExistingVi = translationChapter.audioSegments?.some(
+                    (s) => (s.languageCode === "vi" || !s.languageCode) &&
+                           (s.ttsStatus === "SUCCESS" || s.ttsStatus === "PENDING_REVIEW" || s.ttsStatus === "PROCESSING")
+                );
+
+                if (isIdentical && hasExistingVi) {
+                    showToast("Nội dung giống hệt nguyên bản. Vui lòng chỉnh sửa (thêm dấu phẩy, chấm...) để dịch lại.", "error");
+                    return;
+                }
+            }
+
             // Find the voice option to get its ID
             let selectedVoiceId: number | undefined = undefined;
             for (const lang of languages) {
@@ -648,6 +648,7 @@ export default function BookDetailPage() {
 
             setIsSubmittingTranslation(true);
             try {
+                addBook(bookId); // Add to global tracker
                 const updatedChapter = await addLanguageTranslation(
                     bookId,
                     translationChapter.id,
@@ -704,32 +705,113 @@ export default function BookDetailPage() {
         setIsUploadModalOpen(true);
     }, [chapters]);
 
-    const resetUploadModal = useCallback(() => {
+     const resetUploadModal = useCallback(() => {
         setIsUploadModalOpen(false);
         setNewChapterTitle("");
         setNewChapterNumber("");
         setNewChapterTextContent("");
-        setNewChapterFile(null);
+        setUploadErrors({});
+        setIsParsingFile(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
+
+    const handleFileImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsParsingFile(true);
+        showToast(`Đang đọc file "${file.name}"...`, "info");
+
+        try {
+            const ext = file.name.split(".").pop()?.toLowerCase();
+
+            // ── Plain text ──
+            if (ext === "txt") {
+                const text = await file.text();
+                setNewChapterTextContent(text);
+                showToast("Đã nhập nội dung từ file .txt thành công!", "success");
+                return;
+            }
+
+            // ── Word document ──
+            if (ext === "docx") {
+                const arrayBuffer = await file.arrayBuffer();
+                // Dynamically load mammoth from CDN
+                const mammoth: any = await new Promise<any>((resolve, reject) => {
+                    if ((window as any).mammoth) { resolve((window as any).mammoth); return; }
+                    const script = document.createElement("script");
+                    script.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+                    script.onload = () => resolve((window as any).mammoth);
+                    script.onerror = () => reject(new Error("Không tải được thư viện docx"));
+                    document.head.appendChild(script);
+                });
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                setNewChapterTextContent(result.value);
+                showToast("Đã nhập nội dung từ file .docx thành công!", "success");
+                return;
+            }
+
+            // ── PDF ──
+            if (ext === "pdf") {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfjsLib: any = await new Promise<any>((resolve, reject) => {
+                    if ((window as any)["pdfjs-dist/build/pdf"]) { resolve((window as any)["pdfjs-dist/build/pdf"]); return; }
+                    if ((window as any).pdfjsLib) { resolve((window as any).pdfjsLib); return; }
+                    const script = document.createElement("script");
+                    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+                    script.onload = () => {
+                        const lib = (window as any).pdfjsLib;
+                        lib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                        resolve(lib);
+                    };
+                    script.onerror = () => reject(new Error("Không tải được thư viện PDF"));
+                    document.head.appendChild(script);
+                });
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = "";
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    const pageText = content.items.map((item: any) => item.str).join(" ");
+                    fullText += pageText + "\n";
+                }
+                setNewChapterTextContent(fullText.trim());
+                showToast(`Đã nhập nội dung từ ${pdf.numPages} trang PDF thành công!`, "success");
+                return;
+            }
+
+            showToast("Định dạng file không được hỗ trợ. Vui lòng dùng .txt, .docx hoặc .pdf", "error");
+        } catch (err: any) {
+            showToast(err.message || "Không thể đọc nội dung file.", "error");
+        } finally {
+            setIsParsingFile(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }, [showToast]);
 
     const handleUploadSubmit = useCallback(
         async (e: React.FormEvent) => {
             e.preventDefault();
             if (!bookId) return;
 
+            const errors: { number?: string; title?: string; content?: string } = {};
+
             if (!newChapterNumber.trim()) {
-                showToast("Vui lòng điền số chương.", "error");
-                return;
+                errors.number = "Vui lòng nhập số chương sách nói";
             }
             if (!newChapterTitle.trim()) {
-                showToast("Vui lòng điền tiêu đề chương sách.", "error");
-                return;
+                errors.title = "Vui lòng nhập tên chương sách nói";
             }
-            if (!newChapterTextContent.trim() && !newChapterFile) {
-                showToast("Vui lòng tải lên file văn bản hoặc nhập văn bản trực tiếp.", "error");
+            if (!newChapterTextContent.trim()) {
+                errors.content = "Vui lòng nhập nội dung văn bản của chương";
+            }
+
+            if (Object.keys(errors).length > 0) {
+                setUploadErrors(errors);
                 return;
             }
 
+            setUploadErrors({});
             setIsUploading(true);
             showToast("Đang gửi văn bản lên backend...", "info");
 
@@ -741,7 +823,7 @@ export default function BookDetailPage() {
                     chapterNum,
                     newChapterTitle.trim(),
                     newChapterTextContent,
-                    newChapterFile
+                    null
                 );
                 setChapters((prev) =>
                     [...prev, created].sort((a, b) => a.number.localeCompare(b.number))
@@ -762,7 +844,6 @@ export default function BookDetailPage() {
             newChapterTitle,
             newChapterNumber,
             newChapterTextContent,
-            newChapterFile,
             showToast,
             resetUploadModal,
             handleAuthError,
@@ -841,10 +922,32 @@ export default function BookDetailPage() {
     // ─── Derived values ───────────────────────────────────────────────────────
 
     const totalCh = chapters.length;
-    const completedCh = chapters.filter((c) => c.status === "completed").length;
-    const pendingCh = chapters.filter((c) => c.status === "pending").length;
-    const processingCh = chapters.filter((c) => c.status === "processing").length;
-    const failedCh = chapters.filter((c) => c.status === "failed").length;
+    const stats = chapters.reduce(
+        (acc, c) => {
+            if (c.status === "failed") {
+                acc.failedCh++;
+                return acc;
+            }
+
+            const hasProcessing = c.audioSegments?.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "pending");
+            const hasPendingReview = c.audioSegments?.some(s => s.ttsStatus === "PENDING_REVIEW");
+            const isCompleted = c.status === "completed" || (c.audioSegments && c.audioSegments.length > 0 && !hasProcessing && !hasPendingReview);
+
+            if (isCompleted) {
+                acc.completedCh++;
+            } else if (hasProcessing || (c.status === "processing" && !hasPendingReview && (!c.audioSegments || c.audioSegments.length === 0))) {
+                acc.processingCh++;
+            } else if (hasPendingReview) {
+                acc.pendingReviewCh++;
+            } else {
+                acc.pendingCh++; // Chờ chạy AI
+            }
+            return acc;
+        },
+        { completedCh: 0, pendingCh: 0, processingCh: 0, failedCh: 0, pendingReviewCh: 0 }
+    );
+
+    const { completedCh, pendingCh, processingCh, failedCh } = stats;
     const toProcessCh = pendingCh + failedCh; // Chờ + Lỗi = cần dịch lại
 
     // ─── Render guards ────────────────────────────────────────────────────────
@@ -917,20 +1020,9 @@ export default function BookDetailPage() {
                 </div>
             )}
 
-            {/* ── Breadcrumb ── */}
+            {/* Header */}
             <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-2">
-                    <nav className="flex items-center gap-1 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                        <Link href="/admin/dashboard" className="hover:text-[#b70011] transition-colors">
-                            Dashboard
-                        </Link>
-                        <ChevronRight className="w-3 h-3" />
-                        <Link href="/admin/books" className="hover:text-[#b70011] transition-colors">
-                            Kho sách
-                        </Link>
-                        <ChevronRight className="w-3 h-3" />
-                        <span className="text-[#b70011]">Chi tiết sách</span>
-                    </nav>
                     <h2 className="text-2xl font-black text-slate-900 leading-tight">
                         Chi tiết &amp; Sách nói
                     </h2>
@@ -1139,16 +1231,23 @@ export default function BookDetailPage() {
                                     </p>
                                 </div>
                                 <form 
-                                    className="flex items-center justify-center gap-3 max-w-sm mx-auto"
+                                    noValidate
+                                    className="flex flex-col gap-2 max-w-sm mx-auto"
                                     onSubmit={async (e) => {
                                         e.preventDefault();
-                                        if (!audioPriceInput || isNaN(Number(audioPriceInput)) || Number(audioPriceInput) < 0) {
-                                            showToast("Vui lòng nhập giá sách nói hợp lệ", "error");
+                                        if (!audioPriceInput || audioPriceInput.trim() === "") {
+                                            setAudioPriceError("Vui lòng nhập giá sách nói");
                                             return;
                                         }
+                                        const num = Number(audioPriceInput);
+                                        if (isNaN(num) || num < 0) {
+                                            setAudioPriceError("Giá sách nói phải lớn hơn hoặc bằng 0");
+                                            return;
+                                        }
+                                        setAudioPriceError(null);
                                         setIsSubmittingPrice(true);
                                         try {
-                                            const updatedBook = await updateAudioPrice(book.id!, Number(audioPriceInput));
+                                            const updatedBook = await updateAudioPrice(book.id!, num);
                                             setBook(updatedBook);
                                             showToast("Đã cập nhật giá sách nói thành công", "success");
                                         } catch (err: any) {
@@ -1159,26 +1258,41 @@ export default function BookDetailPage() {
                                         }
                                     }}
                                 >
-                                    <div className="relative flex-1">
-                                        <input 
-                                            type="number" 
-                                            value={audioPriceInput}
-                                            onChange={(e) => setAudioPriceInput(e.target.value)}
-                                            placeholder="Nhập giá sách nói..."
-                                            className="w-full bg-white border border-slate-300 rounded-lg py-2.5 px-4 text-sm font-bold text-slate-700 focus:border-[#b70011] outline-none"
-                                            min="0"
-                                            step="1000"
-                                            required
-                                        />
-                                        <span className="absolute right-4 top-2.5 text-xs font-bold text-slate-400">VNĐ</span>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <div className="relative flex-1">
+                                            <input 
+                                                type="number" 
+                                                value={audioPriceInput}
+                                                onChange={(e) => {
+                                                    setAudioPriceInput(e.target.value);
+                                                    const val = e.target.value;
+                                                    if (!val || val.trim() === "") {
+                                                        setAudioPriceError("Vui lòng nhập giá sách nói");
+                                                    } else if (Number(val) < 0) {
+                                                        setAudioPriceError("Giá sách nói phải lớn hơn hoặc bằng 0");
+                                                    } else {
+                                                        setAudioPriceError(null);
+                                                    }
+                                                }}
+                                                placeholder="Nhập giá sách nói..."
+                                                className={`w-full bg-white border rounded-lg py-2.5 px-4 text-sm font-bold text-slate-700 outline-none transition-all ${audioPriceError ? 'border-red-500 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-[#b70011]'}`}
+                                                required
+                                            />
+                                            <span className="absolute right-4 top-2.5 text-xs font-bold text-slate-400">VNĐ</span>
+                                        </div>
+                                        <button 
+                                            type="submit" 
+                                            disabled={isSubmittingPrice}
+                                            className="bg-[#b70011] hover:bg-[#b70011]/90 text-white font-bold text-sm px-6 py-2.5 rounded-lg shadow-md disabled:opacity-50 transition-all"
+                                        >
+                                            {isSubmittingPrice ? "Đang xử lý..." : "Xác nhận"}
+                                        </button>
                                     </div>
-                                    <button 
-                                        type="submit" 
-                                        disabled={isSubmittingPrice}
-                                        className="bg-[#b70011] hover:bg-[#b70011]/90 text-white font-bold text-sm px-6 py-2.5 rounded-lg shadow-md disabled:opacity-50 transition-all"
-                                    >
-                                        {isSubmittingPrice ? "Đang xử lý..." : "Xác nhận"}
-                                    </button>
+                                    {audioPriceError && (
+                                        <p className="text-red-500 text-xs font-bold text-left self-start mt-1 pl-1">
+                                            {audioPriceError}
+                                        </p>
+                                    )}
                                 </form>
                             </div>
                         ) : (
@@ -1251,6 +1365,103 @@ export default function BookDetailPage() {
                                 </div>
 
                                 <div className="space-y-4">
+                                    {/* Giá sách nói */}
+                                    <div className="space-y-1.5 p-3.5 bg-white border border-slate-200/80 rounded-xl shadow-sm">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                            Giá sách nói Audiobook
+                                        </label>
+                                        <div className="flex items-center justify-between gap-2 mt-1">
+                                            {isEditingAudioPrice ? (
+                                                <div className="w-full space-y-1">
+                                                    <div className="flex items-center gap-1.5 w-full">
+                                                        <div className="relative flex-1">
+                                                            <input
+                                                                type="number"
+                                                                value={tempAudioPrice}
+                                                                onChange={(e) => {
+                                                                    setTempAudioPrice(e.target.value);
+                                                                    if (!e.target.value || e.target.value.trim() === "") {
+                                                                        setEditPriceError("Vui lòng nhập giá sách nói");
+                                                                    } else if (Number(e.target.value) < 0) {
+                                                                        setEditPriceError("Giá sách nói phải lớn hơn hoặc bằng 0");
+                                                                    } else {
+                                                                        setEditPriceError(null);
+                                                                    }
+                                                                }}
+                                                                className={`w-full bg-white border rounded-lg py-1.5 px-3 text-xs font-bold text-slate-700 outline-none transition-all ${editPriceError ? 'border-red-500' : 'border-slate-300 focus:border-[#b70011]'}`}
+                                                                placeholder="Giá..."
+                                                                autoFocus
+                                                            />
+                                                            <span className="absolute right-2 top-1.5 text-[10px] font-bold text-slate-400">VNĐ</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!tempAudioPrice || tempAudioPrice.trim() === "") {
+                                                                    setEditPriceError("Vui lòng nhập giá sách nói");
+                                                                    return;
+                                                                }
+                                                                const num = Number(tempAudioPrice);
+                                                                if (isNaN(num) || num < 0) {
+                                                                    setEditPriceError("Giá sách nói phải lớn hơn hoặc bằng 0");
+                                                                    return;
+                                                                }
+                                                                setEditPriceError(null);
+                                                                setIsSubmittingEditPrice(true);
+                                                                try {
+                                                                    const updatedBook = await updateAudioPrice(book.id!, num);
+                                                                    setBook(updatedBook);
+                                                                    setIsEditingAudioPrice(false);
+                                                                    showToast("Cập nhật giá sách nói thành công", "success");
+                                                                } catch (err: any) {
+                                                                    showToast(err.message || "Cập nhật giá sách nói thất bại", "error");
+                                                                } finally {
+                                                                    setIsSubmittingEditPrice(false);
+                                                                }
+                                                            }}
+                                                            disabled={isSubmittingEditPrice}
+                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-1.5 rounded-lg text-xs"
+                                                            title="Lưu"
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsEditingAudioPrice(false);
+                                                                setEditPriceError(null);
+                                                            }}
+                                                            className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold p-1.5 rounded-lg text-xs"
+                                                            title="Hủy"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                    {editPriceError && (
+                                                        <p className="text-red-500 text-[10px] font-bold mt-1 pl-1">
+                                                            {editPriceError}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span className="font-extrabold text-[#b70011] text-sm">
+                                                        {book.audioPrice ? book.audioPrice.toLocaleString("vi-VN") : "0"} VNĐ
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setTempAudioPrice(String(book.audioPrice || 0));
+                                                            setEditPriceError(null);
+                                                            setIsEditingAudioPrice(true);
+                                                        }}
+                                                        className="text-[#b70011] hover:text-[#b70011]/80 hover:bg-[#b70011]/5 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-[#b70011] transition-all flex items-center gap-1"
+                                                    >
+                                                        <Edit3 className="w-3 h-3" />
+                                                        Thay đổi giá
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-1.5">
                                         <label htmlFor="targetLanguage" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                             Ngôn ngữ dịch (Language)
@@ -1348,19 +1559,19 @@ export default function BookDetailPage() {
                                             <table className="w-full text-left border-collapse">
                                                 <thead>
                                                     <tr className="bg-slate-50 border-b border-slate-200">
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-24">
+                                                        <th className="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-20 whitespace-nowrap">
                                                             Chương
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                        <th className="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
                                                             Tiêu đề
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
+                                                        <th className="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">
                                                             Bản dịch audio sẵn có
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-36">
+                                                        <th className="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">
                                                             Trạng thái
                                                         </th>
-                                                        <th className="py-3 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">
+                                                        <th className="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">
                                                             Thao tác
                                                         </th>
                                                     </tr>
@@ -1382,17 +1593,17 @@ export default function BookDetailPage() {
                                                                 key={chapter.id}
                                                                 className="hover:bg-[#b70011]/5 transition-colors"
                                                             >
-                                                                <td className="py-3 px-5">
+                                                                <td className="py-3 px-4 whitespace-nowrap">
                                                                     <span className="font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px]">
                                                                         {chapter.number}
                                                                     </span>
                                                                 </td>
 
-                                                                <td className="py-3 px-5 font-bold text-slate-800 text-xs">
+                                                                <td className="py-3 px-4 font-bold text-slate-800 text-xs">
                                                                     {chapter.title}
                                                                 </td>
 
-                                                                <td className="py-3 px-5 text-center">
+                                                                <td className="py-3 px-4 text-center">
                                                                     {chapter.audioSegments && chapter.audioSegments.length > 0 ? (
                                                                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                                              {(() => {
@@ -1412,53 +1623,39 @@ export default function BookDetailPage() {
                                                                                  return languagesInChapter.map(lang => {
                                                                                      const isActive = currentChapter?.id === chapter.id && currentPlayLanguage === lang && isPlaying;
                                                                                      const langSegs = segs.filter(s => (s.languageCode || "vi") === lang);
-                                                                                     const isInactive = langSegs.some(s => s.ttsStatus === "INACTIVE");
-                                                                                     const isProcessing = langSegs.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "processing");
+                                                                                                                                                                          const isProcessing = langSegs.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "processing");
                                                                                      const languageId = langSegs[0]?.languageId;
                                                                                      const isOutdated = langSegs.some(s => s.isOutdated);
 
                                                                                      return (
-                                                                                         <div key={lang} className={`inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden ${isInactive ? 'opacity-60 bg-slate-100 border-slate-300' : isProcessing ? 'bg-indigo-50 border-indigo-200' : isOutdated ? 'bg-amber-50 border-amber-200' : isActive ? 'bg-emerald-50 border-emerald-200 font-bold' : 'bg-white border-slate-200'}`}>
+                                                                                         <div key={lang} className={`inline-flex items-center rounded-lg border transition-all shadow-sm overflow-hidden ${isProcessing ? 'bg-indigo-50 border-indigo-200' : isOutdated ? 'bg-amber-50 border-amber-200' : isActive ? 'bg-emerald-50 border-emerald-200 font-bold' : 'bg-white border-slate-200'}`}>
                                                                                              {/* Play Button */}
                                                                                              <button
                                                                                                  onClick={() => !isProcessing && handlePlaySample(chapter, lang)}
                                                                                                  disabled={isProcessing}
-                                                                                                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-extrabold transition-colors border-r ${isInactive ? "text-slate-500 border-slate-300 hover:bg-slate-200" : isProcessing ? "text-indigo-600 border-indigo-200" : isActive
+                                                                                                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-extrabold transition-colors border-r ${isProcessing ? "text-indigo-600 border-indigo-200" : isActive
                                                                                                      ? "text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                                                                                                      : isOutdated
                                                                                                      ? "text-amber-800 border-amber-200 hover:bg-amber-100"
                                                                                                      : "text-[#b70011] border-slate-200 hover:bg-slate-50"
                                                                                                      }`}
-                                                                                                 title={isProcessing ? `Đang xử lý bản dịch ${lang.toUpperCase()}...` : `Phát bản dịch ${lang.toUpperCase()}${isInactive ? ' (Đang ẩn)' : ''}${isOutdated ? ' (Lỗi thời)' : ''}`}
+                                                                                                 title={isProcessing ? `Đang xử lý bản dịch ${lang.toUpperCase()}...` : `Phát bản dịch ${lang.toUpperCase()}${isOutdated ? ' (Lỗi thời)' : ''}`}
                                                                                              >
                                                                                                  {isProcessing ? (
                                                                                                      <RotateCw className="w-2.5 h-2.5 text-indigo-600 animate-spin" />
                                                                                                  ) : isActive ? (
                                                                                                      <Pause className="w-2.5 h-2.5 text-[#b70011]" />
                                                                                                  ) : (
-                                                                                                     <Play className={`w-2.5 h-2.5 ${isInactive ? 'text-slate-400' : isOutdated ? 'text-amber-600' : 'text-[#b70011]'}`} />
+                                                                                                     <Play className={`w-2.5 h-2.5 ${isOutdated ? 'text-amber-600' : 'text-[#b70011]'}`} />
                                                                                                  )}
                                                                                                  <span className="inline-flex items-center gap-1">
-                                                                                                     {lang.toUpperCase()}{isInactive ? ' [Ẩn]' : ''}
+                                                                                                     {lang.toUpperCase()}
                                                                                                      {isOutdated && !isProcessing && (
                                                                                                          <AlertTriangle className="w-3 h-3 text-amber-600 animate-pulse animate-duration-1000" />
                                                                                                      )}
                                                                                                  </span>
                                                                                              </button>
 
-                                                                                             {/* Toggle Hide/Show Button */}
-                                                                                             <button
-                                                                                                 onClick={() => handleToggleLanguageStatus(chapter.id, languageId, lang)}
-                                                                                                 disabled={!languageId || isProcessing}
-                                                                                                 className={`p-1.5 transition-colors border-r ${isInactive ? 'text-slate-500 border-slate-300 hover:bg-slate-200' : 'text-slate-600 border-slate-200 hover:bg-slate-100'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                                                 title={isInactive ? `Hiện bản dịch tiếng ${lang.toUpperCase()}` : `Ẩn bản dịch tiếng ${lang.toUpperCase()}`}
-                                                                                             >
-                                                                                                 {isInactive ? (
-                                                                                                     <EyeOff className="w-3.5 h-3.5" />
-                                                                                                 ) : (
-                                                                                                     <Eye className="w-3.5 h-3.5" />
-                                                                                                 )}
-                                                                                             </button>
 
                                                                                              {/* Regenerate Button */}
                                                                                              <button
@@ -1472,7 +1669,7 @@ export default function BookDetailPage() {
 
                                                                                              {/* Soft Delete Button */}
                                                                                              <button
-                                                                                                 onClick={() => handleDeleteLanguageAudio(chapter.id, lang)}
+                                                                                                 onClick={() => setDeleteAudioConfirm({ chapterId: chapter.id, langCode: lang })}
                                                                                                  disabled={isProcessing}
                                                                                                  className={`p-1.5 transition-colors text-slate-600 hover:bg-red-50 hover:text-red-600 ${isProcessing ? 'opacity-50 cursor-not-allowed text-slate-400' : ''}`}
                                                                                                  title={`Xóa mềm bản dịch tiếng ${lang.toUpperCase()}`}
@@ -1489,34 +1686,62 @@ export default function BookDetailPage() {
                                                                      )}
                                                                 </td>
 
-                                                                <td className="py-3 px-5 text-center">
-                                                                    {chapter.status === "completed" && (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[9px] font-bold">
-                                                                            <CheckCircle className="w-2.5 h-2.5" /> Hoàn thành
-                                                                        </span>
-                                                                    )}
-                                                                    {chapter.status === "processing" && (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[9px] font-bold">
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                                                                            AI xử lý...
-                                                                            {chapter.progress !== undefined
-                                                                                ? ` (${chapter.progress}%)`
-                                                                                : ""}
-                                                                        </span>
-                                                                    )}
-                                                                    {chapter.status === "pending" && (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[9px] font-bold">
-                                                                            <Clock className="w-2.5 h-2.5" /> Chờ chạy AI
-                                                                        </span>
-                                                                    )}
-                                                                    {chapter.status === "failed" && (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[9px] font-bold">
-                                                                            <AlertCircle className="w-2.5 h-2.5" /> Lỗi AI
-                                                                        </span>
-                                                                    )}
+                                                                <td className="py-3 px-4 text-center whitespace-nowrap">
+                                                                    {(() => {
+                                                                        if (chapter.status === "failed") {
+                                                                            return (
+                                                                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0">
+                                                                                    <AlertCircle className="w-3 h-3 shrink-0" />
+                                                                                    <span>Lỗi AI</span>
+                                                                                </span>
+                                                                            );
+                                                                        }
+
+                                                                        const hasProcessing = chapter.audioSegments?.some(s => s.ttsStatus === "PROCESSING" || s.ttsStatus === "pending");
+                                                                        const hasPendingReview = chapter.audioSegments?.some(s => s.ttsStatus === "PENDING_REVIEW");
+
+                                                                        if (hasProcessing || (chapter.status === "processing" && !hasPendingReview && (!chapter.audioSegments || chapter.audioSegments.length === 0))) {
+                                                                            return (
+                                                                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0">
+                                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                                                                                    <span>
+                                                                                        AI xử lý...
+                                                                                        {chapter.progress !== undefined
+                                                                                            ? ` (${chapter.progress}%)`
+                                                                                            : ""}
+                                                                                    </span>
+                                                                                </span>
+                                                                            );
+                                                                        }
+
+                                                                        if (hasPendingReview) {
+                                                                            return (
+                                                                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0">
+                                                                                    <CheckCircle className="w-3 h-3 shrink-0" />
+                                                                                    <span>Chờ duyệt</span>
+                                                                                </span>
+                                                                            );
+                                                                        }
+
+                                                                        if (chapter.status === "completed" || (chapter.audioSegments && chapter.audioSegments.length > 0)) {
+                                                                            return (
+                                                                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0">
+                                                                                    <CheckCircle className="w-3 h-3 shrink-0" />
+                                                                                    <span>Hoàn thành</span>
+                                                                                </span>
+                                                                            );
+                                                                        }
+
+                                                                        return (
+                                                                            <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0">
+                                                                                <Clock className="w-3 h-3 shrink-0" />
+                                                                                <span>Chờ chạy AI</span>
+                                                                            </span>
+                                                                        );
+                                                                    })()}
                                                                 </td>
 
-                                                                <td className="py-3 px-5 text-right">
+                                                                <td className="py-3 px-4 text-right whitespace-nowrap">
                                                                         <div className="flex items-center justify-end gap-1.5">
                                                                             {/* Play/Pause Chapter Button */}
                                                                             <button
@@ -1628,13 +1853,25 @@ export default function BookDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                        {previewingAudio && currentChapter && previewingAudio.chapterId === currentChapter.id ? (
+                        {previewingAudio && currentChapter && previewingAudio.chapterId === currentChapter.id && (
                             <>
                                 <button
-                                    onClick={() => {
+                                    onClick={async () => {
+                                        if (!bookId || !currentChapter || !previewingAudio) return;
+                                        const approvedChapterId = currentChapter.id;
+                                        const approvedLangCode = previewingAudio.langCode;
+                                        
                                         setPreviewingAudio(null);
                                         handleClosePlayback();
-                                        showToast("Đã lưu bản dịch audio vào dữ liệu.", "success");
+                                        showToast("Đang lưu bản dịch...", "info");
+                                        
+                                        try {
+                                            const updatedCh = await approveLanguageAudio(bookId, approvedChapterId, approvedLangCode);
+                                            setChapters(prev => prev.map(ch => ch.id === approvedChapterId ? { ...ch, ...updatedCh } : ch));
+                                            showToast("Đã duyệt và xuất bản audio thành công!", "success");
+                                        } catch (e: any) {
+                                            showToast("Lỗi khi duyệt audio: " + e.message, "error");
+                                        }
                                     }}
                                     className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-md transition-colors whitespace-nowrap"
                                 >
@@ -1642,8 +1879,8 @@ export default function BookDetailPage() {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        if (currentPlayLanguage) {
-                                            handleDeleteLanguageAudio(currentChapter.id, currentPlayLanguage);
+                                        if (currentPlayLanguage && currentChapter) {
+                                            setDeleteAudioConfirm({ chapterId: currentChapter.id, langCode: currentPlayLanguage });
                                         }
                                         setPreviewingAudio(null);
                                         handleClosePlayback();
@@ -1653,14 +1890,14 @@ export default function BookDetailPage() {
                                     Xóa
                                 </button>
                             </>
-                        ) : (
-                            <button
-                                onClick={handleClosePlayback}
-                                className="text-xs text-slate-400 hover:text-white underline"
-                            >
-                                Đóng
-                            </button>
                         )}
+                        
+                        <button
+                            onClick={handleClosePlayback}
+                            className="text-xs text-slate-400 hover:text-white underline mr-1"
+                        >
+                            Đóng
+                        </button>
                         <button
                             onClick={handleTogglePlayPause}
                             className="w-9 h-9 rounded-full bg-white text-slate-900 flex items-center justify-center hover:scale-105 transition-all"
@@ -1674,18 +1911,6 @@ export default function BookDetailPage() {
                     </div>
                 </div>
             )}
-
-
-            {/* ── Floating Help Button ── */}
-            <button
-                aria-label="Trợ giúp"
-                onClick={() =>
-                    showToast("Hệ thống trợ lý AI luôn sẵn sàng hỗ trợ bạn chuyển đổi văn bản.", "info")
-                }
-                className="fixed bottom-6 right-6 w-14 h-14 bg-[#b70011] text-white rounded-2xl shadow-xl shadow-[#b70011]/30 hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center z-40 group"
-            >
-                <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-            </button>
 
             {/* ── Upload Modal ── */}
             {isUploadModalOpen && (
@@ -1713,12 +1938,20 @@ export default function BookDetailPage() {
                                     </label>
                                     <input
                                         type="text"
-                                        required
                                         placeholder="Ví dụ: 05"
                                         value={newChapterNumber}
                                         onChange={(e) => setNewChapterNumber(e.target.value)}
-                                        className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all"
+                                        className={`w-full bg-[#fafbfc] border rounded-lg p-2.5 text-xs outline-none focus:ring-1 transition-all ${
+                                            uploadErrors.number
+                                                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                                : "border-slate-200 focus:border-[#b70011] focus:ring-[#b70011]"
+                                        }`}
                                     />
+                                    {uploadErrors.number && (
+                                        <p className="text-[10px] text-red-600 font-bold mt-1">
+                                            {uploadErrors.number}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="col-span-2 space-y-1">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1726,53 +1959,76 @@ export default function BookDetailPage() {
                                     </label>
                                     <input
                                         type="text"
-                                        required
                                         placeholder="Ví dụ: Lời khuyên cuối cùng"
                                         value={newChapterTitle}
                                         onChange={(e) => setNewChapterTitle(e.target.value)}
-                                        className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all"
+                                        className={`w-full bg-[#fafbfc] border rounded-lg p-2.5 text-xs outline-none focus:ring-1 transition-all ${
+                                            uploadErrors.title
+                                                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                                : "border-slate-200 focus:border-[#b70011] focus:ring-[#b70011]"
+                                        }`}
                                     />
+                                    {uploadErrors.title && (
+                                        <p className="text-[10px] text-red-600 font-bold mt-1">
+                                            {uploadErrors.title}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
+                            {/* ── File Import Zone ── */}
                             <div className="space-y-1">
-                                <label htmlFor="fileInput" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                    File văn bản nguồn (.txt, .docx, .pdf)
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                    Nhập từ file (tùy chọn)
                                 </label>
-                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-100/50 transition-colors relative">
+                                <div
+                                    className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-slate-50/60 hover:border-[#b70011]/40 hover:bg-red-50/20 transition-all cursor-pointer group"
+                                    onClick={() => !isParsingFile && fileInputRef.current?.click()}
+                                >
                                     <input
-                                        id="fileInput"
+                                        ref={fileInputRef}
                                         type="file"
                                         accept=".txt,.docx,.pdf"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                setNewChapterFile(file);
-                                                showToast(`Đã chọn file: ${file.name}`, "info");
-                                            }
-                                        }}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        className="hidden"
+                                        onChange={handleFileImport}
                                     />
-                                    <FileText className="w-7 h-7 text-slate-400 mb-1" />
-                                    <p className="text-[10px] font-bold text-slate-600 text-center">
-                                        {newChapterFile
-                                            ? newChapterFile.name
-                                            : "Kéo & thả file văn bản hoặc click chọn"}
-                                    </p>
+                                    {isParsingFile ? (
+                                        <>
+                                            <Loader2 className="w-6 h-6 text-[#b70011] animate-spin" />
+                                            <p className="text-xs text-slate-600 font-semibold">Đang đọc nội dung file...</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Paperclip className="w-5 h-5 text-slate-400 group-hover:text-[#b70011] transition-colors" />
+                                            <p className="text-xs text-slate-600 font-semibold text-center">
+                                                Nhấn để chọn file hoặc kéo thả vào đây
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">Hỗ trợ: .txt, .docx, .pdf — Nội dung sẽ tự động điền vào ô bên dưới</p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                                    Hoặc nhập nội dung văn bản trực tiếp
+                                    Nội dung văn bản chương sách
                                 </label>
                                 <textarea
-                                    rows={4}
+                                    rows={8}
                                     placeholder="Nhập hoặc dán nội dung chữ của chương sách vào đây..."
                                     value={newChapterTextContent}
                                     onChange={(e) => setNewChapterTextContent(e.target.value)}
-                                    className="w-full bg-[#fafbfc] border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:border-[#b70011] focus:ring-1 focus:ring-[#b70011] transition-all resize-y"
+                                    className={`w-full bg-[#fafbfc] border rounded-lg p-2.5 text-xs outline-none focus:ring-1 transition-all resize-y ${
+                                        uploadErrors.content
+                                            ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                            : "border-slate-200 focus:border-[#b70011] focus:ring-[#b70011]"
+                                    }`}
                                 />
+                                {uploadErrors.content && (
+                                    <p className="text-[10px] text-red-600 font-bold mt-1">
+                                        {uploadErrors.content}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
@@ -2024,6 +2280,25 @@ export default function BookDetailPage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={deleteChapterId !== null}
+                onClose={() => setDeleteChapterId(null)}
+                onConfirm={handleDeleteChapterConfirm}
+                title="Xóa Chương Sách"
+                message="Bạn có chắc chắn muốn xóa chương sách này? Hành động này không thể hoàn tác."
+            />
+            <ConfirmModal
+                isOpen={deleteAudioConfirm !== null}
+                onClose={() => setDeleteAudioConfirm(null)}
+                onConfirm={handleDeleteLanguageAudioConfirm}
+                title="Xóa Bản Dịch Audio"
+                message={
+                    book?.isPurchased 
+                        ? `Bạn có chắc chắn muốn xóa bản dịch tiếng ${deleteAudioConfirm?.langCode.toUpperCase()} của chương này? (Bản dịch này ĐÃ CÓ NGƯỜI MUA nên hệ thống sẽ tiến hành XÓA MỀM để bảo vệ dữ liệu).`
+                        : `Bạn có chắc chắn muốn xóa bản dịch tiếng ${deleteAudioConfirm?.langCode.toUpperCase()} của chương này? (Bản dịch này CHƯA CÓ NGƯỜI MUA nên hệ thống sẽ tiến hành XÓA VĨNH VIỄN).`
+                }
+            />
         </div>
     );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { validateAuthor } from "@/services/validation";
 import FieldError from "@/components/layout/FieldError";
+import { getAllAuthors } from "@/services/authorsService";
 import {
   ArrowLeft,
   Save,
@@ -62,6 +63,23 @@ export default function AuthorForm({ author }: { author?: Author }) {
 
     setLoading(true);
     try {
+      // Kiểm tra trùng tên tác giả trên client trước khi gửi lên server
+      try {
+        const existingAuthors = await getAllAuthors();
+        const trimmedName = form.name.trim().toLowerCase();
+        const duplicate = existingAuthors.find(
+          (a) => a.name.trim().toLowerCase() === trimmedName && (!isEdit || a.id !== form.id)
+        );
+
+        if (duplicate) {
+          setErrors((v) => ({ ...v, name: "Tên tác giả này đã tồn tại. Vui lòng nhập tên khác." }));
+          setLoading(false);
+          return;
+        }
+      } catch (checkErr) {
+        console.warn("Lỗi khi kiểm tra danh sách tác giả trùng:", checkErr);
+      }
+
       const url = isEdit
         ? `${API_BASE}/api/admin/authors/${form.id}`
         : `${API_BASE}/api/admin/authors`;
@@ -69,7 +87,7 @@ export default function AuthorForm({ author }: { author?: Author }) {
       const res = await authFetch(url, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email }),
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim() }),
       });
 
       if (res.ok) {
@@ -78,7 +96,16 @@ export default function AuthorForm({ author }: { author?: Author }) {
         router.refresh();
       } else {
         const errorText = await res.text();
-        setApiError(errorText || "Có lỗi xảy ra trên máy chủ.");
+        if (
+          errorText.toLowerCase().includes("trùng") ||
+          errorText.toLowerCase().includes("exist") ||
+          errorText.toLowerCase().includes("already") ||
+          res.status === 409
+        ) {
+          setErrors((v) => ({ ...v, name: "Tên tác giả này đã tồn tại. Vui lòng nhập tên khác." }));
+        } else {
+          setApiError(errorText || "Có lỗi xảy ra trên máy chủ.");
+        }
       }
     } catch {
       setApiError("Không thể kết nối tới server. Vui lòng kiểm tra kết nối.");
@@ -89,15 +116,8 @@ export default function AuthorForm({ author }: { author?: Author }) {
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6 animate__animated animate__fadeIn font-sans">
-      {/* Breadcrumb & Header */}
+      {/* Header */}
       <section className="space-y-2">
-        <nav className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-wider">
-          <Link href="/admin/dashboard" className="hover:text-slate-600 transition-colors">Dashboard</Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <Link href="/admin/authors" className="hover:text-slate-600 transition-colors">Tác giả</Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <span className="text-[#b70011]">{isEdit ? "Cập nhật" : "Thêm mới"}</span>
-        </nav>
         <h2 className="text-2xl font-bold text-[#191c1e] font-sans">
           {isEdit ? "Cập Nhật Hồ Sơ Tác Giả" : "Thêm Tác Giả Mới"}
         </h2>
